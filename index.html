@@ -52,7 +52,13 @@ html, body {
 }
 
 body {
-  background: linear-gradient(180deg, var(--cream-0) 0%, var(--cream-2) 28%, var(--cream-3) 100%);
+  background:
+    linear-gradient(180deg,
+      rgba(245,230,163,0.30) 0%,
+      rgba(248,237,184,0.25) 50%,
+      rgba(253,246,218,0.15) 100%),
+    url('icons/bg-full.jpg') center bottom / cover no-repeat,
+    var(--cream-3);
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -102,7 +108,9 @@ main {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: var(--paper);
+  background: rgba(255,255,255,0.95);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px;
@@ -154,7 +162,9 @@ main {
 }
 
 .info-card {
-  background: var(--paper-2);
+  background: rgba(247,242,224,0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 14px 16px;
@@ -252,20 +262,10 @@ footer a {
   <div class="info-card" id="iosHint" style="display:none">
     💡 <strong>Auf iPhone installieren:</strong> Tippe auf das Teilen-Symbol unten in Safari und wähle „Zum Home-Bildschirm".
   </div>
-
-  <div class="section-label" style="margin-top:8px">Info</div>
-
-  <div class="info-card">
-    Wertet CSV-Logs des <strong>MD-Lambda-View</strong> Datenloggers aus.
-  </div>
-
-  <div class="hero-logo-wrap">
-    <img src="icons/logo-hero.png" class="hero-logo" alt="">
-  </div>
 </main>
 
 <footer>
-  MD-Lambda-View 2026 · <a href="https://md-lambda-view.com">md-lambda-view.com</a>
+  EZ Electronics · <a href="https://md-lambda-view.com">md-lambda-view.com</a>
 </footer>
 
 <script>
