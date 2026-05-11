@@ -1,6 +1,6 @@
 // MD-Lambda-View PWA Service Worker
 // Bump CACHE_VERSION on every release to force update
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v5';
 const CACHE_NAME = `mdlv-${CACHE_VERSION}`;
 
 // App-shell files (same origin) — always pre-cached on install
@@ -14,7 +14,7 @@ const APP_SHELL = [
   './icons/icon-512.png',
   './icons/icon-maskable-192.png',
   './icons/icon-maskable-512.png',
-  './icons/bg-full.jpg'
+  './icons/logo-hero.png'
 ];
 
 // CDN URLs — cached on first use (runtime cache)

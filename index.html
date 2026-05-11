@@ -52,13 +52,7 @@ html, body {
 }
 
 body {
-  background:
-    linear-gradient(180deg,
-      rgba(245,230,163,0.30) 0%,
-      rgba(248,237,184,0.25) 50%,
-      rgba(253,246,218,0.15) 100%),
-    url('icons/bg-full.jpg') center bottom / cover no-repeat,
-    var(--cream-3);
+  background: linear-gradient(180deg, var(--cream-0) 0%, var(--cream-2) 28%, var(--cream-3) 100%);
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -108,9 +102,7 @@ main {
   display: flex;
   align-items: center;
   gap: 16px;
-  background: rgba(255,255,255,0.95);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 18px;
@@ -162,9 +154,7 @@ main {
 }
 
 .info-card {
-  background: rgba(247,242,224,0.92);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: var(--paper-2);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 14px 16px;
@@ -261,6 +251,10 @@ footer a {
 
   <div class="info-card" id="iosHint" style="display:none">
     💡 <strong>Auf iPhone installieren:</strong> Tippe auf das Teilen-Symbol unten in Safari und wähle „Zum Home-Bildschirm".
+  </div>
+
+  <div class="hero-logo-wrap">
+    <img src="icons/logo-hero.png" class="hero-logo" alt="">
   </div>
 </main>
 
