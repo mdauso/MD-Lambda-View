@@ -1,0 +1,37 @@
+{
+  "name": "MD-Lambda-View",
+  "short_name": "MD-Lambda",
+  "description": "Auswertungs-App für MD-Lambda-View Datenlogger — Lambda/AFR-Analyse für Vergaser-Tuning",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#fdf6da",
+  "theme_color": "#f5e6a3",
+  "lang": "de",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png",          "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-256.png",          "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-384.png",          "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png",          "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "2D-Auswertung TPS/λ",
+      "short_name": "2D · TPS/λ",
+      "description": "Lambda über Drosselklappenstellung",
+      "url": "./2d.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "3D-Map RPM/TPS/λ",
+      "short_name": "3D-Map",
+      "description": "Lambda-Surface über RPM und Drosselklappe",
+      "url": "./3d.html",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

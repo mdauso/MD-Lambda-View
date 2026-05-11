@@ -1,0 +1,1671 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f5e6a3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>MD-Lambda-View · 2D TPS/λ</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/icon-120.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="MD-Lambda-View">
+
+<!-- Chart.js with multi-CDN fallback -->
+<script>
+(function() {
+  const sources = [
+    'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
+    'https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js'
+  ];
+  let i = 0;
+  function tryLoad() {
+    if (i >= sources.length) {
+      window.__chartFailed = true;
+      document.addEventListener('DOMContentLoaded', () => {
+        const e = document.getElementById('empty');
+        if (e) {
+          e.innerHTML = '<div class="icon" style="background:#c9302c">⚠</div>'
+            + '<h2>Chart-Bibliothek blockiert</h2>'
+            + '<p>Vermutlich ist ein Content-Blocker oder Tracking-Schutz aktiv. Tipp: Inhalte-Blocker für diese Seite deaktivieren oder in Chrome/Firefox öffnen.</p>';
+          e.classList.remove('hidden');
+        }
+      });
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = sources[i++];
+    s.onload = () => { window.__chartLoaded = true; };
+    s.onerror = tryLoad;
+    document.head.appendChild(s);
+  }
+  tryLoad();
+})();
+</script>
+
+<style>
+:root {
+  --cream-0: #f5e6a3;
+  --cream-1: #f8edb8;
+  --cream-2: #fbf2c8;
+  --cream-3: #fdf6da;
+  --paper:   #ffffff;
+  --paper-2: #f7f2e0;
+  --line:    rgba(60, 50, 20, 0.12);
+  --line-2:  rgba(60, 50, 20, 0.06);
+  --ink-0:   #1a1a1a;
+  --ink-1:   #3a3a3a;
+  --ink-2:   #6b6555;
+  --ink-3:   #9c9582;
+  --accent:  #4a90e2;
+  --rich:    #c9302c;
+  --lean:    #2c6fb3;
+  --ok:      #2d8659;
+  --shadow-card: 0 1px 2px rgba(60,50,20,.04), 0 4px 16px rgba(60,50,20,.06);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  background: var(--cream-3);
+  color: var(--ink-0);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+  font-size: 14px;
+  height: 100%;
+  overflow: hidden;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+
+.app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--cream-0) 0%, var(--cream-2) 28%, var(--cream-3) 100%);
+}
+
+/* HEADER */
+header {
+  background: transparent;
+  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+  position: relative;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.brand-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--ink-0);
+}
+.brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
+
+.status-pill {
+  flex: 1;
+  font-size: 11px;
+  color: var(--ink-2);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-card);
+  transition: transform .12s, background .12s;
+}
+.icon-btn:active { background: var(--paper-2); transform: scale(.94); }
+.icon-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(74,144,226,.3), 0 4px 16px rgba(74,144,226,.15);
+}
+
+/* CHART AREA */
+.chart-area {
+  flex: 1;
+  position: relative;
+  margin: 0 16px 16px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  padding: 12px 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+#chart {
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.file-label {
+  display: none;
+  margin: 0 16px 10px;
+  padding: 8px 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+.file-label.active { display: flex; }
+
+.file-label .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.file-label .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.file-label .badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink-2);
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+.file-label .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Empty state */
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  gap: 14px;
+}
+.empty.hidden { display: none; }
+
+.empty .icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  box-shadow: 0 4px 14px rgba(74,144,226,.3);
+  margin-bottom: 4px;
+}
+
+.empty h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink-0);
+  letter-spacing: -0.4px;
+}
+
+.empty p {
+  font-size: 13px;
+  color: var(--ink-2);
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+.big-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 32px;
+  border-radius: 14px;
+  cursor: pointer;
+  margin-top: 8px;
+  box-shadow: 0 2px 6px rgba(74,144,226,.3), 0 6px 20px rgba(74,144,226,.18);
+  letter-spacing: -0.2px;
+}
+.big-btn:active { transform: scale(.97); }
+
+input[type="file"] { display: none; }
+
+/* INFO STRIP */
+.info-strip {
+  display: none;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+.info-strip.active { display: flex; }
+
+.info-pill {
+  background: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 7px 10px;
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+  box-shadow: 0 2px 8px rgba(60,50,20,.06);
+}
+.info-pill .l {
+  color: var(--ink-3);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+.info-pill .v {
+  color: var(--ink-0);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* SHEET */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 30, 0, .25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s;
+  z-index: 20;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.sheet-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--cream-3);
+  border-top: 1px solid var(--line);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -8px 40px rgba(60,50,20,.18);
+  transform: translateY(100%);
+  transition: transform .28s cubic-bezier(.4,.0,.2,1);
+  z-index: 21;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--safe-bot);
+}
+.sheet.open { transform: translateY(0); }
+
+.sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 6px;
+  cursor: grab;
+  touch-action: none;
+}
+.sheet-handle::before {
+  content: '';
+  width: 40px;
+  height: 4px;
+  background: var(--ink-3);
+  border-radius: 2px;
+  opacity: .4;
+}
+
+.sheet-header {
+  padding: 4px 20px 14px;
+  border-bottom: 1px solid var(--line-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-0);
+  letter-spacing: -0.3px;
+}
+
+.sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.section { margin-bottom: 22px; }
+.section:last-child { margin-bottom: 0; }
+
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ink-2);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.stepper-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 10px 8px 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.stepper-row .lbl {
+  font-size: 13px;
+  color: var(--ink-1);
+  font-weight: 500;
+}
+
+.step-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink-0);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.step-btn:active { background: var(--cream-1); transform: scale(.95); }
+
+.step-val {
+  background: transparent;
+  border: none;
+  color: var(--ink-0);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  width: 64px;
+  padding: 6px 4px;
+  -moz-appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+.step-val::-webkit-outer-spin-button,
+.step-val::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.step-val:focus { outline: none; }
+
+.chips {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: var(--shadow-card);
+}
+.chip {
+  background: transparent;
+  border: none;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 4px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: center;
+  transition: all .15s;
+}
+.chip.on {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(74,144,226,.25);
+}
+
+label.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  user-select: none;
+}
+label.toggle .lbl {
+  font-size: 13px;
+  color: var(--ink-1);
+  font-weight: 500;
+}
+label.toggle input { accent-color: var(--accent); transform: scale(1.2); }
+
+/* File slot card */
+.file-slot {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-card);
+  transition: border-color .15s;
+}
+.file-slot.filled {
+  border-color: rgba(74,144,226,.35);
+}
+.slot-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.slot-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.slot-name {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ink-1);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.slot-clear {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.slot-clear:active { background: var(--cream-1); }
+.slot-load {
+  width: 100%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  letter-spacing: -0.2px;
+}
+.slot-load:active { transform: scale(.98); }
+.file-slot.filled .slot-load {
+  background: var(--paper-2);
+  color: var(--ink-1);
+  border: 1px solid var(--line);
+}
+
+.range-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.range-row .group {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-card);
+}
+.range-row .group .l {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.range-row .group input {
+  background: transparent;
+  border: none;
+  color: var(--ink-0);
+  font-size: 16px;
+  font-weight: 600;
+  width: 100%;
+  outline: none;
+  -moz-appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+.range-row .group input::-webkit-outer-spin-button,
+.range-row .group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.stat {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.stat .l {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink-3);
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+.stat .v {
+  font-size: 14px;
+  color: var(--ink-0);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.bins-preview {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+  font-size: 11px;
+  max-height: 240px;
+  overflow: auto;
+  box-shadow: var(--shadow-card);
+}
+.bins-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.bins-preview th, .bins-preview td {
+  padding: 6px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--line-2);
+  font-variant-numeric: tabular-nums;
+}
+.bins-preview tr:last-child td { border-bottom: none; }
+.bins-preview th {
+  color: var(--ink-3);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+}
+.bins-preview td.lam-rich { color: var(--rich); font-weight: 600; }
+.bins-preview td.lam-lean { color: var(--lean); font-weight: 600; }
+.bins-preview td.lam-ok   { color: var(--ok);   font-weight: 600; }
+
+.toast {
+  position: fixed;
+  bottom: calc(var(--safe-bot) + 24px);
+  left: 50%;
+  transform: translateX(-50%) translateY(120px);
+  background: var(--ink-0);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 24px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 100;
+  transition: transform .25s;
+  max-width: 88vw;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* Pseudo-fullscreen */
+body.pseudo-full header {
+  background: transparent;
+  border-bottom: none;
+  padding: calc(var(--safe-top) + 8px) 8px 8px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+body.pseudo-full header .brand,
+body.pseudo-full header .status-pill,
+body.pseudo-full header #btnReset,
+body.pseudo-full header #btnSheet {
+  display: none;
+}
+body.pseudo-full header #btnFull {
+  margin-left: auto;
+  background: rgba(255,255,255,.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.pseudo-full .chart-area {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+.home-btn {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink-1);
+  line-height: 1;
+  padding-bottom: 3px;
+}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header>
+    
+    <a href="index.html" class="icon-btn home-btn" title="Startseite" style="text-decoration:none">‹</a>
+    <div class="brand">
+      <div class="brand-title">MD-Lambda-View</div>
+      <div class="brand-sub">2D · TPS / λ</div>
+    </div>
+    <div style="flex:1"></div>
+    <button class="icon-btn" id="btnReset" title="Zoom zurück" disabled style="opacity:.4">↺</button>
+    <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
+    <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
+  </header>
+
+  <div class="file-label" id="fileLabel"></div>
+
+  <div class="chart-area">
+    <div class="chart-wrap">
+      <div class="empty" id="empty">
+        <div class="icon">📈</div>
+        <h2>Keine Daten</h2>
+        <p>CSV-Log laden — zeigt λ-Median pro Drosselklappenstellung mit Streubändern</p>
+        <button class="big-btn" id="btnLoad">CSV laden</button>
+      </div>
+      <canvas id="chart"></canvas>
+    </div>
+    <div class="info-strip" id="infoStrip">
+      <div class="info-pill"><div class="l">Punkte</div><div class="v" id="iPoints">—</div></div>
+      <div class="info-pill"><div class="l">Bins</div><div class="v" id="iBins">—</div></div>
+      <div class="info-pill"><div class="l">λ Ø</div><div class="v" id="iAvg">—</div></div>
+      <div class="info-pill"><div class="l">λ min/max</div><div class="v" id="iMM">—</div></div>
+    </div>
+  </div>
+
+</div>
+
+<input type="file" id="fileInput" accept=".csv,.txt">
+
+<!-- Bottom Sheet -->
+<div class="sheet-backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle" id="sheetHandle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">Einstellungen</div>
+    <button class="icon-btn" id="btnClose">✕</button>
+  </div>
+  <div class="sheet-body">
+
+    <div class="section">
+      <div class="section-label">Dateien (zwei zum Vergleichen)</div>
+      <div class="file-slot" id="slot0">
+        <div class="slot-head">
+          <span class="slot-badge" style="background:#4a90e2">A</span>
+          <span class="slot-name" id="slot0Name">— keine Datei —</span>
+          <button class="slot-clear" id="slot0Clear" style="display:none" title="Entfernen">✕</button>
+        </div>
+        <button class="slot-load" id="slot0Load">CSV wählen</button>
+      </div>
+      <div class="file-slot" id="slot1">
+        <div class="slot-head">
+          <span class="slot-badge" style="background:#e2734a">B</span>
+          <span class="slot-name" id="slot1Name">— keine Datei —</span>
+          <button class="slot-clear" id="slot1Clear" style="display:none" title="Entfernen">✕</button>
+        </div>
+        <button class="slot-load" id="slot1Load">CSV wählen</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Bin-Größe</div>
+      <div class="stepper-row">
+        <div class="lbl">Drossel-Schritt %</div>
+        <button class="step-btn" data-dir="-1">−</button>
+        <input type="number" class="step-val" id="thrStep" value="5" min="1" step="1">
+        <button class="step-btn" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Streuband</div>
+      <label class="toggle">
+        <span class="lbl">Streuband anzeigen</span>
+        <input type="checkbox" id="showBand" checked>
+      </label>
+      <div class="chips" id="bandChips">
+        <div class="chip" data-band="minmax">Min/Max</div>
+        <div class="chip on" data-band="p10p90">10/90 %</div>
+        <div class="chip" data-band="p25p75">25/75 %</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Anzeige</div>
+      <label class="toggle">
+        <span class="lbl">Streupunkte zeigen</span>
+        <input type="checkbox" id="showScatter">
+      </label>
+      <label class="toggle">
+        <span class="lbl">λ = 1.00 Referenzlinie</span>
+        <input type="checkbox" id="showRef" checked>
+      </label>
+      <label class="toggle">
+        <span class="lbl">Punktanzahl je Bin</span>
+        <input type="checkbox" id="showCounts">
+      </label>
+      <label class="toggle">
+        <span class="lbl">Tooltip beim Antippen</span>
+        <input type="checkbox" id="showTooltip" checked>
+      </label>
+    </div>
+
+    <div class="section">
+      <div class="section-label">λ-Achse</div>
+      <div class="range-row">
+        <div class="group">
+          <div class="l">Min</div>
+          <input type="number" id="yMin" value="0.65" step="0.01" inputmode="decimal">
+        </div>
+        <div class="group">
+          <div class="l">Max</div>
+          <input type="number" id="yMax" value="1.20" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="statsSection" style="display:none">
+      <div class="section-label">Statistik</div>
+      <div class="stats" id="statsGrid"></div>
+    </div>
+
+    <div class="section" id="binsSection" style="display:none">
+      <div class="section-label">Bins (Median pro TPS)</div>
+      <div class="bins-preview" id="binsPreview"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STATE = {
+  files: [
+    { name: null, rawData: null, color: '#4a90e2', label: 'A' },
+    { name: null, rawData: null, color: '#e2734a', label: 'B' },
+  ],
+  band: 'p10p90',
+  showBand: true,
+  showScatter: false,
+  showRef: true,
+  showCounts: false,
+  showTooltip: true,
+  hasData: false,
+  chart: null,
+  bins: [],
+  zoomState: null,
+};
+
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function toast(msg, ms=2000) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function setStatus(s) { /* status pill removed; file label shows the name */ }
+
+function parseFloatDE(v) {
+  const n = parseFloat(String(v).trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function binCenter(v, step) { return Math.round(v / step) * step; }
+
+function quantile(sorted, q) {
+  if (!sorted.length) return null;
+  const pos = (sorted.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if (sorted[base + 1] !== undefined) {
+    return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+  }
+  return sorted[base];
+}
+
+// ============ FILE LOADING ============
+let pendingSlot = 0;
+
+function pickFile(slot) {
+  pendingSlot = slot;
+  $('#fileInput').click();
+}
+
+$('#fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const slot = pendingSlot;
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const raw = ev.target.result.trim();
+      const lines = raw.split(/\r?\n/).filter(l => l && l.trim().length > 0);
+      if (lines.length < 2) { toast('CSV leer'); return; }
+
+      const rpm = [], throttle = [], lambda = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith('#')) continue;
+        const values = line.split(';');
+        if (values.length < 5) continue;
+
+        const r = parseFloatDE(values[1]);
+        const t = parseFloatDE(values[2]);
+        const l = parseFloatDE(values[4]);
+
+        if (!Number.isFinite(r) || !Number.isFinite(t) || !Number.isFinite(l)) continue;
+        if (r < 0 || r > 20000) continue;
+        if (t < -1 || t > 105) continue;
+        if (l < 0.5 || l > 2.5) continue;
+
+        rpm.push(r); throttle.push(t); lambda.push(l);
+      }
+
+      if (rpm.length === 0) { toast('Keine gültigen Daten'); return; }
+
+      STATE.files[slot].name = file.name;
+      STATE.files[slot].rawData = { rpm, throttle, lambda };
+      STATE.hasData = STATE.files.some(f => f.rawData);
+      $('#empty').classList.add('hidden');
+      $('#infoStrip').classList.add('active');
+      $('#statsSection').style.display = '';
+      $('#binsSection').style.display = '';
+      $('#btnReset').disabled = false;
+      $('#btnReset').style.opacity = '1';
+      updateFileLabels();
+      render2D();
+      toast(`Datei ${STATE.files[slot].label}: ${rpm.length.toLocaleString('de-DE')} Punkte`);
+    } catch (err) {
+      console.error(err);
+      toast('Fehler: ' + err.message);
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+function clearFile(slot) {
+  STATE.files[slot].name = null;
+  STATE.files[slot].rawData = null;
+  STATE.hasData = STATE.files.some(f => f.rawData);
+  if (!STATE.hasData) {
+    $('#empty').classList.remove('hidden');
+    $('#infoStrip').classList.remove('active');
+    if (STATE.chart) { STATE.chart.destroy(); STATE.chart = null; }
+  } else {
+    render2D();
+  }
+  updateFileLabels();
+  toast(`Datei ${STATE.files[slot].label} entfernt`);
+}
+
+function updateFileLabels() {
+  for (let i = 0; i < 2; i++) {
+    const f = STATE.files[i];
+    const slotEl = $('#slot' + i);
+    const nameEl = $('#slot' + i + 'Name');
+    const clearBtn = $('#slot' + i + 'Clear');
+    const loadBtn = $('#slot' + i + 'Load');
+    if (f.rawData) {
+      slotEl.classList.add('filled');
+      nameEl.textContent = f.name;
+      clearBtn.style.display = '';
+      loadBtn.textContent = 'Andere wählen';
+    } else {
+      slotEl.classList.remove('filled');
+      nameEl.textContent = '— keine Datei —';
+      clearBtn.style.display = 'none';
+      loadBtn.textContent = 'CSV wählen';
+    }
+  }
+  // Floating chart label with one row per loaded file
+  const loaded = STATE.files.filter(f => f.rawData);
+  const html = loaded.map(f => `
+    <div class="row">
+      <span class="dot" style="background:${f.color}"></span>
+      <span class="badge">${f.label}</span>
+      <span class="name">${f.name}</span>
+    </div>
+  `).join('');
+  $('#fileLabel').innerHTML = html;
+  $('#fileLabel').classList.toggle('active', loaded.length > 0);
+}
+
+// ============ AGGREGATE ============
+function aggregateFile(rawData) {
+  const thrStep = parseFloat($('#thrStep').value) || 5;
+
+  const { rpm, throttle, lambda } = rawData;
+  const buckets = new Map();
+
+  let scatterPoints = [];
+  let totalIncluded = 0;
+
+  for (let i = 0; i < rpm.length; i++) {
+    const tBin = binCenter(throttle[i], thrStep);
+    if (!buckets.has(tBin)) buckets.set(tBin, []);
+    buckets.get(tBin).push(lambda[i]);
+
+    if (STATE.showScatter && scatterPoints.length < 8000) {
+      scatterPoints.push({ x: throttle[i], y: lambda[i] });
+    }
+    totalIncluded++;
+  }
+
+  const bins = [];
+  for (const [t, vals] of buckets.entries()) {
+    if (vals.length === 0) continue;
+    const sorted = vals.slice().sort((a, b) => a - b);
+    bins.push({
+      t,
+      n: sorted.length,
+      median: quantile(sorted, 0.5),
+      mean: sorted.reduce((a, b) => a + b, 0) / sorted.length,
+      min: sorted[0],
+      max: sorted[sorted.length - 1],
+      p10: quantile(sorted, 0.10),
+      p25: quantile(sorted, 0.25),
+      p75: quantile(sorted, 0.75),
+      p90: quantile(sorted, 0.90),
+    });
+  }
+  bins.sort((a, b) => a.t - b.t);
+  return { bins, scatterPoints, totalIncluded };
+}
+
+// ============ RENDER ============
+// Convert hex color to rgba with given alpha
+function hexToRgba(hex, a) {
+  const m = hex.replace('#','');
+  const r = parseInt(m.substring(0,2), 16);
+  const g = parseInt(m.substring(2,4), 16);
+  const b = parseInt(m.substring(4,6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function render2D() {
+  if (!STATE.hasData) return;
+  if (typeof Chart === 'undefined') {
+    toast('Chart-Bibliothek nicht verfügbar', 4000);
+    return;
+  }
+
+  const bandKey = STATE.band;
+  const lower = bandKey === 'minmax' ? 'min' : bandKey === 'p10p90' ? 'p10' : 'p25';
+  const upper = bandKey === 'minmax' ? 'max' : bandKey === 'p10p90' ? 'p90' : 'p75';
+
+  // Aggregate each loaded file
+  const fileResults = STATE.files.map((f, idx) => {
+    if (!f.rawData) return null;
+    const r = aggregateFile(f.rawData);
+    return { ...r, file: f, idx };
+  });
+
+  const activeResults = fileResults.filter(x => x);
+  if (activeResults.length === 0) return;
+
+  // Combined stats for info-strip (sum of points across files, etc.)
+  let totalPoints = 0, totalBins = 0, lamMin = Infinity, lamMax = -Infinity, lamSum = 0, lamN = 0;
+  activeResults.forEach(r => {
+    totalPoints += r.totalIncluded;
+    totalBins += r.bins.length;
+    r.bins.forEach(b => {
+      lamSum += b.median * b.n;
+      lamN += b.n;
+      if (b.min < lamMin) lamMin = b.min;
+      if (b.max > lamMax) lamMax = b.max;
+    });
+  });
+  const avgLam = lamSum / lamN;
+
+  $('#iPoints').textContent = totalPoints.toLocaleString('de-DE');
+  $('#iBins').textContent = activeResults.length === 1 ? totalBins : activeResults.map(r => r.bins.length).join('+');
+  $('#iAvg').textContent = avgLam.toFixed(2);
+  $('#iMM').textContent = lamMin.toFixed(2) + '/' + lamMax.toFixed(2);
+
+  // Stats grid: per-file rows
+  let statsHTML = '';
+  activeResults.forEach(r => {
+    const rAvg = r.bins.reduce((a, b) => a + b.median * b.n, 0) / r.bins.reduce((a, b) => a + b.n, 0);
+    const rMin = Math.min(...r.bins.map(b => b.min));
+    const rMax = Math.max(...r.bins.map(b => b.max));
+    statsHTML += `
+      <div class="stat" style="grid-column:1/-1;border-left:3px solid ${r.file.color}">
+        <div class="l">${r.file.label} · ${r.file.name}</div>
+        <div class="v">${r.totalIncluded.toLocaleString('de-DE')} Punkte · λ Ø ${rAvg.toFixed(3)} · ${rMin.toFixed(2)}/${rMax.toFixed(2)}</div>
+      </div>
+    `;
+  });
+  statsHTML += `
+    <div class="stat"><div class="l">Streuband</div><div class="v">${bandKey === 'minmax' ? 'Min/Max' : bandKey === 'p10p90' ? 'P10–P90' : 'P25–P75'}</div></div>
+    <div class="stat"><div class="l">TPS-Schritt</div><div class="v">${parseFloat($('#thrStep').value) || 5}%</div></div>
+  `;
+  $('#statsGrid').innerHTML = statsHTML;
+
+  // Bins table — show first file's bins for now (or both if comparing)
+  if (activeResults.length === 1) {
+    const bins = activeResults[0].bins;
+    const rows = bins.map(b => {
+      const cls = b.median < 0.95 ? 'lam-rich' : b.median > 1.05 ? 'lam-lean' : 'lam-ok';
+      return `<tr><td>${b.t}%</td><td class="${cls}">${b.median.toFixed(2)}</td><td>${b.min.toFixed(2)}</td><td>${b.max.toFixed(2)}</td><td>${b.n}</td></tr>`;
+    }).join('');
+    $('#binsPreview').innerHTML = `
+      <table>
+        <thead><tr><th>TPS</th><th>λ med</th><th>min</th><th>max</th><th>n</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  } else {
+    // Comparison table — λ_A, λ_B, Δ
+    const tpsSet = new Set();
+    activeResults.forEach(r => r.bins.forEach(b => tpsSet.add(b.t)));
+    const allTps = [...tpsSet].sort((a, b) => a - b);
+    const aMap = new Map(activeResults[0].bins.map(b => [b.t, b]));
+    const bMap = new Map(activeResults[1].bins.map(b => [b.t, b]));
+    const rows = allTps.map(t => {
+      const a = aMap.get(t), b = bMap.get(t);
+      const va = a ? a.median.toFixed(2) : '—';
+      const vb = b ? b.median.toFixed(2) : '—';
+      const dv = (a && b) ? (b.median - a.median) : null;
+      const dCls = dv === null ? '' : (Math.abs(dv) < 0.02 ? 'lam-ok' : dv < 0 ? 'lam-rich' : 'lam-lean');
+      const dStr = dv === null ? '—' : (dv > 0 ? '+' : '') + dv.toFixed(2);
+      return `<tr><td>${t}%</td><td>${va}</td><td>${vb}</td><td class="${dCls}">${dStr}</td></tr>`;
+    }).join('');
+    $('#binsPreview').innerHTML = `
+      <table>
+        <thead><tr><th>TPS</th><th>λ ${activeResults[0].file.label}</th><th>λ ${activeResults[1].file.label}</th><th>Δ</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  // Save the first file's bins for tooltip lookup
+  STATE.bins = activeResults[0].bins;
+  STATE.activeResults = activeResults;
+
+  // Build datasets — for each loaded file
+  const datasets = [];
+
+  activeResults.forEach((r, slotIdx) => {
+    const bins = r.bins;
+    const color = r.file.color;
+    const label = r.file.label;
+
+    const medianData = bins.map(b => ({ x: b.t, y: b.median }));
+    const upperData  = bins.map(b => ({ x: b.t, y: b[upper] }));
+    const lowerData  = bins.map(b => ({ x: b.t, y: b[lower] }));
+
+    if (STATE.showBand) {
+      // Lower invisible anchor
+      datasets.push({
+        label: '_band_lower_' + label,
+        data: lowerData,
+        borderColor: 'transparent',
+        backgroundColor: 'transparent',
+        pointRadius: 0,
+        fill: false,
+        order: 6 + slotIdx,
+      });
+      // Upper with fill
+      datasets.push({
+        label: `${label} · ${STATE.band === 'minmax' ? 'Min/Max' : STATE.band === 'p10p90' ? 'P10–P90' : 'P25–P75'}`,
+        data: upperData,
+        borderColor: hexToRgba(color, 0.35),
+        backgroundColor: hexToRgba(color, 0.15),
+        borderWidth: 1,
+        pointRadius: 0,
+        fill: '-1',
+        order: 4 + slotIdx,
+        tension: 0.2,
+      });
+    }
+
+    // Scatter raw
+    if (STATE.showScatter && r.scatterPoints.length) {
+      datasets.push({
+        type: 'scatter',
+        label: `${label} · Rohdaten`,
+        data: r.scatterPoints,
+        backgroundColor: hexToRgba(color, 0.20),
+        borderColor: 'transparent',
+        pointRadius: 1.5,
+        pointHoverRadius: 3,
+        order: 8 + slotIdx,
+      });
+    }
+
+    // Median line
+    datasets.push({
+      label: `${label} · λ Median`,
+      data: medianData,
+      borderColor: color,
+      backgroundColor: color,
+      borderWidth: 2.5,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: '#fff',
+      pointBorderColor: color,
+      pointBorderWidth: 2,
+      fill: false,
+      order: slotIdx,
+      tension: 0.2,
+      _slotIdx: slotIdx,
+      _isMedian: true,
+    });
+  });
+
+  // λ=1 reference line — span across all data
+  if (STATE.showRef) {
+    let xMin = Infinity, xMax = -Infinity;
+    activeResults.forEach(r => {
+      if (r.bins.length === 0) return;
+      if (r.bins[0].t < xMin) xMin = r.bins[0].t;
+      if (r.bins[r.bins.length - 1].t > xMax) xMax = r.bins[r.bins.length - 1].t;
+    });
+    datasets.push({
+      label: 'λ = 1.00',
+      data: [{ x: xMin, y: 1.0 }, { x: xMax, y: 1.0 }],
+      borderColor: 'rgba(45, 134, 89, 0.6)',
+      borderWidth: 1.5,
+      borderDash: [6, 4],
+      pointRadius: 0,
+      fill: false,
+      order: 10,
+      tension: 0,
+    });
+  }
+
+  const yMin = parseFloat($('#yMin').value);
+  const yMax = parseFloat($('#yMax').value);
+
+  const config = {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      parsing: false,
+      interaction: STATE.showTooltip
+        ? { mode: 'index', intersect: false, axis: 'x' }
+        : { mode: null },
+      events: STATE.showTooltip
+        ? ['mousemove', 'mouseout', 'click', 'touchstart', 'touchmove']
+        : [],
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: {
+            color: '#3a3a3a',
+            font: { size: 11, weight: '500' },
+            usePointStyle: true,
+            boxWidth: 8,
+            padding: 12,
+            filter: item => !item.text.startsWith('_band_lower_')
+          }
+        },
+        tooltip: {
+          enabled: STATE.showTooltip,
+          backgroundColor: 'rgba(26, 26, 26, 0.92)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          padding: 10,
+          cornerRadius: 8,
+          titleFont: { size: 12, weight: '600' },
+          bodyFont: { size: 12 },
+          displayColors: true,
+          callbacks: {
+            title: items => items.length ? `TPS ${items[0].parsed.x}%` : '',
+            label: ctx => {
+              const lbl = ctx.dataset.label || '';
+              if (lbl.startsWith('_band_lower_')) return null;
+              if (lbl === 'λ = 1.00') return null;
+              if (lbl.endsWith('· Rohdaten')) return `${lbl.split(' ·')[0]}: λ ${ctx.parsed.y.toFixed(3)}`;
+              if (ctx.dataset._isMedian) {
+                const slotIdx = ctx.dataset._slotIdx;
+                const r = STATE.activeResults && STATE.activeResults[slotIdx];
+                if (r) {
+                  const bin = r.bins.find(b => b.t === ctx.parsed.x);
+                  if (bin) return [
+                    `${r.file.label} · λ Med: ${bin.median.toFixed(3)}`,
+                    `   Min/Max: ${bin.min.toFixed(2)} / ${bin.max.toFixed(2)}`,
+                    `   n = ${bin.n}`
+                  ];
+                }
+              }
+              return `${lbl}: ${ctx.parsed.y.toFixed(3)}`;
+            }
+          }
+        },
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          title: { display: true, text: 'Drosselklappe (%)', color: '#3a3a3a', font: { size: 12, weight: '600' } },
+          min: 0,
+          max: 100,
+          ticks: { color: '#6b6555', font: { size: 11 }, stepSize: 10 },
+          grid: { color: 'rgba(60, 50, 20, 0.08)', drawTicks: true },
+          border: { color: 'rgba(60, 50, 20, 0.15)' },
+        },
+        y: {
+          title: { display: true, text: 'Lambda (λ)', color: '#3a3a3a', font: { size: 12, weight: '600' } },
+          min: Number.isFinite(yMin) ? yMin : 0.65,
+          max: Number.isFinite(yMax) ? yMax : 1.20,
+          ticks: { color: '#6b6555', font: { size: 11 }, callback: v => v.toFixed(2) },
+          grid: { color: 'rgba(60, 50, 20, 0.08)', drawTicks: true },
+          border: { color: 'rgba(60, 50, 20, 0.15)' },
+        }
+      },
+    }
+  };
+
+  // n-counts plugin — only when single file
+  if (STATE.showCounts && activeResults.length === 1) {
+    config.plugins = [{
+      id: 'binCounts',
+      afterDatasetsDraw(chart) {
+        // Find median dataset
+        const medIdx = chart.data.datasets.findIndex(d => d._isMedian);
+        if (medIdx < 0) return;
+        const meta = chart.getDatasetMeta(medIdx);
+        if (!meta || !meta.data) return;
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = '500 9px -apple-system, sans-serif';
+        ctx.fillStyle = '#9c9582';
+        ctx.textAlign = 'center';
+        meta.data.forEach((point, i) => {
+          if (!STATE.bins[i]) return;
+          ctx.fillText('n=' + STATE.bins[i].n, point.x, point.y - 12);
+        });
+        ctx.restore();
+      }
+    }];
+  }
+
+  if (STATE.chart) STATE.chart.destroy();
+  STATE.chart = new Chart($('#chart'), config);
+
+  setupChartGestures();
+}
+
+// ============ TOUCH GESTURES (Pinch zoom + pan on chart) ============
+function setupChartGestures() {
+  const canvas = $('#chart');
+  if (canvas._mdGesturesAttached) return;
+  canvas._mdGesturesAttached = true;
+
+  let gesture = null;
+
+  canvas.addEventListener('touchstart', e => {
+    if (!STATE.chart) return;
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const t1 = e.touches[0], t2 = e.touches[1];
+      gesture = {
+        type: 'pinch',
+        startDist: Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY),
+        startCx: (t1.clientX + t2.clientX) / 2,
+        startCy: (t1.clientY + t2.clientY) / 2,
+        startXMin: STATE.chart.scales.x.min,
+        startXMax: STATE.chart.scales.x.max,
+        startYMin: STATE.chart.scales.y.min,
+        startYMax: STATE.chart.scales.y.max,
+      };
+    } else if (e.touches.length === 1) {
+      gesture = {
+        type: 'pan',
+        startX: e.touches[0].clientX,
+        startY: e.touches[0].clientY,
+        startXMin: STATE.chart.scales.x.min,
+        startXMax: STATE.chart.scales.x.max,
+        startYMin: STATE.chart.scales.y.min,
+        startYMax: STATE.chart.scales.y.max,
+      };
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    if (!STATE.chart || !gesture) return;
+    const chart = STATE.chart;
+    const xs = chart.scales.x, ys = chart.scales.y;
+    const rect = canvas.getBoundingClientRect();
+
+    if (gesture.type === 'pinch' && e.touches.length === 2) {
+      e.preventDefault();
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const ratio = gesture.startDist / Math.max(dist, 1);
+
+      const cxData = gesture.startXMin + (gesture.startCx - rect.left - xs.left) / xs.width * (gesture.startXMax - gesture.startXMin);
+      const cyData = gesture.startYMin + (rect.bottom - gesture.startCy - (rect.height - ys.bottom)) / ys.height * (gesture.startYMax - gesture.startYMin);
+
+      const newXMin = cxData - (cxData - gesture.startXMin) * ratio;
+      const newXMax = cxData + (gesture.startXMax - cxData) * ratio;
+      const newYMin = cyData - (cyData - gesture.startYMin) * ratio;
+      const newYMax = cyData + (gesture.startYMax - cyData) * ratio;
+
+      chart.options.scales.x.min = newXMin;
+      chart.options.scales.x.max = newXMax;
+      chart.options.scales.y.min = newYMin;
+      chart.options.scales.y.max = newYMax;
+      chart.update('none');
+
+    } else if (gesture.type === 'pan' && e.touches.length === 1) {
+      const dx = e.touches[0].clientX - gesture.startX;
+      const dy = e.touches[0].clientY - gesture.startY;
+
+      const xRange = gesture.startXMax - gesture.startXMin;
+      const yRange = gesture.startYMax - gesture.startYMin;
+      const xShift = -dx / xs.width * xRange;
+      const yShift =  dy / ys.height * yRange;
+
+      // only pan if actually dragging (skip tiny moves so taps still work)
+      if (Math.hypot(dx, dy) < 5) return;
+      e.preventDefault();
+
+      chart.options.scales.x.min = gesture.startXMin + xShift;
+      chart.options.scales.x.max = gesture.startXMax + xShift;
+      chart.options.scales.y.min = gesture.startYMin + yShift;
+      chart.options.scales.y.max = gesture.startYMax + yShift;
+      chart.update('none');
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', () => { gesture = null; });
+  canvas.addEventListener('touchcancel', () => { gesture = null; });
+}
+
+function resetZoom() {
+  if (!STATE.chart) return;
+  const yMin = parseFloat($('#yMin').value);
+  const yMax = parseFloat($('#yMax').value);
+  STATE.chart.options.scales.x.min = 0;
+  STATE.chart.options.scales.x.max = 100;
+  STATE.chart.options.scales.y.min = Number.isFinite(yMin) ? yMin : 0.65;
+  STATE.chart.options.scales.y.max = Number.isFinite(yMax) ? yMax : 1.20;
+  STATE.chart.update();
+}
+
+// ============ UI WIRING ============
+$$('.step-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const dir = parseInt(btn.dataset.dir, 10);
+    const input = $('#thrStep');
+    const min = parseFloat(input.min) || 1;
+    const step = parseFloat(input.step) || 1;
+    let v = (parseFloat(input.value) || 0) + dir * step;
+    if (v < min) v = min;
+    input.value = v;
+    if (STATE.hasData) render2D();
+  });
+});
+
+['thrStep', 'yMin', 'yMax'].forEach(id => {
+  $('#' + id).addEventListener('change', () => { if (STATE.hasData) render2D(); });
+});
+
+$('#showBand').addEventListener('change', e => {
+  STATE.showBand = e.target.checked;
+  // Visually dim the chips when band is off
+  $('#bandChips').style.opacity = STATE.showBand ? '1' : '.4';
+  $('#bandChips').style.pointerEvents = STATE.showBand ? '' : 'none';
+  if (STATE.hasData) render2D();
+});
+
+$$('#bandChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    STATE.band = c.dataset.band;
+    $$('#bandChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    if (STATE.hasData) render2D();
+  });
+});
+
+$('#showScatter').addEventListener('change', e => {
+  STATE.showScatter = e.target.checked;
+  if (STATE.hasData) render2D();
+});
+$('#showRef').addEventListener('change', e => {
+  STATE.showRef = e.target.checked;
+  if (STATE.hasData) render2D();
+});
+$('#showCounts').addEventListener('change', e => {
+  STATE.showCounts = e.target.checked;
+  if (STATE.hasData) render2D();
+});
+$('#showTooltip').addEventListener('change', e => {
+  STATE.showTooltip = e.target.checked;
+  if (STATE.hasData) render2D();
+});
+
+$('#btnReset').addEventListener('click', resetZoom);
+
+// ============ FULLSCREEN ============
+const fullBtn = $('#btnFull');
+let pseudoFull = false;
+
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (req) {
+    try {
+      const p = req.call(el);
+      if (p && p.catch) p.catch(() => enterPseudoFullscreen());
+      return;
+    } catch (e) {}
+  }
+  enterPseudoFullscreen();
+}
+
+function exitFullscreen() {
+  if (isFullscreen()) {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit) { try { exit.call(document); } catch (e) {} }
+  }
+  if (pseudoFull) exitPseudoFullscreen();
+}
+
+function enterPseudoFullscreen() {
+  pseudoFull = true;
+  document.body.classList.add('pseudo-full');
+  fullBtn.textContent = '⤢';
+  setTimeout(() => { if (STATE.chart) STATE.chart.resize(); }, 80);
+}
+
+function exitPseudoFullscreen() {
+  pseudoFull = false;
+  document.body.classList.remove('pseudo-full');
+  fullBtn.textContent = '⛶';
+  setTimeout(() => { if (STATE.chart) STATE.chart.resize(); }, 80);
+}
+
+fullBtn.addEventListener('click', () => {
+  if (isFullscreen() || pseudoFull) exitFullscreen();
+  else enterFullscreen();
+});
+
+document.addEventListener('fullscreenchange', () => {
+  fullBtn.textContent = isFullscreen() ? '⤢' : '⛶';
+  setTimeout(() => { if (STATE.chart) STATE.chart.resize(); }, 80);
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  document.dispatchEvent(new Event('fullscreenchange'));
+});
+
+// ============ SHEET ============
+function openSheet() {
+  $('#sheet').classList.add('open');
+  $('#backdrop').classList.add('open');
+}
+function closeSheet() {
+  $('#sheet').classList.remove('open');
+  $('#backdrop').classList.remove('open');
+}
+$('#btnSheet').addEventListener('click', openSheet);
+$('#btnClose').addEventListener('click', closeSheet);
+$('#backdrop').addEventListener('click', closeSheet);
+
+let dragStart = null;
+const handle = $('#sheetHandle');
+const sheetEl = $('#sheet');
+handle.addEventListener('touchstart', e => {
+  dragStart = e.touches[0].clientY;
+  sheetEl.style.transition = 'none';
+}, { passive: true });
+handle.addEventListener('touchmove', e => {
+  if (dragStart === null) return;
+  const dy = e.touches[0].clientY - dragStart;
+  if (dy > 0) sheetEl.style.transform = 'translateY(' + dy + 'px)';
+}, { passive: true });
+handle.addEventListener('touchend', e => {
+  sheetEl.style.transition = '';
+  sheetEl.style.transform = '';
+  if (dragStart !== null) {
+    const endY = e.changedTouches[0].clientY;
+    if (endY - dragStart > 80) closeSheet();
+  }
+  dragStart = null;
+});
+
+$('#btnLoad').addEventListener('click', () => pickFile(0));
+$('#slot0Load').addEventListener('click', () => { closeSheet(); setTimeout(() => pickFile(0), 150); });
+$('#slot1Load').addEventListener('click', () => { closeSheet(); setTimeout(() => pickFile(1), 150); });
+$('#slot0Clear').addEventListener('click', () => clearFile(0));
+$('#slot1Clear').addEventListener('click', () => clearFile(1));
+
+window.addEventListener('resize', () => {
+  if (STATE.chart) STATE.chart.resize();
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { if (STATE.chart) STATE.chart.resize(); }, 250);
+});
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW failed:', e));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f5e6a3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>MD-Lambda-View · 3D Map</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/icon-120.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="MD-Lambda-View">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Plotly with multi-CDN fallback (cdn.plot.ly is blocked by some content blockers) -->
+<script>
+(function() {
+  const sources = [
+    'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js',
+    'https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js',
+    'https://cdn.plot.ly/plotly-2.35.2.min.js'
+  ];
+  let i = 0;
+  function tryLoad() {
+    if (i >= sources.length) {
+      window.__plotlyFailed = true;
+      document.addEventListener('DOMContentLoaded', () => {
+        const e = document.getElementById('empty');
+        if (e) {
+          e.innerHTML = '<div class="icon" style="color:#ff5050">⚠</div>'
+            + '<h2 style="color:#ff5050">Plotly blockiert</h2>'
+            + '<p>Die Chart-Bibliothek konnte nicht geladen werden. Vermutlich ist ein Content-Blocker oder Tracking-Schutz aktiv.<br><br>Tipp: in Safari unter <b>Einstellungen → Apps → Safari → Erweitert → Inhalte blockieren</b> für diese Seite deaktivieren, oder die Datei in Chrome/Firefox öffnen.</p>';
+          e.classList.remove('hidden');
+        }
+      });
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = sources[i++];
+    s.onload = () => { window.__plotlyLoaded = true; };
+    s.onerror = tryLoad;
+    document.head.appendChild(s);
+  }
+  tryLoad();
+})();
+</script>
+<style>
+:root {
+  /* Cream / warm pastel palette matching MD-Lambda-View web UI */
+  --cream-0: #f5e6a3;          /* warmest header gradient */
+  --cream-1: #f8edb8;
+  --cream-2: #fbf2c8;
+  --cream-3: #fdf6da;          /* main bg */
+  --paper:   #ffffff;          /* card surface */
+  --paper-2: #f7f2e0;          /* subtle card */
+  --line:    rgba(60, 50, 20, 0.12);
+  --line-2:  rgba(60, 50, 20, 0.06);
+  --ink-0:   #1a1a1a;          /* heading */
+  --ink-1:   #3a3a3a;          /* body */
+  --ink-2:   #6b6555;          /* muted */
+  --ink-3:   #9c9582;          /* very muted */
+  --accent:  #4a90e2;          /* the blue tile color */
+  --accent-soft: #b3d4ff;
+  --rich:    #c9302c;          /* fett */
+  --lean:    #2c6fb3;          /* mager */
+  --ok:      #2d8659;
+  --shadow-card: 0 1px 2px rgba(60,50,20,.04), 0 4px 16px rgba(60,50,20,.06);
+  --shadow-pop:  0 4px 12px rgba(60,50,20,.08), 0 16px 40px rgba(60,50,20,.10);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  background: var(--cream-3);
+  color: var(--ink-0);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+  font-size: 14px;
+  height: 100%;
+  overflow: hidden;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+
+/* ===== APP LAYOUT ===== */
+.app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--cream-0) 0%, var(--cream-2) 28%, var(--cream-3) 100%);
+}
+
+/* ===== HEADER ===== */
+header {
+  background: transparent;
+  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+  position: relative;
+}
+
+.brand {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--ink-0);
+  white-space: nowrap;
+}
+.brand .acc { color: var(--accent); }
+
+.status-pill {
+  flex: 1;
+  font-size: 11px;
+  color: var(--ink-2);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-card);
+  transition: transform .12s, background .12s;
+}
+.icon-btn:active { background: var(--paper-2); transform: scale(.94); }
+.icon-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(74,144,226,.3), 0 4px 16px rgba(74,144,226,.15);
+}
+
+/* ===== PLOT AREA ===== */
+.plot-area {
+  flex: 1;
+  position: relative;
+  margin: 0 16px 16px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+#plot {
+  width: 100%;
+  height: 100%;
+}
+
+/* Empty state */
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  gap: 14px;
+}
+.empty.hidden { display: none; }
+
+.empty .icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  box-shadow: 0 4px 14px rgba(74,144,226,.3);
+  margin-bottom: 4px;
+}
+
+.empty h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink-0);
+  letter-spacing: -0.4px;
+}
+
+.empty p {
+  font-size: 13px;
+  color: var(--ink-2);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.big-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 32px;
+  border-radius: 14px;
+  cursor: pointer;
+  margin-top: 8px;
+  box-shadow: 0 2px 6px rgba(74,144,226,.3), 0 6px 20px rgba(74,144,226,.18);
+  letter-spacing: -0.2px;
+}
+.big-btn:active { transform: scale(.97); }
+
+input[type="file"] { display: none; }
+
+/* ===== INFO STRIP (bottom of plot) ===== */
+.info-strip {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  display: none;
+  gap: 6px;
+  pointer-events: none;
+}
+.info-strip.active { display: flex; }
+
+.info-pill {
+  background: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 7px 10px;
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+  box-shadow: 0 2px 8px rgba(60,50,20,.06);
+}
+.info-pill .l {
+  color: var(--ink-3);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+.info-pill .v {
+  color: var(--ink-0);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== BOTTOM SHEET ===== */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 30, 0, .25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s;
+  z-index: 20;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.sheet-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--cream-3);
+  border-top: 1px solid var(--line);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -8px 40px rgba(60,50,20,.18);
+  transform: translateY(100%);
+  transition: transform .28s cubic-bezier(.4,.0,.2,1);
+  z-index: 21;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--safe-bot);
+}
+.sheet.open { transform: translateY(0); }
+
+.sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 6px;
+  cursor: grab;
+  touch-action: none;
+}
+.sheet-handle::before {
+  content: '';
+  width: 40px;
+  height: 4px;
+  background: var(--ink-3);
+  border-radius: 2px;
+  opacity: .4;
+}
+
+.sheet-header {
+  padding: 4px 20px 14px;
+  border-bottom: 1px solid var(--line-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-0);
+  letter-spacing: -0.3px;
+}
+
+.sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.section { margin-bottom: 22px; }
+.section:last-child { margin-bottom: 0; }
+
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ink-2);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+/* Stepper rows */
+.stepper-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 10px 8px 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.stepper-row .lbl {
+  font-size: 13px;
+  color: var(--ink-1);
+  font-weight: 500;
+}
+
+.step-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink-0);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.step-btn:active { background: var(--cream-1); transform: scale(.95); }
+
+.step-val {
+  background: transparent;
+  border: none;
+  color: var(--ink-0);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  width: 64px;
+  padding: 6px 4px;
+  -moz-appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+.step-val::-webkit-outer-spin-button,
+.step-val::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.step-val:focus { outline: none; }
+
+/* Choice chips */
+.chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: var(--shadow-card);
+}
+.chip {
+  background: transparent;
+  border: none;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 4px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: center;
+  transition: all .15s;
+}
+.chip.on {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(74,144,226,.25);
+}
+
+/* Color scale grid */
+.scale-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.scale-chip {
+  height: 46px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.scale-chip.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(74,144,226,.15), var(--shadow-card);
+}
+.scale-chip span {
+  position: absolute;
+  bottom: 5px;
+  left: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  letter-spacing: 0.3px;
+}
+
+/* Range row */
+.range-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.range-row .group {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-card);
+}
+.range-row .group .l {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.range-row .group input {
+  background: transparent;
+  border: none;
+  color: var(--ink-0);
+  font-size: 16px;
+  font-weight: 600;
+  width: 100%;
+  outline: none;
+  -moz-appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+.range-row .group input::-webkit-outer-spin-button,
+.range-row .group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Camera presets */
+.cam-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.cam-btn {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-1);
+  padding: 12px 4px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+}
+.cam-btn:active { background: var(--paper-2); transform: scale(.95); }
+.cam-btn .ico {
+  font-size: 18px;
+  display: block;
+  margin-bottom: 2px;
+  color: var(--accent);
+}
+.cam-btn .lbl {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--ink-2);
+}
+
+/* Stats grid */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.stat {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.stat .l {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink-3);
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+.stat .v {
+  font-size: 14px;
+  color: var(--ink-0);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cell table preview */
+.cells-preview {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+  font-size: 11px;
+  max-height: 220px;
+  overflow: auto;
+  box-shadow: var(--shadow-card);
+}
+.cells-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.cells-preview th, .cells-preview td {
+  padding: 6px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--line-2);
+  font-variant-numeric: tabular-nums;
+}
+.cells-preview tr:last-child td { border-bottom: none; }
+.cells-preview th {
+  color: var(--ink-3);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+}
+.cells-preview td.lam-rich { color: var(--rich); font-weight: 600; }
+.cells-preview td.lam-lean { color: var(--lean); font-weight: 600; }
+.cells-preview td.lam-ok   { color: var(--ok);   font-weight: 600; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: calc(var(--safe-bot) + 24px);
+  left: 50%;
+  transform: translateX(-50%) translateY(120px);
+  background: var(--ink-0);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 24px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 100;
+  transition: transform .25s;
+  max-width: 88vw;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ===== PSEUDO-FULLSCREEN (iOS fallback) ===== */
+body.pseudo-full header {
+  background: transparent;
+  border-bottom: none;
+  padding: calc(var(--safe-top) + 8px) 8px 8px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+body.pseudo-full header .brand,
+body.pseudo-full header .status-pill,
+body.pseudo-full header #btnCam,
+body.pseudo-full header #btnSheet {
+  display: none;
+}
+body.pseudo-full header #btnFull {
+  margin-left: auto;
+  background: rgba(255,255,255,.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.pseudo-full .plot-area {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* ===== Plotly tweaks for light theme ===== */
+.modebar { display: none !important; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+.home-btn {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink-1);
+  line-height: 1;
+  padding-bottom: 3px;
+}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header>
+    
+    <a href="index.html" class="icon-btn home-btn" title="Startseite" style="text-decoration:none">‹</a>
+    <div class="brand">MD-Lambda-View</div>
+    <div class="status-pill" id="status">Bereit</div>
+    <button class="icon-btn" id="btnCam" title="Ansicht zurücksetzen" disabled style="opacity:.4">↺</button>
+    <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
+    <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
+  </header>
+
+  <div class="plot-area">
+    <div class="empty" id="empty">
+      <div class="icon">📊</div>
+      <h2>Keine Daten</h2>
+      <p>CSV-Log laden zum Erzeugen der Lambda-Map über RPM × Drosselklappe<br><br>1 Finger dreht · 2 Finger zoomen & verschieben</p>
+      <button class="big-btn" id="btnLoad">CSV laden</button>
+    </div>
+    <div id="plot"></div>
+    <div class="info-strip" id="infoStrip">
+      <div class="info-pill"><div class="l">Punkte</div><div class="v" id="iPoints">—</div></div>
+      <div class="info-pill"><div class="l">Zellen</div><div class="v" id="iCells">—</div></div>
+      <div class="info-pill"><div class="l">λ Ø</div><div class="v" id="iAvg">—</div></div>
+      <div class="info-pill"><div class="l">λ min/max</div><div class="v" id="iMM">—</div></div>
+    </div>
+  </div>
+
+</div>
+
+<input type="file" id="fileInput" accept=".csv,.txt">
+
+<!-- Bottom Sheet -->
+<div class="sheet-backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle" id="sheetHandle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">Einstellungen</div>
+    <button class="icon-btn" id="btnClose">✕</button>
+  </div>
+  <div class="sheet-body">
+
+    <div class="section">
+      <div class="section-label">Datei</div>
+      <button class="big-btn" id="btnLoad2" style="width:100%">CSV-Datei wählen</button>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Bin-Größen</div>
+      <div class="stepper-row">
+        <div class="lbl">RPM-Schritt</div>
+        <button class="step-btn" data-step="rpm" data-dir="-1">−</button>
+        <input type="number" class="step-val" id="rpmStep" value="500" min="100" step="100">
+        <button class="step-btn" data-step="rpm" data-dir="1">+</button>
+      </div>
+      <div class="stepper-row">
+        <div class="lbl">Drossel-Schritt %</div>
+        <button class="step-btn" data-step="thr" data-dir="-1">−</button>
+        <input type="number" class="step-val" id="thrStep" value="5" min="1" step="1">
+        <button class="step-btn" data-step="thr" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Aggregation</div>
+      <div class="chips" id="aggChips">
+        <div class="chip on" data-agg="median">Median</div>
+        <div class="chip" data-agg="mean">Mean</div>
+        <div class="chip" data-agg="min">Min</div>
+        <div class="chip" data-agg="max">Max</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Farbskala</div>
+      <div class="scale-grid" id="scaleGrid"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">λ-Bereich</div>
+      <div class="range-row">
+        <div class="group">
+          <div class="l">Min (fett)</div>
+          <input type="number" id="cmin" value="0.65" step="0.01" inputmode="decimal">
+        </div>
+        <div class="group">
+          <div class="l">Max (mager)</div>
+          <input type="number" id="cmax" value="1.10" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Kameraperspektive</div>
+      <div class="cam-row">
+        <button class="cam-btn" data-cam="iso"><span class="ico">⬢</span><span class="lbl">ISO</span></button>
+        <button class="cam-btn" data-cam="top"><span class="ico">▦</span><span class="lbl">Oben</span></button>
+        <button class="cam-btn" data-cam="rpm"><span class="ico">▶</span><span class="lbl">RPM</span></button>
+        <button class="cam-btn" data-cam="thr"><span class="ico">▲</span><span class="lbl">TPS</span></button>
+      </div>
+    </div>
+
+    <div class="section" id="statsSection" style="display:none">
+      <div class="section-label">Statistik</div>
+      <div class="stats" id="statsGrid"></div>
+    </div>
+
+    <div class="section" id="cellsSection" style="display:none">
+      <div class="section-label">Zellen (Top 30)</div>
+      <div class="cells-preview" id="cellsPreview"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ STATE ============
+const STATE = {
+  rawData: { rpm: [], throttle: [], lambda: [] },
+  agg: 'median',
+  scale: 'Rainbow',
+  currentSurface: null,
+  hasData: false,
+  cells: [],
+};
+
+const CAMS = {
+  iso: { eye: { x: -2.0, y: -2.0, z: 0.9 }, center: { x: 0, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 } },
+  top: { eye: { x: 0,    y: 0,    z: 2.5 }, center: { x: 0, y: 0, z: 0 }, up: { x: 0, y: 1, z: 0 } },
+  rpm: { eye: { x: 0,    y: -2.5, z: 0.4 }, center: { x: 0, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 } },
+  thr: { eye: { x: -2.5, y: 0,    z: 0.4 }, center: { x: 0, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 } },
+};
+
+const SCALES = ['Rainbow', 'Viridis', 'Cividis', 'Jet', 'Plasma', 'Inferno'];
+
+// ============ HELPERS ============
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function toast(msg, ms=2000) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function setStatus(s) { $('#status').textContent = s; }
+
+function parseFloatDE(v) {
+  const n = parseFloat(String(v).trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function binCenter(v, step) { return Math.round(v / step) * step; }
+
+function median(values) {
+  const a = values.slice().sort((x, y) => x - y);
+  const mid = Math.floor(a.length / 2);
+  return (a.length % 2) ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+}
+
+function aggregate(values, method) {
+  if (!values || values.length === 0) return null;
+  switch (method) {
+    case 'mean':   return values.reduce((a, b) => a + b, 0) / values.length;
+    case 'median': return median(values);
+    case 'min':    return Math.min(...values);
+    case 'max':    return Math.max(...values);
+    default:       return values.reduce((a, b) => a + b, 0) / values.length;
+  }
+}
+
+function sortedUnique(arr) { return [...new Set(arr)].sort((a, b) => a - b); }
+
+// ============ COLOR SCALE PREVIEWS ============
+function buildScaleChips() {
+  const grid = $('#scaleGrid');
+  grid.innerHTML = '';
+  // Rough gradient previews matching Plotly named scales
+  const previews = {
+    Rainbow:  'linear-gradient(90deg, #6e40aa, #4d7eff, #00d4aa, #ffd23f, #ff5050)',
+    Viridis:  'linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725)',
+    Cividis:  'linear-gradient(90deg, #00224e, #404e7c, #7c7b78, #ada762, #ffe945)',
+    Jet:      'linear-gradient(90deg, #00007f, #0000ff, #00ffff, #ffff00, #ff0000)',
+    Plasma:   'linear-gradient(90deg, #0d0887, #7e03a8, #cc4778, #f89441, #f0f921)',
+    Inferno:  'linear-gradient(90deg, #000004, #420a68, #932667, #dd513a, #fcffa4)',
+  };
+  for (const s of SCALES) {
+    const el = document.createElement('div');
+    el.className = 'scale-chip' + (s === STATE.scale ? ' on' : '');
+    el.style.background = previews[s];
+    el.dataset.scale = s;
+    el.innerHTML = `<span>${s}</span>`;
+    el.addEventListener('click', () => {
+      STATE.scale = s;
+      $$('.scale-chip').forEach(c => c.classList.toggle('on', c.dataset.scale === s));
+      if (STATE.hasData) render3D();
+    });
+    grid.appendChild(el);
+  }
+}
+
+// ============ FILE LOADING ============
+function pickFile() { $('#fileInput').click(); }
+
+$('#fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setStatus('Lese ' + file.name + '…');
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const raw = ev.target.result.trim();
+      const lines = raw.split(/\r?\n/).filter(l => l && l.trim().length > 0);
+      if (lines.length < 2) { toast('CSV leer'); return; }
+
+      const rpm = [], throttle = [], lambda = [];
+      let skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith('#')) continue;
+        const values = line.split(';');
+        if (values.length < 5) { skipped++; continue; }
+
+        const r = parseFloatDE(values[1]);
+        const t = parseFloatDE(values[2]);
+        const l = parseFloatDE(values[4]);
+
+        if (!Number.isFinite(r) || !Number.isFinite(t) || !Number.isFinite(l)) { skipped++; continue; }
+        if (r < 0 || r > 20000) { skipped++; continue; }
+        if (t < -1 || t > 105) { skipped++; continue; }
+        if (l < 0.5 || l > 2.5) { skipped++; continue; }
+
+        rpm.push(r); throttle.push(t); lambda.push(l);
+      }
+
+      if (rpm.length === 0) { toast('Keine gültigen Daten'); setStatus('Fehler'); return; }
+
+      STATE.rawData = { rpm, throttle, lambda };
+      STATE.hasData = true;
+      $('#empty').classList.add('hidden');
+      $('#infoStrip').classList.add('active');
+      $('#statsSection').style.display = '';
+      $('#cellsSection').style.display = '';
+      $('#btnCam').disabled = false;
+      $('#btnCam').style.opacity = '1';
+      setStatus(file.name + ' · ' + rpm.length.toLocaleString('de-DE') + ' Punkte');
+      render3D();
+      toast(rpm.length.toLocaleString('de-DE') + ' Datenpunkte geladen');
+    } catch (err) {
+      console.error(err);
+      toast('Fehler: ' + err.message);
+      setStatus('Fehler');
+    }
+  };
+  reader.readAsText(file);
+});
+
+// ============ RENDER ============
+function render3D() {
+  if (!STATE.hasData) return;
+  if (typeof Plotly === 'undefined') {
+    toast('Plotly nicht verfügbar – Content-Blocker?', 4000);
+    return;
+  }
+
+  const rpmStep = parseFloat($('#rpmStep').value) || 500;
+  const thrStep = parseFloat($('#thrStep').value) || 5;
+  const cmin = parseFloat($('#cmin').value);
+  const cmax = parseFloat($('#cmax').value);
+  const aggMethod = STATE.agg;
+  const scale = STATE.scale;
+
+  const { rpm, throttle, lambda } = STATE.rawData;
+
+  const rpmBins = sortedUnique(rpm.map(v => binCenter(v, rpmStep)));
+  const thrBins = sortedUnique(throttle.map(v => binCenter(v, thrStep)));
+
+  const valueMatrix = Array.from({ length: thrBins.length }, () =>
+    Array.from({ length: rpmBins.length }, () => [])
+  );
+
+  const rpmIdx = new Map(rpmBins.map((v, i) => [v, i]));
+  const thrIdx = new Map(thrBins.map((v, i) => [v, i]));
+
+  for (let i = 0; i < rpm.length; i++) {
+    const rIdx = rpmIdx.get(binCenter(rpm[i], rpmStep));
+    const tIdx = thrIdx.get(binCenter(throttle[i], thrStep));
+    if (rIdx !== undefined && tIdx !== undefined) {
+      valueMatrix[tIdx][rIdx].push(lambda[i]);
+    }
+  }
+
+  const zMatrix = Array.from({ length: thrBins.length }, () => Array(rpmBins.length).fill(null));
+  const cells = [];
+  let totalLam = 0, lamCount = 0, lamMin = Infinity, lamMax = -Infinity, validCells = 0;
+
+  for (let t = 0; t < thrBins.length; t++) {
+    for (let r = 0; r < rpmBins.length; r++) {
+      const vals = valueMatrix[t][r];
+      if (vals.length > 0) {
+        const z = aggregate(vals, aggMethod);
+        zMatrix[t][r] = z;
+        cells.push({ rpm: rpmBins[r], thr: thrBins[t], lam: z, n: vals.length });
+        totalLam += z; lamCount++;
+        if (z < lamMin) lamMin = z;
+        if (z > lamMax) lamMax = z;
+        validCells++;
+      }
+    }
+  }
+
+  if (validCells === 0) { toast('Keine gefüllten Bins'); return; }
+  STATE.cells = cells;
+
+  // Update info strip + stats
+  $('#iPoints').textContent = rpm.length.toLocaleString('de-DE');
+  $('#iCells').textContent = validCells;
+  $('#iAvg').textContent = (totalLam / lamCount).toFixed(2);
+  $('#iMM').textContent = lamMin.toFixed(2) + '/' + lamMax.toFixed(2);
+
+  $('#statsGrid').innerHTML = `
+    <div class="stat"><div class="l">Rohpunkte</div><div class="v">${rpm.length.toLocaleString('de-DE')}</div></div>
+    <div class="stat"><div class="l">Gefüllte Zellen</div><div class="v">${validCells} / ${rpmBins.length * thrBins.length}</div></div>
+    <div class="stat"><div class="l">RPM-Bereich</div><div class="v">${rpmBins[0]}–${rpmBins[rpmBins.length-1]}</div></div>
+    <div class="stat"><div class="l">TPS-Bereich</div><div class="v">${thrBins[0]}–${thrBins[thrBins.length-1]}%</div></div>
+    <div class="stat"><div class="l">λ Ø</div><div class="v">${(totalLam/lamCount).toFixed(3)}</div></div>
+    <div class="stat"><div class="l">λ Min/Max</div><div class="v">${lamMin.toFixed(2)} / ${lamMax.toFixed(2)}</div></div>
+  `;
+
+  // Top cells preview (highest n)
+  const top = [...cells].sort((a,b) => b.n - a.n).slice(0, 30);
+  const rows = top.map(c => {
+    const cls = c.lam < 0.95 ? 'lam-rich' : c.lam > 1.05 ? 'lam-lean' : 'lam-ok';
+    return `<tr><td>${c.rpm}</td><td>${c.thr}</td><td class="${cls}">${c.lam.toFixed(2)}</td><td>${c.n}</td></tr>`;
+  }).join('');
+  $('#cellsPreview').innerHTML = `
+    <table>
+      <thead><tr><th>RPM</th><th>TPS%</th><th>λ</th><th>n</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  // Plot
+  const surface = {
+    x: rpmBins,
+    y: thrBins,
+    z: zMatrix,
+    type: 'surface',
+    colorscale: scale,
+    cmin: Number.isFinite(cmin) ? cmin : 0.65,
+    cmax: Number.isFinite(cmax) ? cmax : 1.10,
+    showscale: true,
+    connectgaps: false,
+    colorbar: {
+      title: { text: 'λ', font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+      tickfont: { color: '#6b6555', family: '-apple-system, sans-serif', size: 10 },
+      thickness: 12,
+      len: 0.6,
+      x: 1.0,
+      outlinewidth: 0,
+    },
+    contours: {
+      z: { show: true, usecolormap: false, color: '#6b6555', project: { z: true }, width: 1 }
+    },
+    hovertemplate: 'RPM %{x}<br>TPS %{y}%<br>λ %{z:.3f}<extra></extra>'
+  };
+  STATE.currentSurface = surface;
+
+  const layout = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    margin: { l: 0, r: 0, t: 0, b: 0 },
+    scene: {
+      aspectmode: 'manual',
+      aspectratio: { x: 2.5, y: 1.6, z: 1 },
+      bgcolor: 'rgba(0,0,0,0)',
+      xaxis: {
+        title: { text: 'RPM', font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+        color: '#6b6555',
+        gridcolor: 'rgba(60,50,20,.10)',
+        zerolinecolor: 'rgba(60,50,20,.18)',
+        showbackground: false,
+      },
+      yaxis: {
+        title: { text: 'TPS %', font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+        color: '#6b6555',
+        gridcolor: 'rgba(60,50,20,.10)',
+        zerolinecolor: 'rgba(60,50,20,.18)',
+        showbackground: false,
+      },
+      zaxis: {
+        title: { text: 'λ', font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+        color: '#6b6555',
+        gridcolor: 'rgba(60,50,20,.10)',
+        zerolinecolor: 'rgba(60,50,20,.18)',
+        showbackground: false,
+      },
+      camera: CAMS.iso,
+    },
+    uirevision: 'keep'
+  };
+
+  const config = {
+    responsive: true,
+    displayModeBar: false,
+    scrollZoom: true,
+    doubleClick: 'reset',
+  };
+
+  Plotly.react('plot', [surface], layout, config);
+  setTimeout(() => {
+    Plotly.Plots.resize('plot');
+    setupTouchGestures();
+  }, 50);
+}
+
+function setCamera(name) {
+  if (!STATE.hasData) return;
+  STATE.camera = JSON.parse(JSON.stringify(CAMS[name]));
+  Plotly.relayout('plot', { 'scene.camera': STATE.camera });
+}
+
+// ============ TOUCH GESTURES (Zoom + Pan) ============
+// Single finger: rotate (Plotly default). Two fingers: pinch zoom + pan.
+function getCurrentCamera() {
+  const gd = document.getElementById('plot');
+  if (gd && gd.layout && gd.layout.scene && gd.layout.scene.camera) {
+    return JSON.parse(JSON.stringify(gd.layout.scene.camera));
+  }
+  return STATE.camera ? JSON.parse(JSON.stringify(STATE.camera)) : JSON.parse(JSON.stringify(CAMS.iso));
+}
+
+function vecLen(v) { return Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z); }
+function vecSub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
+function vecAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }
+function vecScale(v, s) { return { x: v.x * s, y: v.y * s, z: v.z * s }; }
+function vecNorm(v) { const l = vecLen(v) || 1; return vecScale(v, 1/l); }
+function vecCross(a, b) {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
+  };
+}
+
+let touchState = null;
+
+function setupTouchGestures() {
+  const plotEl = document.getElementById('plot');
+  if (!plotEl || plotEl._mdGesturesAttached) return;
+  plotEl._mdGesturesAttached = true;
+
+  plotEl.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      const cx = (t1.clientX + t2.clientX) / 2;
+      const cy = (t1.clientY + t2.clientY) / 2;
+      touchState = {
+        startDist: Math.hypot(dx, dy),
+        startCx: cx,
+        startCy: cy,
+        lastCx: cx,
+        lastCy: cy,
+        startCam: getCurrentCamera(),
+      };
+    }
+  }, { passive: false });
+
+  plotEl.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2 || !touchState) return;
+    e.preventDefault();
+
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    const dist = Math.hypot(dx, dy);
+    const cx = (t1.clientX + t2.clientX) / 2;
+    const cy = (t1.clientY + t2.clientY) / 2;
+
+    // --- ZOOM via pinch ---
+    // Move eye along its vector relative to center.
+    const cam = JSON.parse(JSON.stringify(touchState.startCam));
+    const ratio = touchState.startDist > 0 ? touchState.startDist / dist : 1;
+    // Clamp zoom range
+    const clampedRatio = Math.max(0.25, Math.min(4, ratio));
+    const eyeRel = vecSub(cam.eye, cam.center);
+    const newEyeRel = vecScale(eyeRel, clampedRatio);
+    cam.eye = vecAdd(cam.center, newEyeRel);
+
+    // --- PAN via two-finger translation ---
+    // Move center perpendicular to view direction.
+    const panX = (cx - touchState.startCx);
+    const panY = (cy - touchState.startCy);
+    const rect = plotEl.getBoundingClientRect();
+    const eyeDist = vecLen(newEyeRel) || 1;
+    // Pan speed scales with current eye distance and screen size
+    const panScale = eyeDist / Math.min(rect.width, rect.height) * 1.2;
+
+    const forward = vecNorm(vecSub(cam.center, cam.eye));
+    const up = cam.up || { x: 0, y: 0, z: 1 };
+    const right = vecNorm(vecCross(forward, up));
+    const trueUp = vecNorm(vecCross(right, forward));
+
+    const panOffset = vecAdd(
+      vecScale(right, -panX * panScale),
+      vecScale(trueUp, panY * panScale)
+    );
+    cam.center = vecAdd(cam.center, panOffset);
+    cam.eye = vecAdd(cam.eye, panOffset);
+
+    STATE.camera = cam;
+    if (typeof Plotly !== 'undefined') {
+      Plotly.relayout('plot', { 'scene.camera': cam });
+    }
+  }, { passive: false });
+
+  plotEl.addEventListener('touchend', e => {
+    if (e.touches.length < 2) touchState = null;
+  });
+  plotEl.addEventListener('touchcancel', () => { touchState = null; });
+}
+
+// ============ UI: STEPPERS ============
+$$('.step-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const which = btn.dataset.step;
+    const dir = parseInt(btn.dataset.dir, 10);
+    const input = $(which === 'rpm' ? '#rpmStep' : '#thrStep');
+    const min = parseFloat(input.min) || 1;
+    const step = parseFloat(input.step) || 1;
+    let v = (parseFloat(input.value) || 0) + dir * step;
+    if (v < min) v = min;
+    input.value = v;
+    if (STATE.hasData) render3D();
+  });
+});
+
+['rpmStep', 'thrStep', 'cmin', 'cmax'].forEach(id => {
+  $('#' + id).addEventListener('change', () => { if (STATE.hasData) render3D(); });
+});
+
+// ============ UI: CHIPS / CAM ============
+$$('#aggChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    STATE.agg = c.dataset.agg;
+    $$('#aggChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    if (STATE.hasData) render3D();
+  });
+});
+
+$$('.cam-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    setCamera(b.dataset.cam);
+    closeSheet();
+  });
+});
+
+$('#btnCam').addEventListener('click', () => setCamera('iso'));
+
+// ============ FULLSCREEN ============
+const fullBtn = $('#btnFull');
+let pseudoFull = false;
+
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (req) {
+    try {
+      const p = req.call(el);
+      if (p && p.catch) p.catch(() => enterPseudoFullscreen());
+      return;
+    } catch (e) { /* fall through */ }
+  }
+  enterPseudoFullscreen();
+}
+
+function exitFullscreen() {
+  if (isFullscreen()) {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit) { try { exit.call(document); } catch (e) {} }
+  }
+  if (pseudoFull) exitPseudoFullscreen();
+}
+
+// iOS Safari fallback: hide header + status bars, plot fills viewport
+function enterPseudoFullscreen() {
+  pseudoFull = true;
+  document.body.classList.add('pseudo-full');
+  fullBtn.textContent = '⤢';
+  fullBtn.title = 'Vollbild beenden';
+  setTimeout(() => { if (STATE.hasData && typeof Plotly !== 'undefined') Plotly.Plots.resize('plot'); }, 80);
+}
+
+function exitPseudoFullscreen() {
+  pseudoFull = false;
+  document.body.classList.remove('pseudo-full');
+  fullBtn.textContent = '⛶';
+  fullBtn.title = 'Vollbild';
+  setTimeout(() => { if (STATE.hasData && typeof Plotly !== 'undefined') Plotly.Plots.resize('plot'); }, 80);
+}
+
+fullBtn.addEventListener('click', () => {
+  if (isFullscreen() || pseudoFull) exitFullscreen();
+  else enterFullscreen();
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (isFullscreen()) {
+    fullBtn.textContent = '⤢';
+    fullBtn.title = 'Vollbild beenden';
+  } else {
+    fullBtn.textContent = '⛶';
+    fullBtn.title = 'Vollbild';
+  }
+  setTimeout(() => { if (STATE.hasData && typeof Plotly !== 'undefined') Plotly.Plots.resize('plot'); }, 80);
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  document.dispatchEvent(new Event('fullscreenchange'));
+});
+
+// ESC also exits pseudo-fullscreen
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && pseudoFull) exitPseudoFullscreen();
+});
+
+// ============ BOTTOM SHEET ============
+function openSheet() {
+  $('#sheet').classList.add('open');
+  $('#backdrop').classList.add('open');
+}
+function closeSheet() {
+  $('#sheet').classList.remove('open');
+  $('#backdrop').classList.remove('open');
+}
+$('#btnSheet').addEventListener('click', openSheet);
+$('#btnClose').addEventListener('click', closeSheet);
+$('#backdrop').addEventListener('click', closeSheet);
+
+// Drag handle to close
+let dragStart = null;
+const handle = $('#sheetHandle');
+const sheetEl = $('#sheet');
+handle.addEventListener('touchstart', e => {
+  dragStart = e.touches[0].clientY;
+  sheetEl.style.transition = 'none';
+}, { passive: true });
+handle.addEventListener('touchmove', e => {
+  if (dragStart === null) return;
+  const dy = e.touches[0].clientY - dragStart;
+  if (dy > 0) sheetEl.style.transform = 'translateY(' + dy + 'px)';
+}, { passive: true });
+handle.addEventListener('touchend', e => {
+  sheetEl.style.transition = '';
+  sheetEl.style.transform = '';
+  if (dragStart !== null) {
+    const endY = e.changedTouches[0].clientY;
+    if (endY - dragStart > 80) closeSheet();
+  }
+  dragStart = null;
+});
+
+// ============ LOAD BUTTONS ============
+$('#btnLoad').addEventListener('click', pickFile);
+$('#btnLoad2').addEventListener('click', () => { closeSheet(); setTimeout(pickFile, 150); });
+
+// ============ INIT ============
+buildScaleChips();
+window.addEventListener('resize', () => {
+  if (STATE.hasData) Plotly.Plots.resize('plot');
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { if (STATE.hasData) Plotly.Plots.resize('plot'); }, 250);
+});
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW failed:', e));
+}
+</script>
+</body>
+</html>
