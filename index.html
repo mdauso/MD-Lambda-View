@@ -181,6 +181,25 @@ main {
 .install-hint:active { transform: scale(.98); }
 .install-hint.show { display: block; }
 
+.hero-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding: 8px 0 16px;
+}
+
+.hero-logo {
+  width: 100%;
+  max-width: 240px;
+  display: block;
+  pointer-events: none;
+  border-radius: 24px;
+  box-shadow:
+    0 2px 4px rgba(60, 50, 20, 0.08),
+    0 10px 30px rgba(60, 50, 20, 0.18),
+    0 24px 60px rgba(60, 50, 20, 0.14);
+}
+
 footer {
   padding: 20px;
   padding-bottom: calc(var(--safe-bot) + 20px);
@@ -238,6 +257,10 @@ footer a {
 
   <div class="info-card">
     Wertet CSV-Logs des <strong>MD-Lambda-View</strong> Datenloggers aus. Lade die Logdateien aus dem Gerätespeicher oder über die Web-Oberfläche herunter und öffne sie hier zur Analyse.
+  </div>
+
+  <div class="hero-logo-wrap">
+    <img src="icons/logo-hero.png" class="hero-logo" alt="">
   </div>
 </main>
 
