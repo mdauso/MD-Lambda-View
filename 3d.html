@@ -666,6 +666,27 @@ body.pseudo-full .plot-area {
   padding-bottom: 3px;
 }
 
+
+/* Desktop: narrower centered sheet */
+@media (min-width: 600px) {
+  .sheet {
+    left: 50%;
+    right: auto;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(calc(100% + 48px));
+    width: 480px;
+    max-width: calc(100vw - 48px);
+    border-radius: 22px;
+    border: 1px solid var(--line);
+    max-height: 80vh;
+  }
+  .sheet.open {
+    transform: translateX(-50%) translateY(0);
+  }
+  .sheet-handle { display: none; }
+  .sheet-header { padding-top: 18px; }
+}
+
 </style>
 </head>
 <body>
