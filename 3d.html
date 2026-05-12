@@ -799,7 +799,7 @@ body.pseudo-full .plot-area {
     </div>
 
     <div class="section" id="cellsSection" style="display:none">
-      <div class="section-label">Zellen (Top 30)</div>
+      <div class="section-label">Zellen (alle, nach TPS · RPM)</div>
       <div class="cells-preview" id="cellsPreview"></div>
     </div>
 
@@ -1026,9 +1026,9 @@ function render3D() {
     <div class="stat"><div class="l">λ Min/Max</div><div class="v">${lamMin.toFixed(2)} / ${lamMax.toFixed(2)}</div></div>
   `;
 
-  // Top cells preview (highest n)
-  const top = [...cells].sort((a,b) => b.n - a.n).slice(0, 30);
-  const rows = top.map(c => {
+  // All cells sorted by TPS bin (asc), then by RPM bin (asc)
+  const sorted = [...cells].sort((a, b) => a.thr - b.thr || a.rpm - b.rpm);
+  const rows = sorted.map(c => {
     const cls = c.lam < 0.95 ? 'lam-rich' : c.lam > 1.05 ? 'lam-lean' : 'lam-ok';
     return `<tr><td>${c.rpm}</td><td>${c.thr}</td><td class="${cls}">${c.lam.toFixed(2)}</td><td>${c.n}</td></tr>`;
   }).join('');
