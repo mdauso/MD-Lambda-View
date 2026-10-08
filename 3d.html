@@ -714,8 +714,8 @@ body.pseudo-full .plot-area {
     <div class="info-strip" id="infoStrip">
       <div class="info-pill"><div class="l">Punkte</div><div class="v" id="iPoints">—</div></div>
       <div class="info-pill"><div class="l">Zellen</div><div class="v" id="iCells">—</div></div>
-      <div class="info-pill"><div class="l">λ Ø</div><div class="v" id="iAvg">—</div></div>
-      <div class="info-pill"><div class="l">λ min/max</div><div class="v" id="iMM">—</div></div>
+      <div class="info-pill"><div class="l" id="iAvgL">λ Ø</div><div class="v" id="iAvg">—</div></div>
+      <div class="info-pill"><div class="l" id="iMML">λ min/max</div><div class="v" id="iMM">—</div></div>
     </div>
   </div>
 
@@ -765,12 +765,20 @@ body.pseudo-full .plot-area {
     </div>
 
     <div class="section">
+      <div class="section-label">Einheit</div>
+      <div class="chips" id="unitChips">
+        <div class="chip on" data-unit="lambda">Lambda (λ)</div>
+        <div class="chip" data-unit="afr">AFR (14,7)</div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-label">Farbskala</div>
       <div class="scale-grid" id="scaleGrid"></div>
     </div>
 
     <div class="section">
-      <div class="section-label">λ-Bereich</div>
+      <div class="section-label" id="rangeLabel">λ-Bereich</div>
       <div class="range-row">
         <div class="group">
           <div class="l">Min (fett)</div>
@@ -809,8 +817,12 @@ body.pseudo-full .plot-area {
 <div class="toast" id="toast"></div>
 
 <script>
+// ============ CONSTANTS ============
+const AFR_STOICH = 14.7;
+
 // ============ STATE ============
 const STATE = {
+  unit: 'lambda',  // 'lambda' or 'afr'
   rawData: { rpm: [], throttle: [], lambda: [] },
   agg: 'median',
   scale: 'Rainbow',
@@ -827,6 +839,14 @@ const CAMS = {
 };
 
 const SCALES = ['Rainbow', 'Viridis', 'Cividis', 'Jet', 'Plasma', 'Inferno'];
+
+// ============ UNIT HELPERS ============
+function toUnit(l) { return STATE.unit === 'afr' ? l * AFR_STOICH : l; }
+function fmtVal(l, d) {
+  if (STATE.unit === 'afr') return (l * AFR_STOICH).toFixed(d != null ? d : 2);
+  return l.toFixed(d != null ? d : 2);
+}
+function unitShort() { return STATE.unit === 'afr' ? 'AFR' : 'λ'; }
 
 // ============ HELPERS ============
 const $ = sel => document.querySelector(sel);
@@ -997,12 +1017,13 @@ function render3D() {
     for (let r = 0; r < rpmBins.length; r++) {
       const vals = valueMatrix[t][r];
       if (vals.length > 0) {
-        const z = aggregate(vals, aggMethod);
-        zMatrix[t][r] = z;
-        cells.push({ rpm: rpmBins[r], thr: thrBins[t], lam: z, n: vals.length });
-        totalLam += z; lamCount++;
-        if (z < lamMin) lamMin = z;
-        if (z > lamMax) lamMax = z;
+        const zLam = aggregate(vals, aggMethod);
+        // store the display-unit value in zMatrix for the surface
+        zMatrix[t][r] = toUnit(zLam);
+        cells.push({ rpm: rpmBins[r], thr: thrBins[t], lam: zLam, n: vals.length });
+        totalLam += zLam; lamCount++;
+        if (zLam < lamMin) lamMin = zLam;
+        if (zLam > lamMax) lamMax = zLam;
         validCells++;
       }
     }
@@ -1014,44 +1035,50 @@ function render3D() {
   // Update info strip + stats
   $('#iPoints').textContent = rpm.length.toLocaleString('de-DE');
   $('#iCells').textContent = validCells;
-  $('#iAvg').textContent = (totalLam / lamCount).toFixed(2);
-  $('#iMM').textContent = lamMin.toFixed(2) + '/' + lamMax.toFixed(2);
+  $('#iAvgL').textContent = unitShort() + ' Ø';
+  $('#iMML').textContent = unitShort() + ' min/max';
+  $('#iAvg').textContent = fmtVal(totalLam / lamCount);
+  $('#iMM').textContent = fmtVal(lamMin) + '/' + fmtVal(lamMax);
 
+  const u = unitShort();
   $('#statsGrid').innerHTML = `
     <div class="stat"><div class="l">Rohpunkte</div><div class="v">${rpm.length.toLocaleString('de-DE')}</div></div>
     <div class="stat"><div class="l">Gefüllte Zellen</div><div class="v">${validCells} / ${rpmBins.length * thrBins.length}</div></div>
     <div class="stat"><div class="l">RPM-Bereich</div><div class="v">${rpmBins[0]}–${rpmBins[rpmBins.length-1]}</div></div>
     <div class="stat"><div class="l">TPS-Bereich</div><div class="v">${thrBins[0]}–${thrBins[thrBins.length-1]}%</div></div>
-    <div class="stat"><div class="l">λ Ø</div><div class="v">${(totalLam/lamCount).toFixed(3)}</div></div>
-    <div class="stat"><div class="l">λ Min/Max</div><div class="v">${lamMin.toFixed(2)} / ${lamMax.toFixed(2)}</div></div>
+    <div class="stat"><div class="l">${u} Ø</div><div class="v">${fmtVal(totalLam/lamCount, 3)}</div></div>
+    <div class="stat"><div class="l">${u} Min/Max</div><div class="v">${fmtVal(lamMin)} / ${fmtVal(lamMax)}</div></div>
   `;
 
   // All cells sorted by TPS bin (asc), then by RPM bin (asc)
   const sorted = [...cells].sort((a, b) => a.thr - b.thr || a.rpm - b.rpm);
   const rows = sorted.map(c => {
+    // Rich/lean classification always in lambda terms
     const cls = c.lam < 0.95 ? 'lam-rich' : c.lam > 1.05 ? 'lam-lean' : 'lam-ok';
-    return `<tr><td>${c.rpm}</td><td>${c.thr}</td><td class="${cls}">${c.lam.toFixed(2)}</td><td>${c.n}</td></tr>`;
+    return `<tr><td>${c.rpm}</td><td>${c.thr}</td><td class="${cls}">${fmtVal(c.lam)}</td><td>${c.n}</td></tr>`;
   }).join('');
   $('#cellsPreview').innerHTML = `
     <table>
-      <thead><tr><th>RPM</th><th>TPS%</th><th>λ</th><th>n</th></tr></thead>
+      <thead><tr><th>RPM</th><th>TPS%</th><th>${u}</th><th>n</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
 
   // Plot
+  const defaultMin = STATE.unit === 'afr' ? 0.65 * AFR_STOICH : 0.65;
+  const defaultMax = STATE.unit === 'afr' ? 1.10 * AFR_STOICH : 1.10;
   const surface = {
     x: rpmBins,
     y: thrBins,
     z: zMatrix,
     type: 'surface',
     colorscale: scale,
-    cmin: Number.isFinite(cmin) ? cmin : 0.65,
-    cmax: Number.isFinite(cmax) ? cmax : 1.10,
+    cmin: Number.isFinite(cmin) ? cmin : defaultMin,
+    cmax: Number.isFinite(cmax) ? cmax : defaultMax,
     showscale: true,
     connectgaps: false,
     colorbar: {
-      title: { text: 'λ', font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+      title: { text: u, font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
       tickfont: { color: '#6b6555', family: '-apple-system, sans-serif', size: 10 },
       thickness: 12,
       len: 0.6,
@@ -1061,7 +1088,7 @@ function render3D() {
     contours: {
       z: { show: true, usecolormap: false, color: '#6b6555', project: { z: true }, width: 1 }
     },
-    hovertemplate: 'RPM %{x}<br>TPS %{y}%<br>λ %{z:.3f}<extra></extra>'
+    hovertemplate: 'RPM %{x}<br>TPS %{y}%<br>' + u + ' %{z:.3f}<extra></extra>'
   };
   STATE.currentSurface = surface;
 
@@ -1088,7 +1115,7 @@ function render3D() {
         showbackground: false,
       },
       zaxis: {
-        title: { text: 'λ', font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+        title: { text: u, font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
         color: '#6b6555',
         gridcolor: 'rgba(60,50,20,.10)',
         zerolinecolor: 'rgba(60,50,20,.18)',
@@ -1246,6 +1273,35 @@ $$('#aggChips .chip').forEach(c => {
   c.addEventListener('click', () => {
     STATE.agg = c.dataset.agg;
     $$('#aggChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    if (STATE.hasData) render3D();
+  });
+});
+
+$$('#unitChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    const newUnit = c.dataset.unit;
+    if (newUnit === STATE.unit) return;
+    const oldUnit = STATE.unit;
+    STATE.unit = newUnit;
+    $$('#unitChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    // Update sidebar labels
+    $('#rangeLabel').textContent = (newUnit === 'afr' ? 'AFR-Bereich' : 'λ-Bereich');
+    // Convert the min/max fields so the current window stays meaningful
+    const cminEl = $('#cmin'), cmaxEl = $('#cmax');
+    const curMin = parseFloat(cminEl.value), curMax = parseFloat(cmaxEl.value);
+    if (Number.isFinite(curMin) && Number.isFinite(curMax)) {
+      if (oldUnit === 'lambda' && newUnit === 'afr') {
+        cminEl.value = (curMin * AFR_STOICH).toFixed(2);
+        cmaxEl.value = (curMax * AFR_STOICH).toFixed(2);
+        cminEl.step = '0.1';
+        cmaxEl.step = '0.1';
+      } else if (oldUnit === 'afr' && newUnit === 'lambda') {
+        cminEl.value = (curMin / AFR_STOICH).toFixed(2);
+        cmaxEl.value = (curMax / AFR_STOICH).toFixed(2);
+        cminEl.step = '0.01';
+        cmaxEl.step = '0.01';
+      }
+    }
     if (STATE.hasData) render3D();
   });
 });

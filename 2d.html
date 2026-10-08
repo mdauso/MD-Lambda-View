@@ -799,8 +799,8 @@ body.pseudo-full .chart-area {
     <div class="info-strip" id="infoStrip">
       <div class="info-pill"><div class="l">Punkte</div><div class="v" id="iPoints">—</div></div>
       <div class="info-pill"><div class="l">Bins</div><div class="v" id="iBins">—</div></div>
-      <div class="info-pill"><div class="l">λ Ø</div><div class="v" id="iAvg">—</div></div>
-      <div class="info-pill"><div class="l">λ min/max</div><div class="v" id="iMM">—</div></div>
+      <div class="info-pill"><div class="l" id="iAvgL">λ Ø</div><div class="v" id="iAvg">—</div></div>
+      <div class="info-pill"><div class="l" id="iMML">λ min/max</div><div class="v" id="iMM">—</div></div>
     </div>
   </div>
 
@@ -839,12 +839,26 @@ body.pseudo-full .chart-area {
     </div>
 
     <div class="section">
+      <div class="section-label">X-Achse</div>
+      <div class="chips" id="xAxisChips">
+        <div class="chip on" data-xaxis="tps">Drosselklappe (TPS)</div>
+        <div class="chip" data-xaxis="rpm">Drehzahl (RPM)</div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-label">Bin-Größe</div>
-      <div class="stepper-row">
+      <div class="stepper-row" id="thrStepRow">
         <div class="lbl">Drossel-Schritt %</div>
-        <button class="step-btn" data-dir="-1">−</button>
+        <button class="step-btn" data-dir="-1" data-step="thr">−</button>
         <input type="number" class="step-val" id="thrStep" value="5" min="1" step="1">
-        <button class="step-btn" data-dir="1">+</button>
+        <button class="step-btn" data-dir="1" data-step="thr">+</button>
+      </div>
+      <div class="stepper-row" id="rpmStepRow" style="display:none">
+        <div class="lbl">RPM-Schritt</div>
+        <button class="step-btn" data-dir="-1" data-step="rpm">−</button>
+        <input type="number" class="step-val" id="rpmStep" value="500" min="50" step="50">
+        <button class="step-btn" data-dir="1" data-step="rpm">+</button>
       </div>
     </div>
 
@@ -862,13 +876,21 @@ body.pseudo-full .chart-area {
     </div>
 
     <div class="section">
+      <div class="section-label">Einheit</div>
+      <div class="chips" id="unitChips">
+        <div class="chip on" data-unit="lambda">Lambda (λ)</div>
+        <div class="chip" data-unit="afr">AFR (14,7)</div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-label">Anzeige</div>
       <label class="toggle">
         <span class="lbl">Streupunkte zeigen</span>
         <input type="checkbox" id="showScatter">
       </label>
       <label class="toggle">
-        <span class="lbl">λ = 1.00 Referenzlinie</span>
+        <span class="lbl" id="refLineLabel">λ = 1.00 Referenzlinie</span>
         <input type="checkbox" id="showRef" checked>
       </label>
       <label class="toggle">
@@ -882,7 +904,7 @@ body.pseudo-full .chart-area {
     </div>
 
     <div class="section">
-      <div class="section-label">λ-Achse</div>
+      <div class="section-label" id="yAxisLabel">λ-Achse</div>
       <div class="range-row">
         <div class="group">
           <div class="l">Min</div>
@@ -901,7 +923,7 @@ body.pseudo-full .chart-area {
     </div>
 
     <div class="section" id="binsSection" style="display:none">
-      <div class="section-label">Bins (Median pro TPS)</div>
+      <div class="section-label" id="binsLabel">Bins (Median pro TPS)</div>
       <div class="bins-preview" id="binsPreview"></div>
     </div>
 
@@ -911,6 +933,8 @@ body.pseudo-full .chart-area {
 <div class="toast" id="toast"></div>
 
 <script>
+const AFR_STOICH = 14.7;
+
 const STATE = {
   files: [
     { name: null, rawData: null, color: '#4a90e2', label: 'A' },
@@ -922,11 +946,44 @@ const STATE = {
   showRef: true,
   showCounts: false,
   showTooltip: true,
+  unit: 'lambda',  // 'lambda' or 'afr'
+  xAxis: 'tps',    // 'tps' or 'rpm'
   hasData: false,
   chart: null,
   bins: [],
   zoomState: null,
 };
+
+// X-axis helpers
+function xIsRpm() { return STATE.xAxis === 'rpm'; }
+function xStep() {
+  return xIsRpm()
+    ? (parseFloat($('#rpmStep').value) || 500)
+    : (parseFloat($('#thrStep').value) || 5);
+}
+function xValues(rawData) { return xIsRpm() ? rawData.rpm : rawData.throttle; }
+function xAxisTitle()      { return xIsRpm() ? 'Drehzahl (U/min)' : 'Drosselklappe (%)'; }
+function xColHeader()      { return xIsRpm() ? 'RPM' : 'TPS'; }
+function xValFmt(v)        { return xIsRpm() ? String(v) : (v + '%'); }
+function xTooltipLabel(v)  { return xIsRpm() ? `RPM ${v}` : `TPS ${v}%`; }
+function xRangeDefault()   { return xIsRpm() ? { min: 0, max: 10000 } : { min: 0, max: 100 }; }
+function xTickStep()       { return xIsRpm() ? 1000 : 10; }
+
+// Convert a lambda value to the active display unit
+function toUnit(l) {
+  return STATE.unit === 'afr' ? l * AFR_STOICH : l;
+}
+// Format a value for the active unit (number of decimals)
+function fmtVal(l, d) {
+  if (STATE.unit === 'afr') {
+    return (l * AFR_STOICH).toFixed(d != null ? d : 2);
+  }
+  return l.toFixed(d != null ? d : 2);
+}
+function unitShort() { return STATE.unit === 'afr' ? 'AFR' : 'λ'; }
+function unitLong()  { return STATE.unit === 'afr' ? 'AFR (Air/Fuel)' : 'Lambda (λ)'; }
+function refValue()  { return STATE.unit === 'afr' ? AFR_STOICH : 1.0; }
+function refLabel()  { return STATE.unit === 'afr' ? `AFR = ${AFR_STOICH.toFixed(1)}` : 'λ = 1.00'; }
 
 const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
@@ -1070,26 +1127,28 @@ function updateFileLabels() {
 
 // ============ AGGREGATE ============
 function aggregateFile(rawData) {
-  const thrStep = parseFloat($('#thrStep').value) || 5;
-
-  const { rpm, throttle, lambda } = rawData;
+  const step = xStep();
+  const { lambda } = rawData;
+  const xVals = xValues(rawData);
   const buckets = new Map();
 
   let scatterPoints = [];
   let totalIncluded = 0;
 
-  for (let i = 0; i < rpm.length; i++) {
-    const tBin = binCenter(throttle[i], thrStep);
-    if (!buckets.has(tBin)) buckets.set(tBin, []);
-    buckets.get(tBin).push(lambda[i]);
+  for (let i = 0; i < xVals.length; i++) {
+    const bin = binCenter(xVals[i], step);
+    if (!buckets.has(bin)) buckets.set(bin, []);
+    buckets.get(bin).push(lambda[i]);
 
     if (STATE.showScatter && scatterPoints.length < 8000) {
-      scatterPoints.push({ x: throttle[i], y: lambda[i] });
+      scatterPoints.push({ x: xVals[i], y: lambda[i] });
     }
     totalIncluded++;
   }
 
   const bins = [];
+  // "t" is kept as the field name for backward compatibility — it is the X-bin center,
+  // whether that is TPS or RPM.
   for (const [t, vals] of buckets.entries()) {
     if (vals.length === 0) continue;
     const sorted = vals.slice().sort((a, b) => a - b);
@@ -1157,8 +1216,10 @@ function render2D() {
 
   $('#iPoints').textContent = totalPoints.toLocaleString('de-DE');
   $('#iBins').textContent = activeResults.length === 1 ? totalBins : activeResults.map(r => r.bins.length).join('+');
-  $('#iAvg').textContent = avgLam.toFixed(2);
-  $('#iMM').textContent = lamMin.toFixed(2) + '/' + lamMax.toFixed(2);
+  $('#iAvgL').textContent = unitShort() + ' Ø';
+  $('#iMML').textContent = unitShort() + ' min/max';
+  $('#iAvg').textContent = fmtVal(avgLam);
+  $('#iMM').textContent = fmtVal(lamMin) + '/' + fmtVal(lamMax);
 
   // Stats grid: per-file rows
   let statsHTML = '';
@@ -1169,48 +1230,52 @@ function render2D() {
     statsHTML += `
       <div class="stat" style="grid-column:1/-1;border-left:3px solid ${r.file.color}">
         <div class="l">${r.file.label} · ${r.file.name}</div>
-        <div class="v">${r.totalIncluded.toLocaleString('de-DE')} Punkte · λ Ø ${rAvg.toFixed(3)} · ${rMin.toFixed(2)}/${rMax.toFixed(2)}</div>
+        <div class="v">${r.totalIncluded.toLocaleString('de-DE')} Punkte · ${unitShort()} Ø ${fmtVal(rAvg, 3)} · ${fmtVal(rMin)}/${fmtVal(rMax)}</div>
       </div>
     `;
   });
   statsHTML += `
     <div class="stat"><div class="l">Streuband</div><div class="v">${bandKey === 'minmax' ? 'Min/Max' : bandKey === 'p10p90' ? 'P10–P90' : 'P25–P75'}</div></div>
-    <div class="stat"><div class="l">TPS-Schritt</div><div class="v">${parseFloat($('#thrStep').value) || 5}%</div></div>
+    <div class="stat"><div class="l">${xIsRpm() ? 'RPM-Schritt' : 'TPS-Schritt'}</div><div class="v">${xStep()}${xIsRpm() ? '' : '%'}</div></div>
   `;
   $('#statsGrid').innerHTML = statsHTML;
 
   // Bins table — show first file's bins for now (or both if comparing)
+  const u = unitShort();
+  const xHdr = xColHeader();
+  // Richer/leaner thresholds expressed in lambda, so we classify on the lambda median
   if (activeResults.length === 1) {
     const bins = activeResults[0].bins;
     const rows = bins.map(b => {
       const cls = b.median < 0.95 ? 'lam-rich' : b.median > 1.05 ? 'lam-lean' : 'lam-ok';
-      return `<tr><td>${b.t}%</td><td class="${cls}">${b.median.toFixed(2)}</td><td>${b.min.toFixed(2)}</td><td>${b.max.toFixed(2)}</td><td>${b.n}</td></tr>`;
+      return `<tr><td>${xValFmt(b.t)}</td><td class="${cls}">${fmtVal(b.median)}</td><td>${fmtVal(b.min)}</td><td>${fmtVal(b.max)}</td><td>${b.n}</td></tr>`;
     }).join('');
     $('#binsPreview').innerHTML = `
       <table>
-        <thead><tr><th>TPS</th><th>λ med</th><th>min</th><th>max</th><th>n</th></tr></thead>
+        <thead><tr><th>${xHdr}</th><th>${u} med</th><th>min</th><th>max</th><th>n</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     `;
   } else {
     // Comparison table — λ_A, λ_B, Δ
-    const tpsSet = new Set();
-    activeResults.forEach(r => r.bins.forEach(b => tpsSet.add(b.t)));
-    const allTps = [...tpsSet].sort((a, b) => a - b);
+    const xSet = new Set();
+    activeResults.forEach(r => r.bins.forEach(b => xSet.add(b.t)));
+    const allX = [...xSet].sort((a, b) => a - b);
     const aMap = new Map(activeResults[0].bins.map(b => [b.t, b]));
     const bMap = new Map(activeResults[1].bins.map(b => [b.t, b]));
-    const rows = allTps.map(t => {
-      const a = aMap.get(t), b = bMap.get(t);
-      const va = a ? a.median.toFixed(2) : '—';
-      const vb = b ? b.median.toFixed(2) : '—';
-      const dv = (a && b) ? (b.median - a.median) : null;
-      const dCls = dv === null ? '' : (Math.abs(dv) < 0.02 ? 'lam-ok' : dv < 0 ? 'lam-rich' : 'lam-lean');
+    const deltaThreshold = STATE.unit === 'afr' ? 0.02 * AFR_STOICH : 0.02;
+    const rows = allX.map(x => {
+      const a = aMap.get(x), b = bMap.get(x);
+      const va = a ? fmtVal(a.median) : '—';
+      const vb = b ? fmtVal(b.median) : '—';
+      const dv = (a && b) ? (toUnit(b.median) - toUnit(a.median)) : null;
+      const dCls = dv === null ? '' : (Math.abs(dv) < deltaThreshold ? 'lam-ok' : dv < 0 ? 'lam-rich' : 'lam-lean');
       const dStr = dv === null ? '—' : (dv > 0 ? '+' : '') + dv.toFixed(2);
-      return `<tr><td>${t}%</td><td>${va}</td><td>${vb}</td><td class="${dCls}">${dStr}</td></tr>`;
+      return `<tr><td>${xValFmt(x)}</td><td>${va}</td><td>${vb}</td><td class="${dCls}">${dStr}</td></tr>`;
     }).join('');
     $('#binsPreview').innerHTML = `
       <table>
-        <thead><tr><th>TPS</th><th>λ ${activeResults[0].file.label}</th><th>λ ${activeResults[1].file.label}</th><th>Δ</th></tr></thead>
+        <thead><tr><th>${xHdr}</th><th>${u} ${activeResults[0].file.label}</th><th>${u} ${activeResults[1].file.label}</th><th>Δ</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     `;
@@ -1228,9 +1293,9 @@ function render2D() {
     const color = r.file.color;
     const label = r.file.label;
 
-    const medianData = bins.map(b => ({ x: b.t, y: b.median }));
-    const upperData  = bins.map(b => ({ x: b.t, y: b[upper] }));
-    const lowerData  = bins.map(b => ({ x: b.t, y: b[lower] }));
+    const medianData = bins.map(b => ({ x: b.t, y: toUnit(b.median) }));
+    const upperData  = bins.map(b => ({ x: b.t, y: toUnit(b[upper]) }));
+    const lowerData  = bins.map(b => ({ x: b.t, y: toUnit(b[lower]) }));
 
     if (STATE.showBand) {
       // Lower invisible anchor
@@ -1259,10 +1324,11 @@ function render2D() {
 
     // Scatter raw
     if (STATE.showScatter && r.scatterPoints.length) {
+      const scatterData = r.scatterPoints.map(p => ({ x: p.x, y: toUnit(p.y) }));
       datasets.push({
         type: 'scatter',
         label: `${label} · Rohdaten`,
-        data: r.scatterPoints,
+        data: scatterData,
         backgroundColor: hexToRgba(color, 0.20),
         borderColor: 'transparent',
         pointRadius: 1.5,
@@ -1273,7 +1339,7 @@ function render2D() {
 
     // Median line
     datasets.push({
-      label: `${label} · λ Median`,
+      label: `${label} · ${unitShort()} Median`,
       data: medianData,
       borderColor: color,
       backgroundColor: color,
@@ -1291,7 +1357,7 @@ function render2D() {
     });
   });
 
-  // λ=1 reference line — span across all data
+  // Stoichiometric reference line — span across all data
   if (STATE.showRef) {
     let xMin = Infinity, xMax = -Infinity;
     activeResults.forEach(r => {
@@ -1299,9 +1365,10 @@ function render2D() {
       if (r.bins[0].t < xMin) xMin = r.bins[0].t;
       if (r.bins[r.bins.length - 1].t > xMax) xMax = r.bins[r.bins.length - 1].t;
     });
+    const refY = refValue();
     datasets.push({
-      label: 'λ = 1.00',
-      data: [{ x: xMin, y: 1.0 }, { x: xMax, y: 1.0 }],
+      label: refLabel(),
+      data: [{ x: xMin, y: refY }, { x: xMax, y: refY }],
       borderColor: 'rgba(45, 134, 89, 0.6)',
       borderWidth: 1.5,
       borderDash: [6, 4],
@@ -1353,20 +1420,21 @@ function render2D() {
           bodyFont: { size: 12 },
           displayColors: true,
           callbacks: {
-            title: items => items.length ? `TPS ${items[0].parsed.x}%` : '',
+            title: items => items.length ? xTooltipLabel(items[0].parsed.x) : '',
             label: ctx => {
               const lbl = ctx.dataset.label || '';
+              const u = unitShort();
               if (lbl.startsWith('_band_lower_')) return null;
-              if (lbl === 'λ = 1.00') return null;
-              if (lbl.endsWith('· Rohdaten')) return `${lbl.split(' ·')[0]}: λ ${ctx.parsed.y.toFixed(3)}`;
+              if (lbl === refLabel()) return null;
+              if (lbl.endsWith('· Rohdaten')) return `${lbl.split(' ·')[0]}: ${u} ${ctx.parsed.y.toFixed(3)}`;
               if (ctx.dataset._isMedian) {
                 const slotIdx = ctx.dataset._slotIdx;
                 const r = STATE.activeResults && STATE.activeResults[slotIdx];
                 if (r) {
                   const bin = r.bins.find(b => b.t === ctx.parsed.x);
                   if (bin) return [
-                    `${r.file.label} · λ Med: ${bin.median.toFixed(3)}`,
-                    `   Min/Max: ${bin.min.toFixed(2)} / ${bin.max.toFixed(2)}`,
+                    `${r.file.label} · ${u} Med: ${fmtVal(bin.median, 3)}`,
+                    `   Min/Max: ${fmtVal(bin.min)} / ${fmtVal(bin.max)}`,
                     `   n = ${bin.n}`
                   ];
                 }
@@ -1377,19 +1445,34 @@ function render2D() {
         },
       },
       scales: {
-        x: {
-          type: 'linear',
-          title: { display: true, text: 'Drosselklappe (%)', color: '#3a3a3a', font: { size: 12, weight: '600' } },
-          min: 0,
-          max: 100,
-          ticks: { color: '#6b6555', font: { size: 11 }, stepSize: 10 },
-          grid: { color: 'rgba(60, 50, 20, 0.08)', drawTicks: true },
-          border: { color: 'rgba(60, 50, 20, 0.15)' },
-        },
+        x: (() => {
+          const xCfg = {
+            type: 'linear',
+            title: { display: true, text: xAxisTitle(), color: '#3a3a3a', font: { size: 12, weight: '600' } },
+            ticks: { color: '#6b6555', font: { size: 11 }, stepSize: xTickStep() },
+            grid: { color: 'rgba(60, 50, 20, 0.08)', drawTicks: true },
+            border: { color: 'rgba(60, 50, 20, 0.15)' },
+          };
+          if (xIsRpm()) {
+            // derive sensible RPM range from loaded bins
+            let xmin = Infinity, xmax = -Infinity;
+            activeResults.forEach(r => r.bins.forEach(b => {
+              if (b.t < xmin) xmin = b.t;
+              if (b.t > xmax) xmax = b.t;
+            }));
+            const step = xStep();
+            xCfg.min = Math.max(0, Math.floor(xmin / 1000) * 1000);
+            xCfg.max = Math.ceil((xmax + step) / 1000) * 1000;
+          } else {
+            xCfg.min = 0;
+            xCfg.max = 100;
+          }
+          return xCfg;
+        })(),
         y: {
-          title: { display: true, text: 'Lambda (λ)', color: '#3a3a3a', font: { size: 12, weight: '600' } },
-          min: Number.isFinite(yMin) ? yMin : 0.65,
-          max: Number.isFinite(yMax) ? yMax : 1.20,
+          title: { display: true, text: unitLong(), color: '#3a3a3a', font: { size: 12, weight: '600' } },
+          min: Number.isFinite(yMin) ? yMin : (STATE.unit === 'afr' ? 9.5 : 0.65),
+          max: Number.isFinite(yMax) ? yMax : (STATE.unit === 'afr' ? 17.6 : 1.20),
           ticks: { color: '#6b6555', font: { size: 11 }, callback: v => v.toFixed(2) },
           grid: { color: 'rgba(60, 50, 20, 0.08)', drawTicks: true },
           border: { color: 'rgba(60, 50, 20, 0.15)' },
@@ -1519,18 +1602,16 @@ function resetZoom() {
   if (!STATE.chart) return;
   const yMin = parseFloat($('#yMin').value);
   const yMax = parseFloat($('#yMax').value);
-  STATE.chart.options.scales.x.min = 0;
-  STATE.chart.options.scales.x.max = 100;
-  STATE.chart.options.scales.y.min = Number.isFinite(yMin) ? yMin : 0.65;
-  STATE.chart.options.scales.y.max = Number.isFinite(yMax) ? yMax : 1.20;
-  STATE.chart.update();
+  // Re-render to pick up the correct X-axis range for the current xAxis mode
+  render2D();
 }
 
 // ============ UI WIRING ============
 $$('.step-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const dir = parseInt(btn.dataset.dir, 10);
-    const input = $('#thrStep');
+    const which = btn.dataset.step || 'thr';
+    const input = $(which === 'rpm' ? '#rpmStep' : '#thrStep');
     const min = parseFloat(input.min) || 1;
     const step = parseFloat(input.step) || 1;
     let v = (parseFloat(input.value) || 0) + dir * step;
@@ -1540,7 +1621,7 @@ $$('.step-btn').forEach(btn => {
   });
 });
 
-['thrStep', 'yMin', 'yMax'].forEach(id => {
+['thrStep', 'rpmStep', 'yMin', 'yMax'].forEach(id => {
   $('#' + id).addEventListener('change', () => { if (STATE.hasData) render2D(); });
 });
 
@@ -1556,6 +1637,51 @@ $$('#bandChips .chip').forEach(c => {
   c.addEventListener('click', () => {
     STATE.band = c.dataset.band;
     $$('#bandChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    if (STATE.hasData) render2D();
+  });
+});
+
+$$('#xAxisChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    const newX = c.dataset.xaxis;
+    if (newX === STATE.xAxis) return;
+    STATE.xAxis = newX;
+    $$('#xAxisChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    // Swap the stepper row + bins section label
+    const isRpm = newX === 'rpm';
+    $('#thrStepRow').style.display = isRpm ? 'none' : '';
+    $('#rpmStepRow').style.display = isRpm ? '' : 'none';
+    $('#binsLabel').textContent = isRpm ? 'Bins (Median pro RPM)' : 'Bins (Median pro TPS)';
+    if (STATE.hasData) render2D();
+  });
+});
+
+$$('#unitChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    const newUnit = c.dataset.unit;
+    if (newUnit === STATE.unit) return;
+    const oldUnit = STATE.unit;
+    STATE.unit = newUnit;
+    $$('#unitChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    // Update sidebar labels
+    $('#yAxisLabel').textContent = (newUnit === 'afr' ? 'AFR-Achse' : 'λ-Achse');
+    $('#refLineLabel').textContent = refLabel() + ' Referenzlinie';
+    // Convert the Y-axis min/max fields so the current window stays meaningful
+    const yMinEl = $('#yMin'), yMaxEl = $('#yMax');
+    const curMin = parseFloat(yMinEl.value), curMax = parseFloat(yMaxEl.value);
+    if (Number.isFinite(curMin) && Number.isFinite(curMax)) {
+      if (oldUnit === 'lambda' && newUnit === 'afr') {
+        yMinEl.value = (curMin * AFR_STOICH).toFixed(2);
+        yMaxEl.value = (curMax * AFR_STOICH).toFixed(2);
+        yMinEl.step = '0.1';
+        yMaxEl.step = '0.1';
+      } else if (oldUnit === 'afr' && newUnit === 'lambda') {
+        yMinEl.value = (curMin / AFR_STOICH).toFixed(2);
+        yMaxEl.value = (curMax / AFR_STOICH).toFixed(2);
+        yMinEl.step = '0.01';
+        yMaxEl.step = '0.01';
+      }
+    }
     if (STATE.hasData) render2D();
   });
 });
