@@ -1091,10 +1091,20 @@ label.toggle input { accent-color: var(--accent); transform: scale(1.2); }
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 14px;
+  padding: 10px;
   margin-bottom: 12px;
+  overflow: hidden;
+  text-align: center;
 }
-.carb-diagram-wrap svg { width: 100%; height: auto; display: block; }
+.carb-diagram-wrap svg,
+.carb-diagram-wrap img {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain;
+  margin: 0 auto;
+}
 .carb-legend {
   display: grid;
   grid-template-columns: 1fr;
@@ -1491,7 +1501,7 @@ body.pseudo-full .chart-area {
   </div>
   <div class="modal-body">
     <div class="carb-diagram-wrap">
-      <img src="icons/carb-diagram.jpg" alt="Vergaser-Querschnitt mit Zuordnung der Komponenten zu den TPS-Bereichen" loading="lazy">
+      <img src="icons/carb-diagram.jpg?v=2" alt="Vergaser-Querschnitt mit Zuordnung der Komponenten zu den TPS-Bereichen" loading="lazy">
     </div>
 
     <div class="carb-legend">
