@@ -1018,6 +1018,51 @@ label.toggle input { accent-color: var(--accent); transform: scale(1.2); }
   background: #fff;
 }
 
+.tune-bounds-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+@media (min-width: 480px) {
+  .tune-bounds-grid { grid-template-columns: repeat(3, 1fr); }
+}
+.tune-bound-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+}
+.tune-bound-cell label {
+  font-size: 11px;
+  color: var(--ink-2);
+  flex: 1;
+  min-width: 0;
+}
+.tune-bound-cell label strong {
+  color: var(--ink-0);
+  font-weight: 600;
+}
+.tune-bound-cell input[type="number"] {
+  width: 70px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: 500 13px/1 inherit;
+  background: var(--paper);
+  color: var(--ink-0);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.tune-bound-cell input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.tune-bound-cell.changed input[type="number"] {
+  border-color: var(--accent);
+  background: #fff;
+}
+
 /* Pseudo-fullscreen */
 body.pseudo-full header {
   background: transparent;
@@ -1330,9 +1375,19 @@ body.pseudo-full .chart-area {
     <div class="tune-targets-panel">
       <div class="tune-targets-head">
         <div class="tune-targets-title">Ziele <span id="tuneTargetsUnit">(λ)</span></div>
-        <button type="button" class="tune-reset-btn" id="tuneResetBtn" title="Auf Standardwerte zurücksetzen">↺ Standard</button>
+        <button type="button" class="tune-reset-btn" id="tuneResetBtn" title="Ziele und Bereichsgrenzen auf Standardwerte zurücksetzen">↺ Standard</button>
       </div>
       <div class="tune-targets-grid" id="tuneTargetsGrid">
+        <!-- filled dynamically -->
+      </div>
+    </div>
+
+    <!-- Editable zone boundaries panel -->
+    <div class="tune-targets-panel">
+      <div class="tune-targets-head">
+        <div class="tune-targets-title">Bereichsgrenzen (TPS %)</div>
+      </div>
+      <div class="tune-bounds-grid" id="tuneBoundsGrid">
         <!-- filled dynamically -->
       </div>
     </div>
@@ -2313,7 +2368,6 @@ const TUNE_ZONES = [
   {
     key:   'idle',
     name:  'Leerlauf',
-    tpsLo: 0, tpsHi: 5,
     defaultTarget: 0.98,
     component: 'Leerlaufdüse / Gemischschraube',
     richAdvice: 'Zu fett: Gemischschraube in kleinen Schritten (⅛ Umdrehung) reindrehen; wenn das nicht reicht, Leerlaufdüse eine Nummer kleiner.',
@@ -2322,7 +2376,6 @@ const TUNE_ZONES = [
   {
     key:   'transition',
     name:  'Übergang',
-    tpsLo: 5, tpsHi: 20,
     defaultTarget: 0.92,
     component: 'Düsennadel-Konus / Schieberausschnitt',
     richAdvice: 'Zu fett: Düsennadel-Clip um eine Position nach oben setzen (Nadel sinkt) oder Nadel mit magererem Konus wählen.',
@@ -2331,7 +2384,6 @@ const TUNE_ZONES = [
   {
     key:   'partial',
     name:  'Teillast',
-    tpsLo: 20, tpsHi: 60,
     defaultTarget: 0.90,
     component: 'Düsennadel (Mittelbereich)',
     richAdvice: 'Zu fett: Düsennadel-Clip um eine Position nach oben (Nadel sinkt). Pro Clip-Position etwa 2–4 % weniger Kraftstoff.',
@@ -2340,7 +2392,6 @@ const TUNE_ZONES = [
   {
     key:   'full',
     name:  'Volllast',
-    tpsLo: 60, tpsHi: 100,
     defaultTarget: 0.88,
     component: 'Hauptdüse',
     richAdvice: 'Zu fett: Hauptdüse eine Nummer kleiner. Pro Düsennummer meist 2–4 % weniger Kraftstoff. Zuerst dort nachstellen, dann abwärts.',
@@ -2352,6 +2403,11 @@ const TUNE_TOLERANCE = 0.03;    // ± λ
 const TUNE_MIN_WEIGHT = 20;     // min total samples in a zone to give advice
 const TUNE_LS_KEY = 'mdlv_tune_targets_v1';
 
+// Default TPS boundaries (inner cuts between the 4 zones). Zone 0 starts at 0%,
+// zone 3 ends at 100%; TUNE_BOUNDS holds the three inner cuts.
+const TUNE_BOUNDS_DEFAULT = [5, 20, 60];
+const TUNE_BOUNDS = TUNE_BOUNDS_DEFAULT.slice();
+
 // Current targets (always stored as lambda, independent of display unit)
 const TUNE_TARGETS = {};
 TUNE_ZONES.forEach(z => { TUNE_TARGETS[z.key] = z.defaultTarget; });
@@ -2359,41 +2415,75 @@ TUNE_ZONES.forEach(z => { TUNE_TARGETS[z.key] = z.defaultTarget; });
 // Load overrides from localStorage, if present
 try {
   const saved = JSON.parse(localStorage.getItem(TUNE_LS_KEY) || '{}');
-  Object.keys(saved).forEach(k => {
-    const v = parseFloat(saved[k]);
-    if (Number.isFinite(v) && v >= 0.5 && v <= 2.0) TUNE_TARGETS[k] = v;
-  });
+  if (saved && typeof saved === 'object' && saved.targets) {
+    // v2 shape: { targets: {...}, bounds: [...] }
+    Object.keys(saved.targets).forEach(k => {
+      const v = parseFloat(saved.targets[k]);
+      if (Number.isFinite(v) && v >= 0.5 && v <= 2.0) TUNE_TARGETS[k] = v;
+    });
+    if (Array.isArray(saved.bounds) && saved.bounds.length === 3) {
+      const b = saved.bounds.map(x => parseFloat(x));
+      if (b.every(Number.isFinite) && b[0] >= 0 && b[0] < b[1] && b[1] < b[2] && b[2] <= 100) {
+        TUNE_BOUNDS[0] = b[0]; TUNE_BOUNDS[1] = b[1]; TUNE_BOUNDS[2] = b[2];
+      }
+    }
+  } else if (saved && typeof saved === 'object') {
+    // v1 shape (flat targets only): keep targets, bounds stay default
+    Object.keys(saved).forEach(k => {
+      const v = parseFloat(saved[k]);
+      if (Number.isFinite(v) && v >= 0.5 && v <= 2.0) TUNE_TARGETS[k] = v;
+    });
+  }
 } catch (e) { /* ignore corrupt storage */ }
 
 function saveTuneTargets() {
-  try { localStorage.setItem(TUNE_LS_KEY, JSON.stringify(TUNE_TARGETS)); }
-  catch (e) { /* storage disabled; just skip */ }
+  try {
+    localStorage.setItem(TUNE_LS_KEY, JSON.stringify({
+      targets: TUNE_TARGETS,
+      bounds:  TUNE_BOUNDS,
+    }));
+  } catch (e) { /* storage disabled; just skip */ }
 }
 
 function resetTuneTargets() {
   TUNE_ZONES.forEach(z => { TUNE_TARGETS[z.key] = z.defaultTarget; });
+  TUNE_BOUNDS[0] = TUNE_BOUNDS_DEFAULT[0];
+  TUNE_BOUNDS[1] = TUNE_BOUNDS_DEFAULT[1];
+  TUNE_BOUNDS[2] = TUNE_BOUNDS_DEFAULT[2];
   saveTuneTargets();
+}
+
+// Compute [lo, hi) for a zone index (0..3) from the current bounds
+function zoneRange(i) {
+  const lo = i === 0 ? 0 : TUNE_BOUNDS[i - 1];
+  const hi = i === TUNE_ZONES.length - 1 ? 100 : TUNE_BOUNDS[i];
+  return { lo, hi };
 }
 
 function analyzeZonesForFile(fileResult) {
   if (!fileResult || !fileResult.bins) return [];
   // Operate on lambda, independent of the UI unit.
-  return TUNE_ZONES.map(z => {
-    const target = TUNE_TARGETS[z.key];  // live, editable
-    const binsIn = fileResult.bins.filter(b => b.t >= z.tpsLo && b.t < z.tpsHi + 0.001);
+  return TUNE_ZONES.map((z, i) => {
+    const target = TUNE_TARGETS[z.key];
+    const { lo, hi } = zoneRange(i);
+    const isLast = i === TUNE_ZONES.length - 1;
+    // Include upper bound in last zone so TPS = 100 % counts in Volllast
+    const binsIn = fileResult.bins.filter(b =>
+      b.t >= lo && (isLast ? b.t <= hi + 0.001 : b.t < hi + 0.001)
+    );
     const n = binsIn.reduce((a, b) => a + b.n, 0);
     if (n < TUNE_MIN_WEIGHT) {
-      return { zone: z, target, n, binCount: binsIn.length, lamAvg: null, verdict: 'sparse' };
+      return { zone: z, target, tpsLo: lo, tpsHi: hi, n, binCount: binsIn.length, lamAvg: null, verdict: 'sparse' };
     }
     const sumW = binsIn.reduce((a, b) => a + b.n, 0);
     const lamAvg = binsIn.reduce((a, b) => a + b.median * b.n, 0) / sumW;
-    const delta = lamAvg - target;                           // + = magerer als Ziel
-    const fuelChangePct = (lamAvg / target - 1) * 100;       // >0 = mehr Kraftstoff nötig
+    const delta = lamAvg - target;
+    const fuelChangePct = (lamAvg / target - 1) * 100;
     let verdict;
     if (Math.abs(delta) <= TUNE_TOLERANCE) verdict = 'ok';
     else if (delta < 0) verdict = 'rich';
     else                verdict = 'lean';
-    return { zone: z, target, n, binCount: binsIn.length, lamAvg, delta, fuelChangePct, verdict };
+    return { zone: z, target, tpsLo: lo, tpsHi: hi, n, binCount: binsIn.length, lamAvg, delta, fuelChangePct, verdict };
   });
 }
 
@@ -2416,7 +2506,7 @@ function renderTuningForFile(fileResult, fileLabel, fileName, colorHex) {
         <div class="tune-zone sparse">
           <div class="tune-head">
             <div class="tune-name">${z.name} <span style="font-weight:400;color:var(--ink-2);font-size:11.5px">· ${z.component}</span></div>
-            <div class="tune-range">${z.tpsLo}–${z.tpsHi}% TPS</div>
+            <div class="tune-range">${r.tpsLo}–${r.tpsHi}% TPS</div>
           </div>
           <div class="tune-advice sparse">Zu wenig Messdaten (${r.n} Punkte in ${r.binCount} Bins) — keine belastbare Empfehlung.</div>
         </div>`;
@@ -2437,7 +2527,7 @@ function renderTuningForFile(fileResult, fileLabel, fileName, colorHex) {
       <div class="tune-zone ${r.verdict}">
         <div class="tune-head">
           <div class="tune-name">${z.name} <span style="font-weight:400;color:var(--ink-2);font-size:11.5px">· ${z.component}</span></div>
-          <div class="tune-range">${z.tpsLo}–${z.tpsHi}% TPS</div>
+          <div class="tune-range">${r.tpsLo}–${r.tpsHi}% TPS</div>
         </div>
         <div class="tune-metrics">
           <span>gemessen <strong>${avgStr}</strong></span>
@@ -2475,14 +2565,59 @@ function renderTargetsGrid() {
       const key = input.dataset.key;
       const v = parseFloat(String(input.value).replace(',', '.'));
       if (!Number.isFinite(v)) return;
-      // Store internally as lambda
       const asLambda = STATE.unit === 'afr' ? (v / AFR_STOICH) : v;
       if (asLambda < 0.5 || asLambda > 2.0) return;
       TUNE_TARGETS[key] = asLambda;
       saveTuneTargets();
-      // Refresh the "changed" marker and re-run the analysis
       const zone = TUNE_ZONES.find(z => z.key === key);
       input.closest('.tune-target-cell').classList.toggle('changed', Math.abs(asLambda - zone.defaultTarget) > 0.0001);
+      refreshTuningBody();
+    });
+  });
+}
+
+// Build/refresh the editable zone-boundaries grid
+function renderBoundsGrid() {
+  const cells = [
+    { idx: 0, label: 'Leerlauf → Übergang' },
+    { idx: 1, label: 'Übergang → Teillast' },
+    { idx: 2, label: 'Teillast → Volllast' },
+  ];
+  const html = cells.map(c => {
+    const v = TUNE_BOUNDS[c.idx];
+    const changed = Math.abs(v - TUNE_BOUNDS_DEFAULT[c.idx]) > 0.001;
+    return `
+      <div class="tune-bound-cell ${changed ? 'changed' : ''}" data-idx="${c.idx}">
+        <label>${c.label}</label>
+        <input type="number" value="${v}" step="1" min="0" max="100" inputmode="numeric" data-idx="${c.idx}">
+      </div>`;
+  }).join('');
+  $('#tuneBoundsGrid').innerHTML = html;
+
+  // Wire inputs — enforce ordering (0 < b0 < b1 < b2 < 100)
+  $$('#tuneBoundsGrid input').forEach(input => {
+    input.addEventListener('change', () => {
+      const idx = parseInt(input.dataset.idx, 10);
+      let v = parseFloat(String(input.value).replace(',', '.'));
+      if (!Number.isFinite(v)) {
+        input.value = TUNE_BOUNDS[idx];
+        return;
+      }
+      v = Math.round(v);  // whole percent points
+      // Clamp to a valid range relative to neighbours
+      const lo = idx === 0 ? 0 : TUNE_BOUNDS[idx - 1];
+      const hi = idx === TUNE_BOUNDS.length - 1 ? 100 : TUNE_BOUNDS[idx + 1];
+      if (v <= lo || v >= hi) {
+        toast(`Grenze muss zwischen ${lo} und ${hi} liegen`, 2500);
+        input.value = TUNE_BOUNDS[idx];
+        return;
+      }
+      TUNE_BOUNDS[idx] = v;
+      input.value = v;
+      saveTuneTargets();
+      input.closest('.tune-bound-cell').classList.toggle(
+        'changed', Math.abs(v - TUNE_BOUNDS_DEFAULT[idx]) > 0.001
+      );
       refreshTuningBody();
     });
   });
@@ -2508,6 +2643,7 @@ function openTuningModal() {
   const names = activeResults.length ? activeResults.map(r => r.file.label).join(' + ') : '—';
   $('#tuneFile').textContent = names;
   renderTargetsGrid();
+  renderBoundsGrid();
   refreshTuningBody();
   $('#tuneModal').classList.add('open');
   $('#tuneBackdrop').classList.add('open');
@@ -2516,8 +2652,9 @@ function openTuningModal() {
 $('#tuneResetBtn').addEventListener('click', () => {
   resetTuneTargets();
   renderTargetsGrid();
+  renderBoundsGrid();
   refreshTuningBody();
-  toast('Zielwerte zurückgesetzt', 1800);
+  toast('Ziele und Bereichsgrenzen zurückgesetzt', 2000);
 });
 
 function closeTuningModal() {
