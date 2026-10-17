@@ -875,6 +875,76 @@ label.toggle input { accent-color: var(--accent); transform: scale(1.2); }
 }
 .modal-btn.primary:hover { background: #3a7fd1; }
 
+/* === Tuning zone card === */
+.tune-zone {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink-3);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.tune-zone.ok    { border-left-color: #2d8659; }
+.tune-zone.rich  { border-left-color: #c9302c; }
+.tune-zone.lean  { border-left-color: #2c6fb3; }
+.tune-zone.sparse{ border-left-color: #9c9582; background: var(--paper-2); }
+.tune-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.tune-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-0);
+}
+.tune-range {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.tune-metrics {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  margin-bottom: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.tune-metrics strong { color: var(--ink-0); font-weight: 600; }
+.tune-advice {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-1);
+}
+.tune-advice.ok    { color: #2d8659; font-weight: 600; }
+.tune-advice.rich  { color: #c9302c; }
+.tune-advice.lean  { color: #2c6fb3; }
+.tune-advice.sparse { color: var(--ink-2); font-style: italic; }
+.tune-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 2px 0;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.tune-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.tune-dot {
+  display: inline-block;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+.tune-empty {
+  text-align: center;
+  padding: 24px 10px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
 /* Pseudo-fullscreen */
 body.pseudo-full header {
   background: transparent;
@@ -889,6 +959,7 @@ body.pseudo-full header {
 body.pseudo-full header .brand,
 body.pseudo-full header .status-pill,
 body.pseudo-full header #btnReset,
+body.pseudo-full header #btnTuning,
 body.pseudo-full header #btnSheet {
   display: none;
 }
@@ -954,6 +1025,7 @@ body.pseudo-full .chart-area {
     <div style="flex:1"></div>
     <button class="icon-btn" id="btnReset" title="Zoom zurück" disabled style="opacity:.4">↺</button>
     <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
+    <button class="icon-btn" id="btnTuning" title="Vergaser-Empfehlungen" disabled style="opacity:.4">💡</button>
     <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
   </header>
 
@@ -1169,6 +1241,28 @@ body.pseudo-full .chart-area {
   <div class="modal-footer">
     <button class="modal-btn" id="prepCancel" type="button">Abbrechen</button>
     <button class="modal-btn primary" id="prepApply" type="button" style="display:none">Übernehmen</button>
+  </div>
+</div>
+
+<!-- Tuning recommendations modal -->
+<div class="modal-backdrop" id="tuneBackdrop"></div>
+<div class="modal" id="tuneModal" role="dialog" aria-modal="true" aria-labelledby="tuneTitle" style="max-width:520px">
+  <div class="modal-header">
+    <div class="modal-title" id="tuneTitle">Vergaser-Empfehlungen</div>
+    <div class="modal-sub">Analyse der λ-Werte nach Vergaser-Lastbereichen · <span id="tuneFile">—</span></div>
+  </div>
+  <div class="modal-body">
+    <div id="tuneBody"></div>
+    <div class="tune-legend">
+      <div class="tune-legend-item"><span class="tune-dot" style="background:#2d8659"></span>im Ziel</div>
+      <div class="tune-legend-item"><span class="tune-dot" style="background:#c9302c"></span>zu fett</div>
+      <div class="tune-legend-item"><span class="tune-dot" style="background:#2c6fb3"></span>zu mager</div>
+      <div class="tune-legend-item"><span class="tune-dot" style="background:#9c9582"></span>wenig Daten</div>
+    </div>
+    <div class="modal-sub" style="margin-top:14px">Empfehlungen sind Richtwerte für klassische Rundschieber- und Flachschieber-Vergaser. Immer in kleinen Schritten ändern und nachmessen. Veränderungen erst am Volllast-Ende prüfen, dann abwärts (Hauptdüse → Nadel → Übergang → Leerlauf).</div>
+  </div>
+  <div class="modal-footer">
+    <button class="modal-btn primary" id="tuneClose" type="button">Schließen</button>
   </div>
 </div>
 
@@ -1396,6 +1490,8 @@ function commitFile(slot, fileName, rawToUse, modeLabel) {
   $('#binsSection').style.display = '';
   $('#btnReset').disabled = false;
   $('#btnReset').style.opacity = '1';
+  $('#btnTuning').disabled = false;
+  $('#btnTuning').style.opacity = '1';
   updateFileLabels();
   render2D();
   toast(`${STATE.files[slot].label}: ${rawToUse.rpm.length.toLocaleString('de-DE')} Punkte (${modeLabel})`, 2800);
@@ -1446,6 +1542,8 @@ function clearFile(slot) {
     $('#empty').classList.remove('hidden');
     $('#infoStrip').classList.remove('active');
     if (STATE.chart) { STATE.chart.destroy(); STATE.chart = null; }
+    $('#btnTuning').disabled = true;
+    $('#btnTuning').style.opacity = '.4';
   } else {
     render2D();
   }
@@ -2120,6 +2218,159 @@ document.addEventListener('fullscreenchange', () => {
 document.addEventListener('webkitfullscreenchange', () => {
   document.dispatchEvent(new Event('fullscreenchange'));
 });
+
+// ============ TUNING RECOMMENDATIONS ============
+// Carburetor zones (TPS ranges), each mapped to its primary tuning component.
+// Targets are typical rich-power values for carburetted single/twin-cylinder
+// motorcycles; tolerance band of ±0.03 λ matches the Vorgabe TOLERANZ.
+const TUNE_ZONES = [
+  {
+    key:   'idle',
+    name:  'Leerlauf',
+    tpsLo: 0, tpsHi: 5,
+    target: 0.98,
+    component: 'Leerlaufdüse / Gemischschraube',
+    richAdvice: 'Zu fett: Gemischschraube in kleinen Schritten (⅛ Umdrehung) reindrehen; wenn das nicht reicht, Leerlaufdüse eine Nummer kleiner.',
+    leanAdvice: 'Zu mager: Gemischschraube in kleinen Schritten (⅛ Umdrehung) rausdrehen; wenn das nicht reicht, Leerlaufdüse eine Nummer größer. Auch Falschluft prüfen (Ansaugmanschette, Dichtung).',
+  },
+  {
+    key:   'transition',
+    name:  'Übergang',
+    tpsLo: 5, tpsHi: 20,
+    target: 0.92,
+    component: 'Düsennadel-Konus / Schieberausschnitt',
+    richAdvice: 'Zu fett: Düsennadel-Clip um eine Position nach oben setzen (Nadel sinkt) oder Nadel mit magererem Konus wählen.',
+    leanAdvice: 'Zu mager: Düsennadel-Clip um eine Position nach unten setzen (Nadel hebt sich) oder Nadel mit fetterem Konus wählen. Bei starkem Ruckeln auch Schieberausschnitt prüfen.',
+  },
+  {
+    key:   'partial',
+    name:  'Teillast',
+    tpsLo: 20, tpsHi: 60,
+    target: 0.90,
+    component: 'Düsennadel (Mittelbereich)',
+    richAdvice: 'Zu fett: Düsennadel-Clip um eine Position nach oben (Nadel sinkt). Pro Clip-Position etwa 2–4 % weniger Kraftstoff.',
+    leanAdvice: 'Zu mager: Düsennadel-Clip um eine Position nach unten (Nadel hebt sich). Pro Clip-Position etwa 2–4 % mehr Kraftstoff.',
+  },
+  {
+    key:   'full',
+    name:  'Volllast',
+    tpsLo: 60, tpsHi: 100,
+    target: 0.88,
+    component: 'Hauptdüse',
+    richAdvice: 'Zu fett: Hauptdüse eine Nummer kleiner. Pro Düsennummer meist 2–4 % weniger Kraftstoff. Zuerst dort nachstellen, dann abwärts.',
+    leanAdvice: 'Zu mager: Hauptdüse eine Nummer größer. Pro Düsennummer meist 2–4 % mehr Kraftstoff. Dünne Luft (Höhe/Hitze) kann magern lassen — Außenbedingungen notieren.',
+  },
+];
+
+const TUNE_TOLERANCE = 0.03;    // ± λ
+const TUNE_MIN_WEIGHT = 20;     // min total samples in a zone to give advice
+
+function analyzeZonesForFile(fileResult) {
+  if (!fileResult || !fileResult.bins) return [];
+  // Operate on lambda, independent of the UI unit.
+  return TUNE_ZONES.map(z => {
+    const binsIn = fileResult.bins.filter(b => b.t >= z.tpsLo && b.t < z.tpsHi + 0.001);
+    const n = binsIn.reduce((a, b) => a + b.n, 0);
+    if (n < TUNE_MIN_WEIGHT) {
+      return { zone: z, n, binCount: binsIn.length, lamAvg: null, verdict: 'sparse' };
+    }
+    // Weighted mean of per-bin medians (weight = n)
+    const sumW = binsIn.reduce((a, b) => a + b.n, 0);
+    const lamAvg = binsIn.reduce((a, b) => a + b.median * b.n, 0) / sumW;
+    const delta = lamAvg - z.target;                              // + = magerer als Ziel
+    const fuelChangePct = (lamAvg / z.target - 1) * 100;          // vgl. Vorgabe: >0 = mehr Kraftstoff nötig
+    let verdict;
+    if (Math.abs(delta) <= TUNE_TOLERANCE) verdict = 'ok';
+    else if (delta < 0) verdict = 'rich';
+    else                verdict = 'lean';
+    return { zone: z, n, binCount: binsIn.length, lamAvg, delta, fuelChangePct, verdict };
+  });
+}
+
+function formatLamOrAfr(l) {
+  return STATE.unit === 'afr' ? `AFR ${(l * AFR_STOICH).toFixed(2)}` : `λ ${l.toFixed(3)}`;
+}
+
+function renderTuningForFile(fileResult, fileLabel, fileName, colorHex) {
+  const results = analyzeZonesForFile(fileResult);
+  const headerHtml = `
+    <div style="font-size:12px; color:var(--ink-2); margin-bottom:10px;">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colorHex};vertical-align:middle;margin-right:6px"></span>
+      <strong style="color:var(--ink-0)">Datei ${fileLabel}</strong> · ${fileName}
+    </div>`;
+
+  const zoneHtml = results.map(r => {
+    const z = r.zone;
+    if (r.verdict === 'sparse') {
+      return `
+        <div class="tune-zone sparse">
+          <div class="tune-head">
+            <div class="tune-name">${z.name} <span style="font-weight:400;color:var(--ink-2);font-size:11.5px">· ${z.component}</span></div>
+            <div class="tune-range">${z.tpsLo}–${z.tpsHi}% TPS</div>
+          </div>
+          <div class="tune-advice sparse">Zu wenig Messdaten (${r.n} Punkte in ${r.binCount} Bins) — keine belastbare Empfehlung.</div>
+        </div>`;
+    }
+    const targetStr = formatLamOrAfr(z.target);
+    const avgStr    = formatLamOrAfr(r.lamAvg);
+    const deltaStr  = (r.delta > 0 ? '+' : '') + r.delta.toFixed(3);
+    const fuelStr   = (r.fuelChangePct > 0 ? '+' : '') + r.fuelChangePct.toFixed(1) + ' %';
+    let advice = '';
+    if (r.verdict === 'ok') {
+      advice = `Im Ziel. ${z.component} aktuell passend.`;
+    } else if (r.verdict === 'rich') {
+      advice = `${z.richAdvice} <br><em style="color:var(--ink-2);font-size:11.5px">Rechnerisch: ${fuelStr} Kraftstoff.</em>`;
+    } else {
+      advice = `${z.leanAdvice} <br><em style="color:var(--ink-2);font-size:11.5px">Rechnerisch: ${fuelStr} Kraftstoff.</em>`;
+    }
+    return `
+      <div class="tune-zone ${r.verdict}">
+        <div class="tune-head">
+          <div class="tune-name">${z.name} <span style="font-weight:400;color:var(--ink-2);font-size:11.5px">· ${z.component}</span></div>
+          <div class="tune-range">${z.tpsLo}–${z.tpsHi}% TPS</div>
+        </div>
+        <div class="tune-metrics">
+          <span>gemessen <strong>${avgStr}</strong></span>
+          <span>Ziel <strong>${targetStr}</strong></span>
+          <span>Δλ <strong>${deltaStr}</strong></span>
+          <span>n = <strong>${r.n}</strong></span>
+        </div>
+        <div class="tune-advice ${r.verdict}">${advice}</div>
+      </div>`;
+  }).join('');
+
+  return headerHtml + zoneHtml;
+}
+
+function openTuningModal() {
+  const activeResults = STATE.activeResults || [];
+  const body = $('#tuneBody');
+  if (activeResults.length === 0) {
+    body.innerHTML = `<div class="tune-empty">Noch keine Daten geladen. Erst eine CSV-Datei öffnen.</div>`;
+  } else {
+    const parts = [];
+    activeResults.forEach(r => {
+      parts.push(renderTuningForFile(r, r.file.label, r.file.name, r.file.color));
+    });
+    body.innerHTML = parts.join('<hr style="border:0; border-top:1px dashed var(--line); margin:16px 0;">');
+    const names = activeResults.map(r => r.file.label).join(' + ');
+    $('#tuneFile').textContent = names;
+  }
+  $('#tuneModal').classList.add('open');
+  $('#tuneBackdrop').classList.add('open');
+}
+
+function closeTuningModal() {
+  $('#tuneModal').classList.remove('open');
+  $('#tuneBackdrop').classList.remove('open');
+}
+
+$('#btnTuning').addEventListener('click', () => {
+  if ($('#btnTuning').disabled) return;
+  openTuningModal();
+});
+$('#tuneClose').addEventListener('click', closeTuningModal);
+$('#tuneBackdrop').addEventListener('click', closeTuningModal);
 
 // ============ SHEET ============
 function openSheet() {
