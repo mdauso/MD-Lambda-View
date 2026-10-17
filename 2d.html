@@ -945,6 +945,79 @@ label.toggle input { accent-color: var(--accent); transform: scale(1.2); }
   font-size: 13px;
 }
 
+/* === Editable targets panel === */
+.tune-targets-panel {
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.tune-targets-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.tune-targets-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-1);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.tune-reset-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font: 500 11px/1 inherit;
+  cursor: pointer;
+}
+.tune-reset-btn:hover {
+  background: var(--paper);
+  color: var(--ink-0);
+  border-color: var(--ink-3);
+}
+.tune-targets-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+}
+@media (min-width: 480px) {
+  .tune-targets-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.tune-target-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tune-target-cell label {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.tune-target-cell input[type="number"] {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: 500 13px/1 inherit;
+  background: var(--paper);
+  color: var(--ink-0);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tune-target-cell input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.tune-target-cell.changed input[type="number"] {
+  border-color: var(--accent);
+  background: #fff;
+}
+
 /* Pseudo-fullscreen */
 body.pseudo-full header {
   background: transparent;
@@ -1252,6 +1325,18 @@ body.pseudo-full .chart-area {
     <div class="modal-sub">Analyse der λ-Werte nach Vergaser-Lastbereichen · <span id="tuneFile">—</span></div>
   </div>
   <div class="modal-body">
+
+    <!-- Editable targets panel -->
+    <div class="tune-targets-panel">
+      <div class="tune-targets-head">
+        <div class="tune-targets-title">Ziele <span id="tuneTargetsUnit">(λ)</span></div>
+        <button type="button" class="tune-reset-btn" id="tuneResetBtn" title="Auf Standardwerte zurücksetzen">↺ Standard</button>
+      </div>
+      <div class="tune-targets-grid" id="tuneTargetsGrid">
+        <!-- filled dynamically -->
+      </div>
+    </div>
+
     <div id="tuneBody"></div>
     <div class="tune-legend">
       <div class="tune-legend-item"><span class="tune-dot" style="background:#2d8659"></span>im Ziel</div>
@@ -2221,14 +2306,15 @@ document.addEventListener('webkitfullscreenchange', () => {
 
 // ============ TUNING RECOMMENDATIONS ============
 // Carburetor zones (TPS ranges), each mapped to its primary tuning component.
-// Targets are typical rich-power values for carburetted single/twin-cylinder
-// motorcycles; tolerance band of ±0.03 λ matches the Vorgabe TOLERANZ.
+// Default targets are typical rich-power values for carburetted single/twin-
+// cylinder motorcycles; the user can override them in the modal, we persist
+// the overrides in localStorage. Tolerance band of ±0.03 λ matches TOLERANZ.
 const TUNE_ZONES = [
   {
     key:   'idle',
     name:  'Leerlauf',
     tpsLo: 0, tpsHi: 5,
-    target: 0.98,
+    defaultTarget: 0.98,
     component: 'Leerlaufdüse / Gemischschraube',
     richAdvice: 'Zu fett: Gemischschraube in kleinen Schritten (⅛ Umdrehung) reindrehen; wenn das nicht reicht, Leerlaufdüse eine Nummer kleiner.',
     leanAdvice: 'Zu mager: Gemischschraube in kleinen Schritten (⅛ Umdrehung) rausdrehen; wenn das nicht reicht, Leerlaufdüse eine Nummer größer. Auch Falschluft prüfen (Ansaugmanschette, Dichtung).',
@@ -2237,7 +2323,7 @@ const TUNE_ZONES = [
     key:   'transition',
     name:  'Übergang',
     tpsLo: 5, tpsHi: 20,
-    target: 0.92,
+    defaultTarget: 0.92,
     component: 'Düsennadel-Konus / Schieberausschnitt',
     richAdvice: 'Zu fett: Düsennadel-Clip um eine Position nach oben setzen (Nadel sinkt) oder Nadel mit magererem Konus wählen.',
     leanAdvice: 'Zu mager: Düsennadel-Clip um eine Position nach unten setzen (Nadel hebt sich) oder Nadel mit fetterem Konus wählen. Bei starkem Ruckeln auch Schieberausschnitt prüfen.',
@@ -2246,7 +2332,7 @@ const TUNE_ZONES = [
     key:   'partial',
     name:  'Teillast',
     tpsLo: 20, tpsHi: 60,
-    target: 0.90,
+    defaultTarget: 0.90,
     component: 'Düsennadel (Mittelbereich)',
     richAdvice: 'Zu fett: Düsennadel-Clip um eine Position nach oben (Nadel sinkt). Pro Clip-Position etwa 2–4 % weniger Kraftstoff.',
     leanAdvice: 'Zu mager: Düsennadel-Clip um eine Position nach unten (Nadel hebt sich). Pro Clip-Position etwa 2–4 % mehr Kraftstoff.',
@@ -2255,7 +2341,7 @@ const TUNE_ZONES = [
     key:   'full',
     name:  'Volllast',
     tpsLo: 60, tpsHi: 100,
-    target: 0.88,
+    defaultTarget: 0.88,
     component: 'Hauptdüse',
     richAdvice: 'Zu fett: Hauptdüse eine Nummer kleiner. Pro Düsennummer meist 2–4 % weniger Kraftstoff. Zuerst dort nachstellen, dann abwärts.',
     leanAdvice: 'Zu mager: Hauptdüse eine Nummer größer. Pro Düsennummer meist 2–4 % mehr Kraftstoff. Dünne Luft (Höhe/Hitze) kann magern lassen — Außenbedingungen notieren.',
@@ -2264,26 +2350,50 @@ const TUNE_ZONES = [
 
 const TUNE_TOLERANCE = 0.03;    // ± λ
 const TUNE_MIN_WEIGHT = 20;     // min total samples in a zone to give advice
+const TUNE_LS_KEY = 'mdlv_tune_targets_v1';
+
+// Current targets (always stored as lambda, independent of display unit)
+const TUNE_TARGETS = {};
+TUNE_ZONES.forEach(z => { TUNE_TARGETS[z.key] = z.defaultTarget; });
+
+// Load overrides from localStorage, if present
+try {
+  const saved = JSON.parse(localStorage.getItem(TUNE_LS_KEY) || '{}');
+  Object.keys(saved).forEach(k => {
+    const v = parseFloat(saved[k]);
+    if (Number.isFinite(v) && v >= 0.5 && v <= 2.0) TUNE_TARGETS[k] = v;
+  });
+} catch (e) { /* ignore corrupt storage */ }
+
+function saveTuneTargets() {
+  try { localStorage.setItem(TUNE_LS_KEY, JSON.stringify(TUNE_TARGETS)); }
+  catch (e) { /* storage disabled; just skip */ }
+}
+
+function resetTuneTargets() {
+  TUNE_ZONES.forEach(z => { TUNE_TARGETS[z.key] = z.defaultTarget; });
+  saveTuneTargets();
+}
 
 function analyzeZonesForFile(fileResult) {
   if (!fileResult || !fileResult.bins) return [];
   // Operate on lambda, independent of the UI unit.
   return TUNE_ZONES.map(z => {
+    const target = TUNE_TARGETS[z.key];  // live, editable
     const binsIn = fileResult.bins.filter(b => b.t >= z.tpsLo && b.t < z.tpsHi + 0.001);
     const n = binsIn.reduce((a, b) => a + b.n, 0);
     if (n < TUNE_MIN_WEIGHT) {
-      return { zone: z, n, binCount: binsIn.length, lamAvg: null, verdict: 'sparse' };
+      return { zone: z, target, n, binCount: binsIn.length, lamAvg: null, verdict: 'sparse' };
     }
-    // Weighted mean of per-bin medians (weight = n)
     const sumW = binsIn.reduce((a, b) => a + b.n, 0);
     const lamAvg = binsIn.reduce((a, b) => a + b.median * b.n, 0) / sumW;
-    const delta = lamAvg - z.target;                              // + = magerer als Ziel
-    const fuelChangePct = (lamAvg / z.target - 1) * 100;          // vgl. Vorgabe: >0 = mehr Kraftstoff nötig
+    const delta = lamAvg - target;                           // + = magerer als Ziel
+    const fuelChangePct = (lamAvg / target - 1) * 100;       // >0 = mehr Kraftstoff nötig
     let verdict;
     if (Math.abs(delta) <= TUNE_TOLERANCE) verdict = 'ok';
     else if (delta < 0) verdict = 'rich';
     else                verdict = 'lean';
-    return { zone: z, n, binCount: binsIn.length, lamAvg, delta, fuelChangePct, verdict };
+    return { zone: z, target, n, binCount: binsIn.length, lamAvg, delta, fuelChangePct, verdict };
   });
 }
 
@@ -2311,7 +2421,7 @@ function renderTuningForFile(fileResult, fileLabel, fileName, colorHex) {
           <div class="tune-advice sparse">Zu wenig Messdaten (${r.n} Punkte in ${r.binCount} Bins) — keine belastbare Empfehlung.</div>
         </div>`;
     }
-    const targetStr = formatLamOrAfr(z.target);
+    const targetStr = formatLamOrAfr(r.target);
     const avgStr    = formatLamOrAfr(r.lamAvg);
     const deltaStr  = (r.delta > 0 ? '+' : '') + r.delta.toFixed(3);
     const fuelStr   = (r.fuelChangePct > 0 ? '+' : '') + r.fuelChangePct.toFixed(1) + ' %';
@@ -2342,23 +2452,73 @@ function renderTuningForFile(fileResult, fileLabel, fileName, colorHex) {
   return headerHtml + zoneHtml;
 }
 
-function openTuningModal() {
+// Build/refresh the editable targets grid
+function renderTargetsGrid() {
+  const asAfr = STATE.unit === 'afr';
+  $('#tuneTargetsUnit').textContent = asAfr ? '(AFR)' : '(λ)';
+  const html = TUNE_ZONES.map(z => {
+    const lam = TUNE_TARGETS[z.key];
+    const shown = asAfr ? (lam * AFR_STOICH).toFixed(2) : lam.toFixed(2);
+    const step  = asAfr ? '0.1' : '0.01';
+    const changed = Math.abs(lam - z.defaultTarget) > 0.0001;
+    return `
+      <div class="tune-target-cell ${changed ? 'changed' : ''}" data-key="${z.key}">
+        <label>${z.name}</label>
+        <input type="number" value="${shown}" step="${step}" min="${asAfr ? 7 : 0.5}" max="${asAfr ? 29 : 2}" inputmode="decimal" data-key="${z.key}">
+      </div>`;
+  }).join('');
+  $('#tuneTargetsGrid').innerHTML = html;
+
+  // Wire inputs
+  $$('#tuneTargetsGrid input').forEach(input => {
+    input.addEventListener('change', () => {
+      const key = input.dataset.key;
+      const v = parseFloat(String(input.value).replace(',', '.'));
+      if (!Number.isFinite(v)) return;
+      // Store internally as lambda
+      const asLambda = STATE.unit === 'afr' ? (v / AFR_STOICH) : v;
+      if (asLambda < 0.5 || asLambda > 2.0) return;
+      TUNE_TARGETS[key] = asLambda;
+      saveTuneTargets();
+      // Refresh the "changed" marker and re-run the analysis
+      const zone = TUNE_ZONES.find(z => z.key === key);
+      input.closest('.tune-target-cell').classList.toggle('changed', Math.abs(asLambda - zone.defaultTarget) > 0.0001);
+      refreshTuningBody();
+    });
+  });
+}
+
+// Re-render just the zone analysis (not the targets grid)
+function refreshTuningBody() {
   const activeResults = STATE.activeResults || [];
   const body = $('#tuneBody');
   if (activeResults.length === 0) {
     body.innerHTML = `<div class="tune-empty">Noch keine Daten geladen. Erst eine CSV-Datei öffnen.</div>`;
-  } else {
-    const parts = [];
-    activeResults.forEach(r => {
-      parts.push(renderTuningForFile(r, r.file.label, r.file.name, r.file.color));
-    });
-    body.innerHTML = parts.join('<hr style="border:0; border-top:1px dashed var(--line); margin:16px 0;">');
-    const names = activeResults.map(r => r.file.label).join(' + ');
-    $('#tuneFile').textContent = names;
+    return;
   }
+  const parts = [];
+  activeResults.forEach(r => {
+    parts.push(renderTuningForFile(r, r.file.label, r.file.name, r.file.color));
+  });
+  body.innerHTML = parts.join('<hr style="border:0; border-top:1px dashed var(--line); margin:16px 0;">');
+}
+
+function openTuningModal() {
+  const activeResults = STATE.activeResults || [];
+  const names = activeResults.length ? activeResults.map(r => r.file.label).join(' + ') : '—';
+  $('#tuneFile').textContent = names;
+  renderTargetsGrid();
+  refreshTuningBody();
   $('#tuneModal').classList.add('open');
   $('#tuneBackdrop').classList.add('open');
 }
+
+$('#tuneResetBtn').addEventListener('click', () => {
+  resetTuneTargets();
+  renderTargetsGrid();
+  refreshTuningBody();
+  toast('Zielwerte zurückgesetzt', 1800);
+});
 
 function closeTuningModal() {
   $('#tuneModal').classList.remove('open');
