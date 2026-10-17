@@ -1063,6 +1063,82 @@ label.toggle input { accent-color: var(--accent); transform: scale(1.2); }
   background: #fff;
 }
 
+/* === Info button for the carburetor diagram === */
+.tune-info-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--accent);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font: 700 13px/1 inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  vertical-align: middle;
+  padding: 0;
+}
+.tune-info-btn:hover {
+  background: rgba(74,144,226,0.08);
+  border-color: var(--accent);
+}
+
+/* Carburetor diagram modal — a bit larger */
+.modal.diag-modal { max-width: 560px; }
+.carb-diagram-wrap {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.carb-diagram-wrap svg { width: 100%; height: auto; display: block; }
+.carb-legend {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.carb-legend-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--paper);
+}
+.carb-legend-row.z-idle    { border-left-color: #2d8659; }
+.carb-legend-row.z-trans   { border-left-color: #e2734a; }
+.carb-legend-row.z-partial { border-left-color: #4a90e2; }
+.carb-legend-row.z-full    { border-left-color: #c9302c; }
+.carb-legend-num {
+  width: 22px; height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #fff;
+  font: 700 12px/22px -apple-system, sans-serif;
+  text-align: center;
+}
+.carb-legend-num.z-idle    { background: #2d8659; }
+.carb-legend-num.z-trans   { background: #e2734a; }
+.carb-legend-num.z-partial { background: #4a90e2; }
+.carb-legend-num.z-full    { background: #c9302c; }
+.carb-legend-body { flex: 1; min-width: 0; }
+.carb-legend-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-0);
+}
+.carb-legend-sub {
+  font-size: 11px;
+  color: var(--ink-2);
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
 /* Pseudo-fullscreen */
 body.pseudo-full header {
   background: transparent;
@@ -1366,7 +1442,7 @@ body.pseudo-full .chart-area {
 <div class="modal-backdrop" id="tuneBackdrop"></div>
 <div class="modal" id="tuneModal" role="dialog" aria-modal="true" aria-labelledby="tuneTitle" style="max-width:520px">
   <div class="modal-header">
-    <div class="modal-title" id="tuneTitle">Vergaser-Empfehlungen</div>
+    <div class="modal-title" id="tuneTitle">Vergaser-Empfehlungen<button type="button" class="tune-info-btn" id="tuneInfoBtn" title="Vergaser-Bereiche erklärt">ⓘ</button></div>
     <div class="modal-sub">Analyse der λ-Werte nach Vergaser-Lastbereichen · <span id="tuneFile">—</span></div>
   </div>
   <div class="modal-body">
@@ -1403,6 +1479,52 @@ body.pseudo-full .chart-area {
   </div>
   <div class="modal-footer">
     <button class="modal-btn primary" id="tuneClose" type="button">Schließen</button>
+  </div>
+</div>
+
+<!-- Carburetor diagram modal -->
+<div class="modal-backdrop" id="carbBackdrop"></div>
+<div class="modal diag-modal" id="carbModal" role="dialog" aria-modal="true" aria-labelledby="carbTitle">
+  <div class="modal-header">
+    <div class="modal-title" id="carbTitle">Vergaser-Bereiche</div>
+    <div class="modal-sub">Welche Komponente wirkt in welchem Last­bereich</div>
+  </div>
+  <div class="modal-body">
+    <div class="carb-diagram-wrap">
+      <img src="icons/carb-diagram.jpg" alt="Vergaser-Querschnitt mit Zuordnung der Komponenten zu den TPS-Bereichen" loading="lazy">
+    </div>
+
+    <div class="carb-legend">
+      <div class="carb-legend-row z-idle">
+        <div class="carb-legend-body">
+          <div class="carb-legend-title">Leerlauf · 0–5 % TPS → Leerlaufsystem</div>
+          <div class="carb-legend-sub">Luft strömt nur durch den schmalen Spalt unter dem geschlossenen Gasschieber. Kraftstoff kommt ausschließlich über die <strong>Leerlaufdüse</strong> und wird über die <strong>Gemischschraube</strong> fein dosiert.</div>
+        </div>
+      </div>
+      <div class="carb-legend-row z-trans">
+        <div class="carb-legend-body">
+          <div class="carb-legend-title">Übergang · 5–20 % TPS → Gasschieber</div>
+          <div class="carb-legend-sub">Der <strong>Gasschieber</strong> beginnt zu öffnen. Sein Ausschnitt (Chamfer) und der <strong>Konusbeginn der Düsennadel</strong> bestimmen das Gemisch — hier endet der Einfluss des Leerlaufsystems, die Hauptdüse übernimmt noch nicht.</div>
+        </div>
+      </div>
+      <div class="carb-legend-row z-partial">
+        <div class="carb-legend-body">
+          <div class="carb-legend-title">Teillast · 20–60 % TPS → Nadeldüse &amp; Düsennadel</div>
+          <div class="carb-legend-sub">Schieber zur Hälfte geöffnet. Der <strong>Mittelbereich der Düsennadel</strong> gibt den Querschnitt in der <strong>Nadeldüse</strong> frei. Die <strong>Clip-Position</strong> der Nadel verändert hier das Gemisch am stärksten.</div>
+        </div>
+      </div>
+      <div class="carb-legend-row z-full">
+        <div class="carb-legend-body">
+          <div class="carb-legend-title">Volllast · 60–100 % TPS → Hauptdüse</div>
+          <div class="carb-legend-sub">Schieber ganz oben, Nadel vollständig aus der Nadeldüse gezogen. Jetzt limitiert allein die <strong>Hauptdüse</strong> den Kraftstofffluss. Für Volllast-Abstimmung die Hauptdüsengröße wählen.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-sub" style="margin-top:14px">Die Skizze zeigt einen klassischen Rundschiebervergaser. Bei Flachschiebern und CV-Vergasern (Konstantunterdruck) ist das Prinzip ähnlich — die Zuordnung der Lastbereiche gilt dort genauso.</div>
+  </div>
+  <div class="modal-footer">
+    <button class="modal-btn primary" id="carbClose" type="button">Schließen</button>
   </div>
 </div>
 
@@ -2656,6 +2778,18 @@ $('#tuneResetBtn').addEventListener('click', () => {
   refreshTuningBody();
   toast('Ziele und Bereichsgrenzen zurückgesetzt', 2000);
 });
+
+function openCarbModal() {
+  $('#carbModal').classList.add('open');
+  $('#carbBackdrop').classList.add('open');
+}
+function closeCarbModal() {
+  $('#carbModal').classList.remove('open');
+  $('#carbBackdrop').classList.remove('open');
+}
+$('#tuneInfoBtn').addEventListener('click', openCarbModal);
+$('#carbClose').addEventListener('click', closeCarbModal);
+$('#carbBackdrop').addEventListener('click', closeCarbModal);
 
 function closeTuningModal() {
   $('#tuneModal').classList.remove('open');
