@@ -67,6 +67,7 @@
   --ink-3:   #9c9582;          /* very muted */
   --accent:  #4a90e2;          /* the blue tile color */
   --accent-soft: #b3d4ff;
+  --accent-2: #e2734a;         /* the orange 3D tile color */
   --rich:    #c9302c;          /* fett */
   --lean:    #2c6fb3;          /* mager */
   --ok:      #2d8659;
@@ -679,6 +680,7 @@ input[type="file"] { display: none; }
 .modal-body {
   padding: 14px 16px 18px;
   overflow-y: auto;
+  min-width: 0;   /* keep wide children (preview table) from stretching the modal */
 }
 .modal-footer {
   padding: 10px 16px calc(var(--safe-bot) + 14px);
@@ -771,6 +773,8 @@ input[type="file"] { display: none; }
   border: 1px solid var(--line);
   background: var(--paper);
   color: var(--ink-0);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .modal-btn:hover { background: #fff; }
 .modal-btn.primary {
@@ -779,6 +783,125 @@ input[type="file"] { display: none; }
   border-color: var(--accent-2);
 }
 .modal-btn.primary:hover { background: #c75f36; }
+
+/* === Export modal (PowerCommander) === */
+.modal.export-modal { max-width: 680px; }
+.exp-section {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+.exp-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-1);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+}
+.exp-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+.exp-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+}
+@media (min-width: 480px) {
+  .exp-grid-4 { grid-template-columns: repeat(4, 1fr); }
+}
+.exp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.exp-field label {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.exp-field input[type="number"],
+.exp-field select {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font: 500 13px/1.2 inherit;
+  background: var(--paper);
+  color: var(--ink-0);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.exp-field select { text-align: left; }
+.exp-field input[type="number"]:focus,
+.exp-field select:focus {
+  outline: none; border-color: var(--accent-2);
+}
+
+/* Heatmap preview — same cream colour scheme, with rich/lean per cell */
+.exp-preview-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 4px -4px -4px;
+  padding: 0 4px 4px;
+  max-width: 100%;
+}
+.exp-preview {
+  border-collapse: collapse;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  margin: 0 auto;
+}
+.exp-preview th,
+.exp-preview td {
+  padding: 3px 5px;
+  text-align: center;
+  border: 1px solid var(--line-2);
+  min-width: 32px;
+  white-space: nowrap;
+}
+.exp-preview thead th,
+.exp-preview tbody th {
+  background: var(--paper-2);
+  color: var(--ink-1);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+}
+.exp-preview tbody th { position: sticky; left: 0; top: auto; }
+.exp-cell { font-weight: 600; }
+.exp-cell.pos  { color: #c9302c; }  /* needs more fuel (lean) */
+.exp-cell.neg  { color: #2c6fb3; }  /* needs less fuel (rich) */
+.exp-cell.zero { color: var(--ink-2); font-weight: 400; }
+.exp-cell.empty{ color: var(--ink-3); font-style: italic; }
+.exp-cell.clamp { outline: 1.5px solid #e2734a; outline-offset: -2px; }
+
+.exp-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 8px 2px 0;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.exp-summary strong { color: var(--ink-0); font-weight: 600; }
+
+.exp-badge-warn {
+  display: inline-block;
+  background: rgba(226,115,74,.15);
+  color: #a84a1a;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
 
 /* ===== PSEUDO-FULLSCREEN (iOS fallback) ===== */
 body.pseudo-full header {
@@ -794,6 +917,7 @@ body.pseudo-full header {
 body.pseudo-full header .brand,
 body.pseudo-full header .status-pill,
 body.pseudo-full header #btnCam,
+body.pseudo-full header #btnExport,
 body.pseudo-full header #btnSheet {
   display: none;
 }
@@ -859,6 +983,7 @@ body.pseudo-full .plot-area {
     <div class="status-pill" id="status">Bereit</div>
     <button class="icon-btn" id="btnCam" title="Ansicht zurücksetzen" disabled style="opacity:.4">↺</button>
     <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
+    <button class="icon-btn" id="btnExport" title="PowerCommander-Map exportieren" disabled style="opacity:.4">↓</button>
     <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
   </header>
 
@@ -1037,6 +1162,95 @@ body.pseudo-full .plot-area {
   </div>
 </div>
 
+<!-- Export modal: generate a PowerCommander-compatible fuel map -->
+<div class="modal-backdrop" id="expBackdrop"></div>
+<div class="modal export-modal" id="expModal" role="dialog" aria-modal="true" aria-labelledby="expTitle">
+  <div class="modal-header">
+    <div class="modal-title" id="expTitle">Map-Export (kompatibel mit PowerCommander)</div>
+    <div class="modal-sub">Erzeugt aus den geladenen Lambda-Daten eine Prozent-Map, die in die PowerCommander-Software importiert werden kann.</div>
+  </div>
+  <div class="modal-body">
+
+    <!-- Target lambda per TPS zone (inherited from the 2D app's tuning targets) -->
+    <div class="exp-section">
+      <div class="exp-section-title">Ziel-λ pro TPS-Zone</div>
+      <div class="exp-grid-4" id="expTargetsGrid"><!-- filled dynamically --></div>
+      <div class="modal-sub" style="margin-top:8px">Für Zwischen-TPS-Werte wird linear interpoliert. Die Werte werden aus den Tuning-Zielen der 2D-App übernommen (localStorage).</div>
+    </div>
+
+    <!-- Grid: RPM and TPS axes -->
+    <div class="exp-section">
+      <div class="exp-section-title">Raster (PowerCommander-Standard)</div>
+      <div class="exp-grid-2">
+        <div class="exp-field">
+          <label>RPM von</label>
+          <input type="number" id="expRpmMin" value="500" min="0" max="20000" step="250">
+        </div>
+        <div class="exp-field">
+          <label>RPM bis</label>
+          <input type="number" id="expRpmMax" value="13000" min="500" max="20000" step="250">
+        </div>
+        <div class="exp-field">
+          <label>RPM-Schritt</label>
+          <select id="expRpmStep">
+            <option value="250">250 U/min</option>
+            <option value="500" selected>500 U/min</option>
+            <option value="1000">1000 U/min</option>
+          </select>
+        </div>
+        <div class="exp-field">
+          <label>TPS-Raster</label>
+          <select id="expTpsSet">
+            <option value="pc-standard" selected>0 · 2 · 5 · 10 · 15 · 20 · 40 · 60 · 80 · 100</option>
+            <option value="pc-fine">0 · 2 · 5 · 10 · 15 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100</option>
+            <option value="deca">0 · 10 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clamping + fill strategy -->
+    <div class="exp-section">
+      <div class="exp-section-title">Grenzen &amp; Lücken</div>
+      <div class="exp-grid-2">
+        <div class="exp-field">
+          <label>Max. Änderung ±%</label>
+          <input type="number" id="expClamp" value="25" min="5" max="100" step="1">
+        </div>
+        <div class="exp-field">
+          <label>Lücken füllen</label>
+          <select id="expFill">
+            <option value="smart" selected>innen schließen, außen 0 %</option>
+            <option value="zero">überall 0 % (unverändert)</option>
+            <option value="nearest">überall nächster Nachbar</option>
+            <option value="empty">leer lassen</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="exp-section">
+      <div class="exp-section-title">Vorschau</div>
+      <div class="exp-preview-wrap" id="expPreviewWrap">
+        <div class="modal-sub" style="padding:14px 0">—</div>
+      </div>
+      <div class="exp-summary" id="expSummary"></div>
+    </div>
+
+    <div class="modal-sub">
+      Hinweis: Das Dateiformat für den direkten Import in die PowerCommander-Software ist noch nicht
+      endgültig festgezurrt. Diese Vorab-Version schreibt eine lesbare CSV-Datei; sobald Du ein
+      Beispiel-Export aus der PC-Software geschickt hast, passe ich das Format exakt an.
+    </div>
+
+  </div>
+  <div class="modal-footer">
+    <button class="modal-btn" id="expClose" type="button">Schließen</button>
+    <button class="modal-btn primary" id="expDownload" type="button">↓ CSV herunterladen</button>
+  </div>
+</div>
+
 <script>
 // ============ CONSTANTS ============
 const AFR_STOICH = 14.7;
@@ -1044,6 +1258,7 @@ const AFR_STOICH = 14.7;
 // ============ STATE ============
 const STATE = {
   unit: 'lambda',  // 'lambda' or 'afr'
+  fileName: null,
   rawData: { rpm: [], throttle: [], lambda: [] },
   agg: 'median',
   scale: 'Rainbow',
@@ -1247,6 +1462,7 @@ function commitFile(fileName, rawToUse, modeLabel) {
     return false;
   }
   STATE.rawData = rawToUse;
+  STATE.fileName = fileName;
   STATE.hasData = true;
   $('#empty').classList.add('hidden');
   $('#infoStrip').classList.add('active');
@@ -1254,6 +1470,8 @@ function commitFile(fileName, rawToUse, modeLabel) {
   $('#cellsSection').style.display = '';
   $('#btnCam').disabled = false;
   $('#btnCam').style.opacity = '1';
+  $('#btnExport').disabled = false;
+  $('#btnExport').style.opacity = '1';
   setStatus(fileName + ' · ' + rawToUse.rpm.length.toLocaleString('de-DE') + ' Punkte');
   render3D();
   toast(`${rawToUse.rpm.length.toLocaleString('de-DE')} Punkte (${modeLabel})`, 2800);
@@ -1293,6 +1511,352 @@ $('#prepApply').addEventListener('click', () => {
 
 $('#prepCancel').addEventListener('click', closePrepModal);
 $('#prepBackdrop').addEventListener('click', closePrepModal);
+
+// ============ EXPORT: POWERCOMMANDER-COMPATIBLE MAP ============
+// Default zone targets — mirror the 2D app's TUNE defaults. If the 2D app
+// has saved overrides to localStorage (key 'mdlv_tune_targets_v1'), load those.
+const EXP_ZONES_DEFAULT = [
+  { key: 'idle',       name: 'Leerlauf', tpsHi:   5, target: 0.98 },
+  { key: 'transition', name: 'Übergang', tpsHi:  20, target: 0.92 },
+  { key: 'partial',    name: 'Teillast', tpsHi:  60, target: 0.90 },
+  { key: 'full',       name: 'Volllast', tpsHi: 100, target: 0.88 },
+];
+const EXP_ZONES = EXP_ZONES_DEFAULT.map(z => ({ ...z }));
+const EXP_BOUNDS_DEFAULT = [5, 20, 60];
+const EXP_BOUNDS = EXP_BOUNDS_DEFAULT.slice();
+
+// Load targets + bounds persisted by the 2D app (if present)
+(function loadExpTargets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mdlv_tune_targets_v1') || '{}');
+    if (saved && saved.targets) {
+      Object.keys(saved.targets).forEach(k => {
+        const z = EXP_ZONES.find(x => x.key === k);
+        const v = parseFloat(saved.targets[k]);
+        if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) z.target = v;
+      });
+    } else if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+      // v1 flat shape
+      Object.keys(saved).forEach(k => {
+        const z = EXP_ZONES.find(x => x.key === k);
+        const v = parseFloat(saved[k]);
+        if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) z.target = v;
+      });
+    }
+    if (saved && Array.isArray(saved.bounds) && saved.bounds.length === 3) {
+      const b = saved.bounds.map(x => parseFloat(x));
+      if (b.every(Number.isFinite) && b[0] < b[1] && b[1] < b[2]) {
+        EXP_BOUNDS[0] = b[0]; EXP_BOUNDS[1] = b[1]; EXP_BOUNDS[2] = b[2];
+        EXP_ZONES[0].tpsHi = b[0];
+        EXP_ZONES[1].tpsHi = b[1];
+        EXP_ZONES[2].tpsHi = b[2];
+      }
+    }
+  } catch (e) { /* ignore */ }
+})();
+
+const TPS_SETS = {
+  'pc-standard': [0, 2, 5, 10, 15, 20, 40, 60, 80, 100],
+  'pc-fine':     [0, 2, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+  'deca':        [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+};
+
+// Interpolated target-lambda at a given TPS (linear between zone centers)
+function targetLambdaAt(tps) {
+  // Place a knot in the middle of each zone's TPS range
+  const knots = [];
+  let prevHi = 0;
+  EXP_ZONES.forEach(z => {
+    knots.push({ tps: (prevHi + z.tpsHi) / 2, lam: z.target });
+    prevHi = z.tpsHi;
+  });
+  if (tps <= knots[0].tps) return knots[0].lam;
+  if (tps >= knots[knots.length - 1].tps) return knots[knots.length - 1].lam;
+  for (let i = 0; i < knots.length - 1; i++) {
+    const a = knots[i], b = knots[i + 1];
+    if (tps >= a.tps && tps <= b.tps) {
+      const t = (tps - a.tps) / (b.tps - a.tps);
+      return a.lam + t * (b.lam - a.lam);
+    }
+  }
+  return EXP_ZONES[EXP_ZONES.length - 1].target;
+}
+
+// Bilinearly sample the current 3D map (STATE.cells) at the given RPM/TPS point.
+// Returns null if no cell within reasonable distance is populated.
+function sampleMeasuredLambda(rpm, tps) {
+  if (!STATE.cells || STATE.cells.length === 0) return null;
+  // Build RPM/TPS unique sorted axes from the cells
+  const rpmSet = new Set(), tpsSet = new Set();
+  STATE.cells.forEach(c => { rpmSet.add(c.rpm); tpsSet.add(c.thr); });
+  const rpmAx = [...rpmSet].sort((a, b) => a - b);
+  const tpsAx = [...tpsSet].sort((a, b) => a - b);
+  const cellMap = new Map();
+  STATE.cells.forEach(c => cellMap.set(c.rpm + '|' + c.thr, c.lam));
+
+  // Find bracket indices
+  function bracket(ax, v) {
+    if (v <= ax[0])              return { lo: 0, hi: 0, t: 0 };
+    if (v >= ax[ax.length - 1])  return { lo: ax.length - 1, hi: ax.length - 1, t: 0 };
+    for (let i = 0; i < ax.length - 1; i++) {
+      if (v >= ax[i] && v <= ax[i + 1]) {
+        return { lo: i, hi: i + 1, t: (v - ax[i]) / (ax[i + 1] - ax[i]) };
+      }
+    }
+    return { lo: ax.length - 1, hi: ax.length - 1, t: 0 };
+  }
+  const r = bracket(rpmAx, rpm);
+  const t = bracket(tpsAx, tps);
+  const r0 = rpmAx[r.lo], r1 = rpmAx[r.hi];
+  const t0 = tpsAx[t.lo], t1 = tpsAx[t.hi];
+  const v00 = cellMap.get(r0 + '|' + t0);
+  const v10 = cellMap.get(r1 + '|' + t0);
+  const v01 = cellMap.get(r0 + '|' + t1);
+  const v11 = cellMap.get(r1 + '|' + t1);
+  // Weighted average over defined corners
+  let sum = 0, w = 0;
+  const w00 = (1 - r.t) * (1 - t.t);
+  const w10 = r.t * (1 - t.t);
+  const w01 = (1 - r.t) * t.t;
+  const w11 = r.t * t.t;
+  if (v00 != null) { sum += v00 * w00; w += w00; }
+  if (v10 != null) { sum += v10 * w10; w += w10; }
+  if (v01 != null) { sum += v01 * w01; w += w01; }
+  if (v11 != null) { sum += v11 * w11; w += w11; }
+  return w > 0 ? sum / w : null;
+}
+
+// For 'nearest neighbour' fill: find the closest populated cell
+function nearestCellLambda(rpm, tps) {
+  if (!STATE.cells || STATE.cells.length === 0) return null;
+  // Normalize distances across the two axes
+  let best = null, bestD = Infinity;
+  STATE.cells.forEach(c => {
+    const dr = (c.rpm - rpm) / 1000;
+    const dt = (c.thr - tps) / 10;
+    const d  = dr * dr + dt * dt;
+    if (d < bestD) { bestD = d; best = c.lam; }
+  });
+  return best;
+}
+
+// For the 'smart' fill: determine, per TPS row, the RPM span that is actually
+// covered by measurements. Cells inside that span get closed by interpolation,
+// cells outside stay at 0 % so the map does not invent data beyond the log.
+function coveredRpmSpanAt(tps, tpsAxis, idx) {
+  if (!STATE.cells || STATE.cells.length === 0) return null;
+  // Widen the TPS window to the neighbouring grid rows so a row that sits
+  // between two measured TPS bins still finds its span.
+  const lo = idx > 0 ? (tpsAxis[idx - 1] + tps) / 2 : -1;
+  const hi = idx < tpsAxis.length - 1 ? (tps + tpsAxis[idx + 1]) / 2 : 101;
+  let rMin = Infinity, rMax = -Infinity, found = false;
+  STATE.cells.forEach(c => {
+    if (c.thr >= lo && c.thr <= hi) {
+      if (c.rpm < rMin) rMin = c.rpm;
+      if (c.rpm > rMax) rMax = c.rpm;
+      found = true;
+    }
+  });
+  return found ? { rMin, rMax } : null;
+}
+
+// Build the full map: 2D array of {pct, src} where
+// src ∈ {'measured','nearest','filled','empty'}
+function buildExportMap(opts) {
+  const rpmAxis = [];
+  for (let r = opts.rpmMin; r <= opts.rpmMax; r += opts.rpmStep) rpmAxis.push(r);
+  const tpsAxis = TPS_SETS[opts.tpsSet] || TPS_SETS['pc-standard'];
+
+  const rows = tpsAxis.map((tps, ti) => {
+    const span = (opts.fill === 'smart') ? coveredRpmSpanAt(tps, tpsAxis, ti) : null;
+    return rpmAxis.map(rpm => {
+      let lam = sampleMeasuredLambda(rpm, tps);
+      let src = 'measured';
+      if (lam == null) {
+        if (opts.fill === 'nearest') {
+          lam = nearestCellLambda(rpm, tps);
+          src = (lam == null) ? 'empty' : 'nearest';
+        } else if (opts.fill === 'smart') {
+          // Only close gaps that sit inside the measured RPM span of this row
+          if (span && rpm >= span.rMin && rpm <= span.rMax) {
+            lam = nearestCellLambda(rpm, tps);
+            src = (lam == null) ? 'filled' : 'nearest';
+          } else {
+            src = 'filled';   // outside the logged range → leave untouched
+          }
+        } else if (opts.fill === 'empty') {
+          src = 'empty';
+        } else {
+          src = 'filled';     // → 0 %
+        }
+      }
+      let pct = null;
+      let clamped = false;
+      if (lam != null) {
+        const tgt = targetLambdaAt(tps);
+        pct = (lam / tgt - 1) * 100;
+        if (pct > opts.clamp) { pct = opts.clamp; clamped = true; }
+        if (pct < -opts.clamp){ pct = -opts.clamp; clamped = true; }
+      } else if (src === 'filled') {
+        pct = 0;
+      }
+      return { pct, src, clamped };
+    });
+  });
+  return { rpmAxis, tpsAxis, rows };
+}
+
+function readExportOpts() {
+  return {
+    rpmMin:  parseInt($('#expRpmMin').value, 10) || 500,
+    rpmMax:  parseInt($('#expRpmMax').value, 10) || 13000,
+    rpmStep: parseInt($('#expRpmStep').value, 10) || 500,
+    tpsSet:  $('#expTpsSet').value,
+    clamp:   Math.max(1, Math.min(100, parseFloat($('#expClamp').value) || 25)),
+    fill:    $('#expFill').value,
+  };
+}
+
+function renderTargetsForExport() {
+  const html = EXP_ZONES.map(z => `
+    <div class="exp-field">
+      <label>${z.name}</label>
+      <input type="number" value="${z.target.toFixed(2)}" step="0.01" min="0.5" max="2.0" inputmode="decimal" data-key="${z.key}">
+    </div>`).join('');
+  $('#expTargetsGrid').innerHTML = html;
+  $$('#expTargetsGrid input').forEach(input => {
+    input.addEventListener('change', () => {
+      const key = input.dataset.key;
+      const z = EXP_ZONES.find(x => x.key === key);
+      const v = parseFloat(String(input.value).replace(',', '.'));
+      if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) {
+        z.target = v;
+        input.value = v.toFixed(2);
+        renderExportPreview();
+      } else {
+        input.value = z.target.toFixed(2);
+      }
+    });
+  });
+}
+
+function renderExportPreview() {
+  if (!STATE.hasData) {
+    $('#expPreviewWrap').innerHTML = `<div class="modal-sub" style="padding:14px 0">Keine Daten geladen.</div>`;
+    $('#expSummary').innerHTML = '';
+    return;
+  }
+  const opts = readExportOpts();
+  const { rpmAxis, tpsAxis, rows } = buildExportMap(opts);
+  // Build table — TPS as rows (high at top, like PC software), RPM as columns
+  const headerCells = rpmAxis.map(r => `<th>${r}</th>`).join('');
+  const bodyRows = tpsAxis.slice().reverse().map((tps, iiRev) => {
+    const i = tpsAxis.length - 1 - iiRev;
+    const cells = rows[i].map(cell => {
+      if (cell.pct == null) {
+        return `<td class="exp-cell empty">—</td>`;
+      }
+      const v = Math.round(cell.pct);
+      const cls = v === 0 ? 'zero' : (v > 0 ? 'pos' : 'neg');
+      const clamp = cell.clamped ? ' clamp' : '';
+      const sign = v > 0 ? '+' : '';
+      return `<td class="exp-cell ${cls}${clamp}">${sign}${v}</td>`;
+    }).join('');
+    return `<tr><th>${tps}%</th>${cells}</tr>`;
+  }).join('');
+  $('#expPreviewWrap').innerHTML = `
+    <table class="exp-preview">
+      <thead><tr><th>TPS \\ RPM</th>${headerCells}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+  `;
+  // Summary line
+  let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0;
+  rows.forEach(row => row.forEach(c => {
+    if (c.src === 'measured') countMeasured++;
+    else if (c.src === 'nearest') countNearest++;
+    else if (c.src === 'filled')  countFilled++;
+    else countEmpty++;
+    if (c.clamped) countClamp++;
+  }));
+  const total = rows.length * (rows[0] ? rows[0].length : 0);
+  $('#expSummary').innerHTML = `
+    <span><strong>${countMeasured}</strong>/${total} aus Messung</span>
+    ${countNearest ? `<span><strong>${countNearest}</strong> interpoliert</span>` : ''}
+    ${countFilled ? `<span><strong>${countFilled}</strong> auf 0 % (ohne Daten)</span>` : ''}
+    ${countEmpty ? `<span><strong>${countEmpty}</strong> leer</span>` : ''}
+    ${countClamp ? `<span><strong>${countClamp}</strong> gekappt<span class="exp-badge-warn">±${opts.clamp}%</span></span>` : ''}
+  `;
+}
+
+function buildExportCsv(opts, map) {
+  const { rpmAxis, tpsAxis, rows } = map;
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+  const srcName = (STATE.fileName || 'MD-Lambda-View');
+  const targets = EXP_ZONES.map(z => `${z.name} ${z.target.toFixed(2)}`).join(', ');
+  const header = [
+    `# MD-Lambda-View · Map-Export (kompatibel mit PowerCommander-Software)`,
+    `# Datum: ${now}`,
+    `# Quelldatei: ${srcName}`,
+    `# Ziel-Lambda (pro Zone): ${targets}`,
+    `# TPS-Raster: ${tpsAxis.join(', ')} %`,
+    `# RPM-Raster: ${opts.rpmMin}–${opts.rpmMax} in ${opts.rpmStep}er Schritten`,
+    `# Clamping: ±${opts.clamp}%`,
+    `# Werte: Kraftstoff-Änderung in % (positiv = mehr Kraftstoff, negativ = weniger)`,
+    `# HINWEIS: Vorab-Format. Endgültiges Format wird an die PC-Software angepasst.`,
+    ``,
+    ``,
+  ];
+  // Table: TPS as rows (ascending), RPM as columns
+  const headRow = ['TPS\\RPM', ...rpmAxis].join(';');
+  const dataRows = tpsAxis.map((tps, i) => {
+    const cells = rows[i].map(c => c.pct == null ? '' : String(Math.round(c.pct)));
+    return [tps, ...cells].join(';');
+  });
+  return header.join('\n') + headRow + '\n' + dataRows.join('\n') + '\n';
+}
+
+function downloadExportCsv() {
+  if (!STATE.hasData) { toast('Keine Daten geladen', 2500); return; }
+  const opts = readExportOpts();
+  const map = buildExportMap(opts);
+  const csv = buildExportCsv(opts, map);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const base = (STATE.fileName || 'md-lambda-view').replace(/\.[^.]+$/, '');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${base}_PC-Map.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  toast('CSV heruntergeladen', 2000);
+}
+
+function openExportModal() {
+  if (!STATE.hasData) { toast('Erst eine CSV laden', 2500); return; }
+  renderTargetsForExport();
+  renderExportPreview();
+  $('#expModal').classList.add('open');
+  $('#expBackdrop').classList.add('open');
+}
+function closeExportModal() {
+  $('#expModal').classList.remove('open');
+  $('#expBackdrop').classList.remove('open');
+}
+
+// Wire controls → re-render preview
+['expRpmMin','expRpmMax','expRpmStep','expTpsSet','expClamp','expFill'].forEach(id => {
+  $('#' + id).addEventListener('change', renderExportPreview);
+});
+
+$('#btnExport').addEventListener('click', () => {
+  if ($('#btnExport').disabled) return;
+  openExportModal();
+});
+$('#expClose').addEventListener('click', closeExportModal);
+$('#expBackdrop').addEventListener('click', closeExportModal);
+$('#expDownload').addEventListener('click', downloadExportCsv);
 
 // ============ RENDER ============
 function render3D() {
