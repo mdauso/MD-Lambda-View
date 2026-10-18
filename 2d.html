@@ -98,22 +98,41 @@ button { font-family: inherit; }
 /* HEADER */
 header {
   background: transparent;
-  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  padding: calc(var(--safe-top) + 10px) 12px 10px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   z-index: 10;
   position: relative;
 }
 
+/* Row 1: brand name, centred */
+.header-brand-row {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+/* Row 2: back button + action icons */
+.header-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.header-action-row .spacer { flex: 1; min-width: 0; }
+
 .brand {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 8px;
   line-height: 1.1;
   white-space: nowrap;
+  min-width: 0;
 }
 .brand-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.3px;
   color: var(--ink-0);
@@ -122,7 +141,6 @@ header {
   font-size: 11px;
   font-weight: 500;
   color: var(--ink-2);
-  margin-top: 2px;
 }
 
 .status-pill {
@@ -1160,7 +1178,8 @@ body.pseudo-full header {
   right: 0;
   z-index: 50;
 }
-body.pseudo-full header .brand,
+body.pseudo-full header .header-brand-row,
+body.pseudo-full header .home-btn,
 body.pseudo-full header .status-pill,
 body.pseudo-full header #btnReset,
 body.pseudo-full header #btnTuning,
@@ -1220,17 +1239,20 @@ body.pseudo-full .chart-area {
 <div class="app">
 
   <header>
-    
-    <a href="index.html" class="icon-btn home-btn" title="Startseite" style="text-decoration:none">‹</a>
-    <div class="brand">
-      <div class="brand-title">MD-Lambda-View</div>
-      <div class="brand-sub">2D · TPS / λ</div>
+    <div class="header-brand-row">
+      <div class="brand">
+        <span class="brand-title">MD-Lambda-View</span>
+        <span class="brand-sub">2D · TPS / λ</span>
+      </div>
     </div>
-    <div style="flex:1"></div>
-    <button class="icon-btn" id="btnReset" title="Zoom zurück" disabled style="opacity:.4">↺</button>
-    <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
-    <button class="icon-btn" id="btnTuning" title="Vergaser-Empfehlungen" disabled style="opacity:.4">💡</button>
-    <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
+    <div class="header-action-row">
+      <a href="index.html" class="icon-btn home-btn" title="Startseite" style="text-decoration:none">‹</a>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="btnReset" title="Zoom zurück" disabled style="opacity:.4">↺</button>
+      <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
+      <button class="icon-btn" id="btnTuning" title="Vergaser-Empfehlungen" disabled style="opacity:.4">💡</button>
+      <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
+    </div>
   </header>
 
   <div class="file-label" id="fileLabel"></div>

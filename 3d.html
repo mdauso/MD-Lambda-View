@@ -105,26 +105,55 @@ button { font-family: inherit; }
 /* ===== HEADER ===== */
 header {
   background: transparent;
-  padding: calc(var(--safe-top) + 12px) 16px 12px;
+  padding: calc(var(--safe-top) + 10px) 12px 10px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   z-index: 10;
   position: relative;
 }
 
+/* Row 1: brand name, centred */
+.header-brand-row {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+/* Row 2: back button + status + action icons */
+.header-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .brand {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  font-size: 18px;
-  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   letter-spacing: -0.3px;
   color: var(--ink-0);
   white-space: nowrap;
+  min-width: 0;
+}
+.brand-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink-0);
+}
+.brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
 }
 .brand .acc { color: var(--accent); }
 
 .status-pill {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 11px;
   color: var(--ink-2);
   text-align: right;
@@ -132,6 +161,7 @@ header {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 500;
+  padding-right: 4px;
 }
 
 .icon-btn {
@@ -914,7 +944,8 @@ body.pseudo-full header {
   right: 0;
   z-index: 50;
 }
-body.pseudo-full header .brand,
+body.pseudo-full header .header-brand-row,
+body.pseudo-full header .home-btn,
 body.pseudo-full header .status-pill,
 body.pseudo-full header #btnCam,
 body.pseudo-full header #btnExport,
@@ -977,14 +1008,20 @@ body.pseudo-full .plot-area {
 <div class="app">
 
   <header>
-    
-    <a href="index.html" class="icon-btn home-btn" title="Startseite" style="text-decoration:none">‹</a>
-    <div class="brand">MD-Lambda-View</div>
-    <div class="status-pill" id="status">Bereit</div>
-    <button class="icon-btn" id="btnCam" title="Ansicht zurücksetzen" disabled style="opacity:.4">↺</button>
-    <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
-    <button class="icon-btn" id="btnExport" title="PowerCommander-Map exportieren" disabled style="opacity:.4">↓</button>
-    <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
+    <div class="header-brand-row">
+      <div class="brand">
+        <span class="brand-title">MD-Lambda-View</span>
+        <span class="brand-sub">3D · RPM / TPS / λ</span>
+      </div>
+    </div>
+    <div class="header-action-row">
+      <a href="index.html" class="icon-btn home-btn" title="Startseite" style="text-decoration:none">‹</a>
+      <div class="status-pill" id="status">Bereit</div>
+      <button class="icon-btn" id="btnCam" title="Ansicht zurücksetzen" disabled style="opacity:.4">↺</button>
+      <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
+      <button class="icon-btn" id="btnExport" title="Map-Export (PowerCommander)" disabled style="opacity:.4">↓</button>
+      <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
+    </div>
   </header>
 
   <div class="plot-area">
