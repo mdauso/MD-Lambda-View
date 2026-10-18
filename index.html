@@ -78,6 +78,34 @@ header {
   margin-top: 4px;
 }
 
+/* Language switch */
+.lang-switch {
+  display: inline-flex;
+  gap: 2px;
+  margin-top: 14px;
+  padding: 3px;
+  background: rgba(255,255,255,.55);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.lang-opt {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .3px;
+  color: var(--ink-2);
+  text-decoration: none;
+  transition: background .15s, color .15s;
+}
+.lang-opt:hover { color: var(--ink-0); }
+.lang-opt.on {
+  background: var(--paper);
+  color: var(--ink-0);
+  box-shadow: 0 1px 2px rgba(60,50,20,.10);
+}
+
 main {
   flex: 1;
   padding: 28px 20px 20px;
@@ -224,6 +252,10 @@ footer a {
 <header>
   <div class="brand-title">MD-Lambda-View</div>
   <div class="brand-sub">Log-Auswertung · Tuning-Tools</div>
+  <div class="lang-switch" role="group" aria-label="Sprache">
+    <span class="lang-opt on" aria-current="true">DE</span>
+    <a class="lang-opt" href="index-en.html" id="langEn">EN</a>
+  </div>
 </header>
 
 <main>
@@ -263,6 +295,26 @@ footer a {
 </footer>
 
 <script>
+// ===== Language preference =====
+// 'de' on this page, 'en' on index-en.html. The choice is remembered so the
+// app starts in the language last picked; it is only ever written when the
+// user clicks the switch, never automatically.
+const LANG_KEY = 'mdlv_lang';
+const THIS_LANG = 'de';
+const OTHER_PAGE = 'index-en.html';
+
+(function applyLangPreference() {
+  let saved = null;
+  try { saved = localStorage.getItem(LANG_KEY); } catch (e) {}
+  if (saved && saved !== THIS_LANG) {
+    location.replace(OTHER_PAGE);
+  }
+})();
+
+document.getElementById('langEn').addEventListener('click', () => {
+  try { localStorage.setItem(LANG_KEY, 'en'); } catch (e) {}
+});
+
 // Register service worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

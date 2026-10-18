@@ -1,6 +1,6 @@
 // MD-Lambda-View PWA Service Worker
 // Bump CACHE_VERSION on every release to force update
-const CACHE_VERSION = 'v18';
+const CACHE_VERSION = 'v19';
 const CACHE_NAME = `mdlv-${CACHE_VERSION}`;
 
 // App-shell files (same origin) — always pre-cached on install
@@ -9,6 +9,9 @@ const APP_SHELL = [
   './index.html',
   './2d.html',
   './3d.html',
+  './index-en.html',
+  './2d-en.html',
+  './3d-en.html',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
