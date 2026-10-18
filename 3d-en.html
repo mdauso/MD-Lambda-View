@@ -1020,7 +1020,7 @@ body.pseudo-full .plot-area {
       <div class="status-pill" id="status">Ready</div>
       <button class="icon-btn" id="btnCam" title="Reset view" disabled style="opacity:.4">↺</button>
       <button class="icon-btn" id="btnFull" title="Fullscreen">⛶</button>
-      <button class="icon-btn" id="btnExport" title="Map export (PowerCommander)" disabled style="opacity:.4">↓</button>
+      <button class="icon-btn" id="btnExport" title="Map Export (PowerCommander)" disabled style="opacity:.4">↓</button>
       <button class="icon-btn primary" id="btnSheet" title="Settings">☰</button>
     </div>
   </header>
@@ -1204,10 +1204,24 @@ body.pseudo-full .plot-area {
 <div class="modal-backdrop" id="expBackdrop"></div>
 <div class="modal export-modal" id="expModal" role="dialog" aria-modal="true" aria-labelledby="expTitle">
   <div class="modal-header">
-    <div class="modal-title" id="expTitle">Map export (compatible with PowerCommander)</div>
-    <div class="modal-sub">Builds a percentage map from the loaded lambda data that can be imported into the PowerCommander software.</div>
+    <div class="modal-title" id="expTitle">Map Export (PowerCommander)</div>
+    <div class="modal-sub">Builds a trim map from the loaded lambda data that can be imported into the PowerCommander software.</div>
   </div>
   <div class="modal-body">
+
+    <!-- Target device: which PowerCommander format to generate -->
+    <div class="exp-section">
+      <div class="exp-section-title">Target device</div>
+      <div class="exp-field">
+        <label>Export file format</label>
+        <select id="expTarget">
+          <option value="pcv" selected>PowerCommander V · PCFC · PCVI (.pvm)</option>
+          <option value="pciii">PowerCommander III USB (.djm)</option>
+          <option value="csv">CSV (universal, for reference)</option>
+        </select>
+      </div>
+      <div class="modal-sub" id="expTargetHint" style="margin-top:8px"></div>
+    </div>
 
     <!-- Target lambda per TPS zone (inherited from the 2D app's tuning targets) -->
     <div class="exp-section">
@@ -1218,7 +1232,7 @@ body.pseudo-full .plot-area {
 
     <!-- Grid: RPM and TPS axes -->
     <div class="exp-section">
-      <div class="exp-section-title">Grid (PowerCommander standard)</div>
+      <div class="exp-section-title" id="expGridTitle">Grid</div>
       <div class="exp-grid-2">
         <div class="exp-field">
           <label>RPM from</label>
@@ -1226,20 +1240,21 @@ body.pseudo-full .plot-area {
         </div>
         <div class="exp-field">
           <label>RPM to</label>
-          <input type="number" id="expRpmMax" value="13000" min="500" max="20000" step="250">
+          <input type="number" id="expRpmMax" value="7500" min="500" max="20000" step="250">
         </div>
         <div class="exp-field">
           <label>RPM step</label>
           <select id="expRpmStep">
-            <option value="250">250 rpm</option>
-            <option value="500" selected>500 rpm</option>
+            <option value="250" selected>250 rpm</option>
+            <option value="500">500 rpm</option>
             <option value="1000">1000 rpm</option>
           </select>
         </div>
         <div class="exp-field">
           <label>TPS grid</label>
           <select id="expTpsSet">
-            <option value="pc-standard" selected>0 · 2 · 5 · 10 · 15 · 20 · 40 · 60 · 80 · 100</option>
+            <option value="pcv" selected>0 · 2 · 5 · 10 · 15 · 20 · 40 · 60 · 80 · 100 (PCV)</option>
+            <option value="pciii">0 · 2 · 5 · 10 · 20 · 40 · 60 · 80 · 100 (PCIII)</option>
             <option value="pc-fine">0 · 2 · 5 · 10 · 15 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100</option>
             <option value="deca">0 · 10 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100</option>
           </select>
@@ -1276,14 +1291,14 @@ body.pseudo-full .plot-area {
       <div class="exp-summary" id="expSummary"></div>
     </div>
 
-    <div class="modal-sub">
-      Note: the file format for direct import into the PowerCommander software is not finalised yet. This preliminary version writes a readable CSV file; it will be matched exactly to the PC software once a sample export is available.
+    <div class="modal-sub" id="expFootnote">
+      The generated file can be loaded in the matching PowerCommander software via "Open map".
     </div>
 
   </div>
   <div class="modal-footer">
     <button class="modal-btn" id="expClose" type="button">Close</button>
-    <button class="modal-btn primary" id="expDownload" type="button">↓ Download CSV</button>
+    <button class="modal-btn primary" id="expDownload" type="button">↓ Download file</button>
   </div>
 </div>
 
@@ -1591,11 +1606,237 @@ const EXP_BOUNDS = EXP_BOUNDS_DEFAULT.slice();
   } catch (e) { /* ignore */ }
 })();
 
+// TPS grids. The two PC entries are the real axes used by the PowerCommander
+// software: PCV has an extra 15 % column (10 bins), PCIII skips it (9 bins).
+// The other two are generic grids for the CSV export.
 const TPS_SETS = {
-  'pc-standard': [0, 2, 5, 10, 15, 20, 40, 60, 80, 100],
+  'pcv':         [0, 2, 5, 10, 15, 20, 40, 60, 80, 100],
+  'pciii':       [0, 2, 5, 10, 20, 40, 60, 80, 100],
   'pc-fine':     [0, 2, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100],
   'deca':        [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
 };
+
+// Per-target grid constraints (what the PowerCommander software accepts).
+// When one of the binary targets is selected, the UI is forced onto this
+// grid; the CSV target leaves every control free.
+const TARGET_SPEC = {
+  pcv: {
+    label: 'PowerCommander V (.pvm)',
+    tpsSet: 'pcv',
+    rpmMin: 500, rpmMax: 7500, rpmStep: 250,
+    hint: 'PCV / PCFC / PCVI: 29 RPM steps (500–7500 /250), 10 TPS columns. The fields are fixed by the file format.'
+  },
+  pciii: {
+    label: 'PowerCommander III USB (.djm)',
+    tpsSet: 'pciii',
+    rpmMin: 500, rpmMax: 12000, rpmStep: 250,
+    hint: 'PCIII USB: 47 RPM steps (500–12000 /250), 9 TPS columns (no 15 %). The fields are fixed by the file format.'
+  },
+  csv: {
+    label: 'CSV (universal)',
+    tpsSet: null, rpmMin: null, rpmMax: null, rpmStep: null,
+    hint: 'Human-readable table with headers – for checking the numbers or copying them by hand into any tuning tool.'
+  },
+};
+
+// ============ POWERCOMMANDER TEMPLATES ============
+// Both files were sliced from a real XT660R export so model-ID, device-GUID,
+// timestamps and the second (cylinder 2) matrix survive untouched. We only
+// overwrite RPM axis + fuel matrix (+ TPS axis for PCIII) before download.
+
+// PCIII template (2005 Yamaha XT660R, 5328 bytes)
+const PCIII_TEMPLATE_B64 =
+'ygAAAKQAAAACAAkAkAAAAAABAAAAAAAA+gAAADIwMDUgWWFtYWhhIFhUNjYwUiBFdXJvcGVhbiBt' +
+'b2RlbA0KU3RvY2sgZXhoYXVzdA0KU3RvY2sgYWlyIGZpbHRlcg0KKGFsc28gdG8gYmUgdXNlZCBv' +
+'biAyMDA0IG1vZGVscyB0aGF0IGhhZCBoYWQgdGhlIHVwZGF0ZWQgMjAwNSBFQ1UgaW5zdGFsbGVk' +
+'KQAAAAACAAAABQAAAAoAAAAUAAAAKAAAADwAAABQAAAAZAAAAAEALwBUEMYAo8lNACx0WQDK500A' +
+'9AEAAO4CAADoAwAA4gQAANwFAADWBgAA0AcAAMoIAADECQAAvgoAALgLAACyDAAArA0AAKYOAACg' +
+'DwAAmhAAAJQRAACOEgAAiBMAAIIUAAB8FQAAdhYAAHAXAABqGAAAZBkAAF4aAABYGwAAUhwAAEwd' +
+'AABGHgAAQB8AADogAAA0IQAALiIAACgjAAAiJAAAHCUAABYmAAAQJwAACigAAAQpAAD+KQAA+CoA' +
+'APIrAADsLAAA5i0AAOAuAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAUAAAAFAAAACwAAAAkAAAAKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAABAAAAAQAAAAEAAAABwAAAAMAAAAHAAAACgAAAAsAAAALAAAACAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFAAAABAAAAAEAAAADAAAAAgAAAAYA' +
+'AAAIAAAACQAAAAcAAAAKAAAACQAAAAwAAAANAAAAEQAAABMAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////+' +
+'////AgAAAAcAAAAHAAAACQAAAAsAAAAIAAAACgAAAAgAAAALAAAAEAAAABQAAAAWAAAAEQAAAA8A' +
+'AAAOAAAACwAAAA8AAAAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAADAAAAAcAAAAHAAAACwAAAAIAAAAEAAAAAwAAAAQAAAAEAAAABgAAAAUAAAAK' +
+'AAAADQAAAA0AAAAMAAAACwAAAAoAAAAKAAAADgAAAAwAAAAMAAAAFAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAABAAAAAUAAAAFAAAABQAAAAMAAAADAAAA' +
+'BAAAAAIAAAACAAAABAAAAAUAAAAGAAAAAwAAAAAAAAAAAAAAAgAAAAIAAAADAAAABQAAAAYAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD7////AAAA' +
+'AP//////////+v////3///8BAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAA/v////7/////////' +
+'/////wAAAAD//////f///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAA/P////z////8////+v///////////////v///////////////v//' +
+'//3////7//////////z////9/////P////z////7////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC' +
+'AFAAVBDGAKPJTQAsdFkAyudNAPQBAADuAgAA6AMAAOIEAADcBQAA1gYAANAHAADKCAAAxAkAAL4K' +
+'AAC4CwAAsgwAAKwNAACmDgAAoA8AAJoQAACUEQAAjhIAAIgTAACCFAAAfBUAAHYWAABwFwAAahgA' +
+'AGQZAABeGgAAWBsAAFIcAABMHQAARh4AAEAfAAA6IAAANCEAAC4iAAAoIwAAIiQAABwlAAAWJgAA' +
+'ECcAAAooAAAEKQAA/ikAAPgqAADyKwAA7CwAAOYtAADgLgAA2i8AANQwAADOMQAAyDIAAMIzAAC8' +
+'NAAAtjUAALA2AACqNwAApDgAAJ45AACYOgAAkjsAAIw8AACGPQAAgD4AAHo/AAB0QAAAbkEAAGhC' +
+'AABiQwAAXEQAAFZFAABQRgAASkcAAERIAAA+SQAAOEoAADJLAAAsTAAAJk0AACBOAAAaTwAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+
+// PCV template (2008 Yamaha XT660R Tenere, 1010 bytes)
+const PCV_TEMPLATE_B64 =
+'AgAAAKQAAAAwAAAAAAEAAPICAAABAQYAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAEsAAQAAADgAAADB' +
+'QD/QSAAAgAwBAIDQAQCACsUAAAAAFAAyAGQAlgDIAJABWAIgA+gDAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB0cAAD0Ae4C6APiBNwF1gbQ' +
+'B8oIxAm+CrgLsgysDaYOoA+aEJQRjhKIE4IUfBV2FnAXahhkGV4aWBtSHEwdAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+'AAAAAAAAAABkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRk' +
+'ZGRiZmVrcXxkZGRkZWVjZGZ0XGRjZGtpZmZmdWpjY2RvbmppaG9mYGZkdXBxaWJqamRmZHNubWhk' +
+'aWhrb2Rnbm9qZWZpaGZkZHJxbmxmYmFkZGRzcm1pZVpYXWRkbG9raGFgWl5kZGlxb21nZWFfZGRm' +
+'cG1raWJfYGRkZnBtampjXWFkZGZ0cG1pYWJhZGRmbm1sbV9eXmRkZmprbWlfXmBkZF9naGlnZGBj' +
+'ZGRkbGxsZmNiX2RkZGxqaWhhXmFkZGRkZmhnY2JiZGRkZGdqamhlZGRkZGRkZGpqZ2NkZGRkZGRt' +
+'ZGRkZGRkZGRkZGRkZDIwMDggWWFtYWhhIFhUNjYwUiANClRlbmVyZSBFdXJvcGVhbiBtb2RlbA0K' +
+'U3RvY2sgZXhoYXVzdA0KU3RvY2sgYWlyIGZpbHRlcgBjZi04OGNiLTAwMTExMTAwMDAzMJABAABn' +
+'AAAAXFw/XGhpZCN2aWRfMGIwZSZwaWRfMDMwMSZtaV8wMyZjb2wwMSM5JjE0NDAyM2U3JjAmMDAw' +
+'MCN7NGQxZTU1YjItZjE2Zi0xMWNmLTg4Y2ItMDAxMTExMDAwMDMwfQAAXFO1AlxTtQJYAAAAAAAA' +
+'AAAAAAAAAAAAoEm1AgAAAAAAAAAAAQAAAAoAAAAAAQACjFO1AoxTtQI=';
+
+// ============ BINARY HELPERS ============
+function b64ToU8(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function writeI16LE(buf, offs, v) {
+  buf[offs]     = v & 0xff;
+  buf[offs + 1] = (v >>> 8) & 0xff;
+}
+function writeI32LE(buf, offs, v) {
+  buf[offs]     = v & 0xff;
+  buf[offs + 1] = (v >>> 8)  & 0xff;
+  buf[offs + 2] = (v >>> 16) & 0xff;
+  buf[offs + 3] = (v >>> 24) & 0xff;
+}
+
+// Fetch the cell at (rpmIdx, tpsIdx) from the export map in a direction-safe
+// way. buildExportMap returns rows[tpsIdx][rpmIdx], but at the binary level
+// PCIII and PCV both store the matrix row-by-row with rpm as the outer index.
+function cellPct(map, rpmIdx, tpsIdx) {
+  const row = map.rows[tpsIdx];
+  if (!row) return 0;
+  const c = row[rpmIdx];
+  return (c && c.pct != null) ? Math.round(c.pct) : 0;
+}
+
+// Build a .pvm file (PowerCommander V/FC/VI). Base is a real XT660R file —
+// the HID-GUID, model-ID and all unknown header fields come straight from
+// the template, we only overwrite RPM axis + fuel matrix.
+function buildPvmBinary(map) {
+  const out = b64ToU8(PCV_TEMPLATE_B64);          // 1010 bytes
+  // RPM axis at 0x110: 29 × int16 LE
+  for (let i = 0; i < 29; i++) {
+    writeI16LE(out, 0x110 + i * 2, map.rpmAxis[i] | 0);
+  }
+  // Matrix at 0x1D0: 29 RPM rows × 10 TPS cols × int8, baseline 100 (= 0 %)
+  for (let r = 0; r < 29; r++) {
+    for (let c = 0; c < 10; c++) {
+      // int8 range would be ±127, but PCV UI tops out at ±99 so stay safe.
+      const pct = Math.max(-99, Math.min(99, cellPct(map, r, c)));
+      out[0x1D0 + r * 10 + c] = (100 + pct) & 0xff;
+    }
+  }
+  return out;
+}
+
+// Build a .djm file (PowerCommander III USB). Base is also a real XT660R
+// export; everything after matrix 1 (metadata, repeated RPM axis, cylinder-2
+// matrix = all zeros, trailing padding) is kept verbatim.
+function buildDjmBinary(map) {
+  const out = b64ToU8(PCIII_TEMPLATE_B64);        // 5328 bytes
+  // TPS axis at 0x0AC: 9 × int32 LE
+  for (let i = 0; i < 9; i++) {
+    writeI32LE(out, 0x0AC + i * 4, map.tpsAxis[i] | 0);
+  }
+  // RPM axis at 0x0E4: 47 × int32 LE
+  for (let i = 0; i < 47; i++) {
+    writeI32LE(out, 0x0E4 + i * 4, map.rpmAxis[i] | 0);
+  }
+  // Matrix at 0x1A0: 47 RPM rows × 9 TPS cols × int32 LE, direct % values
+  for (let r = 0; r < 47; r++) {
+    for (let c = 0; c < 9; c++) {
+      writeI32LE(out, 0x1A0 + (r * 9 + c) * 4, cellPct(map, r, c));
+    }
+  }
+  // Repeat the RPM axis after matrix 1 (the file keeps a second copy at
+  // 0x0850, right before the cylinder-2 matrix). Keeps the two axes aligned
+  // when a user picks a different RPM range on a twin.
+  for (let i = 0; i < 47; i++) {
+    writeI32LE(out, 0x0850 + i * 4, map.rpmAxis[i] | 0);
+  }
+  return out;
+}
 
 // Interpolated target-lambda at a given TPS (linear between zone centers)
 function targetLambdaAt(tps) {
@@ -1744,6 +1985,7 @@ function buildExportMap(opts) {
 
 function readExportOpts() {
   return {
+    target:  $('#expTarget').value,
     rpmMin:  parseInt($('#expRpmMin').value, 10) || 500,
     rpmMax:  parseInt($('#expRpmMax').value, 10) || 13000,
     rpmStep: parseInt($('#expRpmStep').value, 10) || 500,
@@ -1751,6 +1993,33 @@ function readExportOpts() {
     clamp:   Math.max(1, Math.min(100, parseFloat($('#expClamp').value) || 25)),
     fill:    $('#expFill').value,
   };
+}
+
+// Switch the grid controls between "format-locked" (PCV/PCIII) and "free"
+// (CSV). The locked state forces RPM range + TPS grid onto the binary layout
+// so the file always fits.
+function applyTargetSpec() {
+  const target = $('#expTarget').value;
+  const spec = TARGET_SPEC[target] || TARGET_SPEC.csv;
+  $('#expTargetHint').textContent = spec.hint;
+  $('#expGridTitle').textContent = target === 'csv'
+    ? 'Grid (freely chosen)'
+    : `Grid (${spec.label})`;
+  const lock = (target !== 'csv');
+  if (lock) {
+    $('#expRpmMin').value  = spec.rpmMin;
+    $('#expRpmMax').value  = spec.rpmMax;
+    $('#expRpmStep').value = String(spec.rpmStep);
+    $('#expTpsSet').value  = spec.tpsSet;
+  }
+  ['expRpmMin','expRpmMax','expRpmStep','expTpsSet'].forEach(id => {
+    $('#' + id).disabled = lock;
+    $('#' + id).style.opacity = lock ? '0.55' : '1';
+  });
+  // Download button label follows the target
+  $('#expDownload').textContent = target === 'pcv'   ? '↓ Download .pvm'
+                                : target === 'pciii' ? '↓ Download .djm'
+                                :                      '↓ Download CSV';
 }
 
 function renderTargetsForExport() {
@@ -1831,7 +2100,7 @@ function buildExportCsv(opts, map) {
   const srcName = (STATE.fileName || 'MD-Lambda-View');
   const targets = EXP_ZONES.map(z => `${z.name} ${z.target.toFixed(2)}`).join(', ');
   const header = [
-    `# MD-Lambda-View · map export (compatible with PowerCommander software)`,
+    `# MD-Lambda-View · Trim-Map (CSV-Export)`,
     `# Date: ${now}`,
     `# Source file: ${srcName}`,
     `# Target lambda (per zone): ${targets}`,
@@ -1839,7 +2108,6 @@ function buildExportCsv(opts, map) {
     `# RPM grid: ${opts.rpmMin}–${opts.rpmMax} in steps of ${opts.rpmStep}`,
     `# Clamping: ±${opts.clamp}%`,
     `# Values: fuel change in % (positive = more fuel, negative = less)`,
-    `# NOTE: preliminary format. The final format will be matched to the PC software.`,
     ``,
     ``,
   ];
@@ -1852,26 +2120,44 @@ function buildExportCsv(opts, map) {
   return header.join('\n') + headRow + '\n' + dataRows.join('\n') + '\n';
 }
 
-function downloadExportCsv() {
-  if (!STATE.hasData) { toast('No data loaded', 2500); return; }
-  const opts = readExportOpts();
-  const map = buildExportMap(opts);
-  const csv = buildExportCsv(opts, map);
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
-  const base = (STATE.fileName || 'md-lambda-view').replace(/\.[^.]+$/, '');
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${base}_PC-Map.csv`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-  toast('CSV downloaded', 2000);
+}
+
+function downloadExport() {
+  if (!STATE.hasData) { toast('No data loaded', 2500); return; }
+  const opts = readExportOpts();
+  const map = buildExportMap(opts);
+  const base = (STATE.fileName || 'md-lambda-view').replace(/\.[^.]+$/, '');
+
+  if (opts.target === 'pcv') {
+    const bin = buildPvmBinary(map);
+    triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
+                    `${base}_MD-Lambda-View.pvm`);
+    toast('.pvm downloaded', 2000);
+  } else if (opts.target === 'pciii') {
+    const bin = buildDjmBinary(map);
+    triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
+                    `${base}_MD-Lambda-View.djm`);
+    toast('.djm downloaded', 2000);
+  } else {
+    const csv = buildExportCsv(opts, map);
+    triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+                    `${base}_PC-Map.csv`);
+    toast('CSV downloaded', 2000);
+  }
 }
 
 function openExportModal() {
   if (!STATE.hasData) { toast('Load a CSV first', 2500); return; }
   renderTargetsForExport();
+  applyTargetSpec();
   renderExportPreview();
   $('#expModal').classList.add('open');
   $('#expBackdrop').classList.add('open');
@@ -1885,6 +2171,11 @@ function closeExportModal() {
 ['expRpmMin','expRpmMax','expRpmStep','expTpsSet','expClamp','expFill'].forEach(id => {
   $('#' + id).addEventListener('change', renderExportPreview);
 });
+// Target change: lock/unlock the grid, then re-render
+$('#expTarget').addEventListener('change', () => {
+  applyTargetSpec();
+  renderExportPreview();
+});
 
 $('#btnExport').addEventListener('click', () => {
   if ($('#btnExport').disabled) return;
@@ -1892,7 +2183,7 @@ $('#btnExport').addEventListener('click', () => {
 });
 $('#expClose').addEventListener('click', closeExportModal);
 $('#expBackdrop').addEventListener('click', closeExportModal);
-$('#expDownload').addEventListener('click', downloadExportCsv);
+$('#expDownload').addEventListener('click', downloadExport);
 
 // ============ RENDER ============
 function render3D() {
