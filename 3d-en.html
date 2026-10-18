@@ -1,0 +1,2363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- GENERATED FILE — do not edit. Built from 3d.html by i18n/make_en.py -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#f5e6a3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>MD-Lambda-View · 3D Map</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icons/icon-120.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="MD-Lambda-View">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Plotly with multi-CDN fallback (cdn.plot.ly is blocked by some content blockers) -->
+<script>
+(function() {
+  const sources = [
+    'https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.35.2/plotly.min.js',
+    'https://unpkg.com/plotly.js-dist-min@2.35.2/plotly.min.js',
+    'https://cdn.plot.ly/plotly-2.35.2.min.js'
+  ];
+  let i = 0;
+  function tryLoad() {
+    if (i >= sources.length) {
+      window.__plotlyFailed = true;
+      document.addEventListener('DOMContentLoaded', () => {
+        const e = document.getElementById('empty');
+        if (e) {
+          e.innerHTML = '<div class="icon" style="color:#ff5050">⚠</div>'
+            + '<h2 style="color:#ff5050">Plotly blocked</h2>'
+            + '<p>The chart library could not be loaded. A content blocker or tracking protection is probably active.<br><br>Tip: in Safari go to <b>Settings → Apps → Safari → Advanced → Content Blockers</b> and disable it for this page, or open the file in Chrome/Firefox.</p>';
+          e.classList.remove('hidden');
+        }
+      });
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = sources[i++];
+    s.onload = () => { window.__plotlyLoaded = true; };
+    s.onerror = tryLoad;
+    document.head.appendChild(s);
+  }
+  tryLoad();
+})();
+</script>
+<style>
+:root {
+  /* Cream / warm pastel palette matching MD-Lambda-View web UI */
+  --cream-0: #f5e6a3;          /* warmest header gradient */
+  --cream-1: #f8edb8;
+  --cream-2: #fbf2c8;
+  --cream-3: #fdf6da;          /* main bg */
+  --paper:   #ffffff;          /* card surface */
+  --paper-2: #f7f2e0;          /* subtle card */
+  --line:    rgba(60, 50, 20, 0.12);
+  --line-2:  rgba(60, 50, 20, 0.06);
+  --ink-0:   #1a1a1a;          /* heading */
+  --ink-1:   #3a3a3a;          /* body */
+  --ink-2:   #6b6555;          /* muted */
+  --ink-3:   #9c9582;          /* very muted */
+  --accent:  #4a90e2;          /* the blue tile color */
+  --accent-soft: #b3d4ff;
+  --accent-2: #e2734a;         /* the orange 3D tile color */
+  --rich:    #c9302c;          /* fett */
+  --lean:    #2c6fb3;          /* mager */
+  --ok:      #2d8659;
+  --shadow-card: 0 1px 2px rgba(60,50,20,.04), 0 4px 16px rgba(60,50,20,.06);
+  --shadow-pop:  0 4px 12px rgba(60,50,20,.08), 0 16px 40px rgba(60,50,20,.10);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  background: var(--cream-3);
+  color: var(--ink-0);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif;
+  font-size: 14px;
+  height: 100%;
+  overflow: hidden;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { font-family: inherit; }
+
+/* ===== APP LAYOUT ===== */
+.app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--cream-0) 0%, var(--cream-2) 28%, var(--cream-3) 100%);
+}
+
+/* ===== HEADER ===== */
+header {
+  background: transparent;
+  padding: calc(var(--safe-top) + 10px) 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+  position: relative;
+}
+
+/* Row 1: brand name, centred */
+.header-brand-row {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+/* Row 2: back button + status + action icons */
+.header-action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.brand {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  letter-spacing: -0.3px;
+  color: var(--ink-0);
+  white-space: nowrap;
+  min-width: 0;
+}
+.brand-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink-0);
+}
+.brand-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.brand .acc { color: var(--accent); }
+
+.status-pill {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--ink-2);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  padding-right: 4px;
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-card);
+  transition: transform .12s, background .12s;
+}
+.icon-btn:active { background: var(--paper-2); transform: scale(.94); }
+.icon-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(74,144,226,.3), 0 4px 16px rgba(74,144,226,.15);
+}
+
+/* ===== PLOT AREA ===== */
+.plot-area {
+  flex: 1;
+  position: relative;
+  margin: 0 16px 16px;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+#plot {
+  width: 100%;
+  height: 100%;
+}
+
+/* Empty state */
+.empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  gap: 14px;
+}
+.empty.hidden { display: none; }
+
+.empty .icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  box-shadow: 0 4px 14px rgba(74,144,226,.3);
+  margin-bottom: 4px;
+}
+
+.empty h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink-0);
+  letter-spacing: -0.4px;
+}
+
+.empty p {
+  font-size: 13px;
+  color: var(--ink-2);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.big-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 14px 32px;
+  border-radius: 14px;
+  cursor: pointer;
+  margin-top: 8px;
+  box-shadow: 0 2px 6px rgba(74,144,226,.3), 0 6px 20px rgba(74,144,226,.18);
+  letter-spacing: -0.2px;
+}
+.big-btn:active { transform: scale(.97); }
+
+input[type="file"] { display: none; }
+
+/* ===== INFO STRIP (bottom of plot) ===== */
+.info-strip {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  display: none;
+  gap: 6px;
+  pointer-events: none;
+}
+.info-strip.active { display: flex; }
+
+.info-pill {
+  background: rgba(255, 255, 255, .92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 7px 10px;
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+  box-shadow: 0 2px 8px rgba(60,50,20,.06);
+}
+.info-pill .l {
+  color: var(--ink-3);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+.info-pill .v {
+  color: var(--ink-0);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===== BOTTOM SHEET ===== */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(40, 30, 0, .25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s;
+  z-index: 20;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.sheet-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--cream-3);
+  border-top: 1px solid var(--line);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -8px 40px rgba(60,50,20,.18);
+  transform: translateY(100%);
+  transition: transform .28s cubic-bezier(.4,.0,.2,1);
+  z-index: 21;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--safe-bot);
+}
+.sheet.open { transform: translateY(0); }
+
+.sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 6px;
+  cursor: grab;
+  touch-action: none;
+}
+.sheet-handle::before {
+  content: '';
+  width: 40px;
+  height: 4px;
+  background: var(--ink-3);
+  border-radius: 2px;
+  opacity: .4;
+}
+
+.sheet-header {
+  padding: 4px 20px 14px;
+  border-bottom: 1px solid var(--line-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sheet-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-0);
+  letter-spacing: -0.3px;
+}
+
+.sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.section { margin-bottom: 22px; }
+.section:last-child { margin-bottom: 0; }
+
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ink-2);
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+/* Stepper rows */
+.stepper-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 10px 8px 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.stepper-row .lbl {
+  font-size: 13px;
+  color: var(--ink-1);
+  font-weight: 500;
+}
+
+.step-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink-0);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.step-btn:active { background: var(--cream-1); transform: scale(.95); }
+
+.step-val {
+  background: transparent;
+  border: none;
+  color: var(--ink-0);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  width: 64px;
+  padding: 6px 4px;
+  -moz-appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+.step-val::-webkit-outer-spin-button,
+.step-val::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.step-val:focus { outline: none; }
+
+/* Choice chips */
+.chips {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: var(--shadow-card);
+}
+.chip {
+  background: transparent;
+  border: none;
+  color: var(--ink-2);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 9px 4px;
+  border-radius: 9px;
+  cursor: pointer;
+  text-align: center;
+  transition: all .15s;
+}
+.chip.on {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(74,144,226,.25);
+}
+
+/* Color scale grid */
+.scale-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.scale-chip {
+  height: 46px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-card);
+}
+.scale-chip.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(74,144,226,.15), var(--shadow-card);
+}
+.scale-chip span {
+  position: absolute;
+  bottom: 5px;
+  left: 7px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.6);
+  letter-spacing: 0.3px;
+}
+
+/* Range row */
+.range-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.range-row .group {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow-card);
+}
+.range-row .group .l {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink-3);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.range-row .group input {
+  background: transparent;
+  border: none;
+  color: var(--ink-0);
+  font-size: 16px;
+  font-weight: 600;
+  width: 100%;
+  outline: none;
+  -moz-appearance: textfield;
+  font-variant-numeric: tabular-nums;
+}
+.range-row .group input::-webkit-outer-spin-button,
+.range-row .group input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Camera presets */
+.cam-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.cam-btn {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--ink-1);
+  padding: 12px 4px;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+}
+.cam-btn:active { background: var(--paper-2); transform: scale(.95); }
+.cam-btn .ico {
+  font-size: 18px;
+  display: block;
+  margin-bottom: 2px;
+  color: var(--accent);
+}
+.cam-btn .lbl {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--ink-2);
+}
+
+/* Stats grid */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.stat {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+.stat .l {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--ink-3);
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+.stat .v {
+  font-size: 14px;
+  color: var(--ink-0);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Cell table preview */
+.cells-preview {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 4px;
+  font-size: 11px;
+  max-height: 220px;
+  overflow: auto;
+  box-shadow: var(--shadow-card);
+}
+.cells-preview table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.cells-preview th, .cells-preview td {
+  padding: 6px 8px;
+  text-align: right;
+  border-bottom: 1px solid var(--line-2);
+  font-variant-numeric: tabular-nums;
+}
+.cells-preview tr:last-child td { border-bottom: none; }
+.cells-preview th {
+  color: var(--ink-3);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+}
+.cells-preview td.lam-rich { color: var(--rich); font-weight: 600; }
+.cells-preview td.lam-lean { color: var(--lean); font-weight: 600; }
+.cells-preview td.lam-ok   { color: var(--ok);   font-weight: 600; }
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: calc(var(--safe-bot) + 24px);
+  left: 50%;
+  transform: translateX(-50%) translateY(120px);
+  background: var(--ink-0);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 24px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 100;
+  transition: transform .25s;
+  max-width: 88vw;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* === Prep modal (CSV aufbereiten) === */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 26, 26, 0.42);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s;
+  z-index: 200;
+}
+.modal-backdrop.open { opacity: 1; pointer-events: auto; }
+
+.modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, calc(-50% + 20px));
+  width: calc(100vw - 32px);
+  max-width: 440px;
+  max-height: 86vh;
+  background: var(--cream-3);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(60,50,20,.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s, transform .22s cubic-bezier(.4,.0,.2,1);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal.open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+.modal-header {
+  padding: 18px 20px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-0);
+  letter-spacing: -0.2px;
+}
+.modal-sub {
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.modal-body {
+  padding: 14px 16px 18px;
+  overflow-y: auto;
+  min-width: 0;   /* keep wide children (preview table) from stretching the modal */
+}
+.modal-footer {
+  padding: 10px 16px calc(var(--safe-bot) + 14px);
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.prep-option {
+  display: block;
+  width: 100%;
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+  font: inherit;
+  color: inherit;
+}
+.prep-option:hover,
+.prep-option:focus-visible {
+  border-color: var(--accent-2);
+  background: #fff;
+  outline: none;
+}
+.prep-option:active { transform: scale(.99); }
+.prep-option .opt-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-0);
+  margin-bottom: 2px;
+}
+.prep-option .opt-desc {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+.prep-option .opt-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-2);
+  background: rgba(226, 115, 74, 0.12);
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.prep-params { display: none; padding-top: 4px; }
+.prep-params.open { display: block; }
+.prep-params .pp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-2);
+}
+.prep-params .pp-row:last-child { border-bottom: none; }
+.prep-params .pp-label { flex: 1; min-width: 0; }
+.prep-params .pp-name {
+  font-size: 13px; font-weight: 600; color: var(--ink-0);
+}
+.prep-params .pp-hint {
+  font-size: 10.5px; color: var(--ink-2); margin-top: 1px;
+}
+.prep-params input[type="number"] {
+  width: 86px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: 13px/1 inherit;
+  background: var(--paper);
+  color: var(--ink-0);
+  text-align: right;
+}
+.prep-params input[type="number"]:focus {
+  outline: none; border-color: var(--accent-2);
+}
+.modal-btn {
+  padding: 9px 16px;
+  border-radius: 10px;
+  font: 500 13px/1 inherit;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-0);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.modal-btn:hover { background: #fff; }
+.modal-btn.primary {
+  background: var(--accent-2);
+  color: #fff;
+  border-color: var(--accent-2);
+}
+.modal-btn.primary:hover { background: #c75f36; }
+
+/* === Export modal (PowerCommander) === */
+.modal.export-modal { max-width: 680px; }
+.exp-section {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+.exp-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-1);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 10px;
+}
+.exp-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+.exp-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 12px;
+}
+@media (min-width: 480px) {
+  .exp-grid-4 { grid-template-columns: repeat(4, 1fr); }
+}
+.exp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.exp-field label {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+.exp-field input[type="number"],
+.exp-field select {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font: 500 13px/1.2 inherit;
+  background: var(--paper);
+  color: var(--ink-0);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.exp-field select { text-align: left; }
+.exp-field input[type="number"]:focus,
+.exp-field select:focus {
+  outline: none; border-color: var(--accent-2);
+}
+
+/* Heatmap preview — same cream colour scheme, with rich/lean per cell */
+.exp-preview-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 4px -4px -4px;
+  padding: 0 4px 4px;
+  max-width: 100%;
+}
+.exp-preview {
+  border-collapse: collapse;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  margin: 0 auto;
+}
+.exp-preview th,
+.exp-preview td {
+  padding: 3px 5px;
+  text-align: center;
+  border: 1px solid var(--line-2);
+  min-width: 32px;
+  white-space: nowrap;
+}
+.exp-preview thead th,
+.exp-preview tbody th {
+  background: var(--paper-2);
+  color: var(--ink-1);
+  font-weight: 700;
+  position: sticky;
+  top: 0;
+}
+.exp-preview tbody th { position: sticky; left: 0; top: auto; }
+.exp-cell { font-weight: 600; }
+.exp-cell.pos  { color: #c9302c; }  /* needs more fuel (lean) */
+.exp-cell.neg  { color: #2c6fb3; }  /* needs less fuel (rich) */
+.exp-cell.zero { color: var(--ink-2); font-weight: 400; }
+.exp-cell.empty{ color: var(--ink-3); font-style: italic; }
+.exp-cell.clamp { outline: 1.5px solid #e2734a; outline-offset: -2px; }
+
+.exp-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 8px 2px 0;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.exp-summary strong { color: var(--ink-0); font-weight: 600; }
+
+.exp-badge-warn {
+  display: inline-block;
+  background: rgba(226,115,74,.15);
+  color: #a84a1a;
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+/* ===== PSEUDO-FULLSCREEN (iOS fallback) ===== */
+body.pseudo-full header {
+  background: transparent;
+  border-bottom: none;
+  padding: calc(var(--safe-top) + 8px) 8px 8px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+body.pseudo-full header .header-brand-row,
+body.pseudo-full header .home-btn,
+body.pseudo-full header .status-pill,
+body.pseudo-full header #btnCam,
+body.pseudo-full header #btnExport,
+body.pseudo-full header #btnSheet {
+  display: none;
+}
+body.pseudo-full header #btnFull {
+  margin-left: auto;
+  background: rgba(255,255,255,.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.pseudo-full .plot-area {
+  margin: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* ===== Plotly tweaks for light theme ===== */
+.modebar { display: none !important; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+.home-btn {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink-1);
+  line-height: 1;
+  padding-bottom: 3px;
+}
+
+
+/* Desktop: narrower centered sheet */
+@media (min-width: 600px) {
+  .sheet {
+    left: 50%;
+    right: auto;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(calc(100% + 48px));
+    width: 480px;
+    max-width: calc(100vw - 48px);
+    border-radius: 22px;
+    border: 1px solid var(--line);
+    max-height: 80vh;
+  }
+  .sheet.open {
+    transform: translateX(-50%) translateY(0);
+  }
+  .sheet-handle { display: none; }
+  .sheet-header { padding-top: 18px; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header>
+    <div class="header-brand-row">
+      <div class="brand">
+        <span class="brand-title">MD-Lambda-View</span>
+        <span class="brand-sub">3D · RPM / TPS / λ</span>
+      </div>
+    </div>
+    <div class="header-action-row">
+      <a href="index-en.html" class="icon-btn home-btn" title="Home" style="text-decoration:none">‹</a>
+      <div class="status-pill" id="status">Ready</div>
+      <button class="icon-btn" id="btnCam" title="Reset view" disabled style="opacity:.4">↺</button>
+      <button class="icon-btn" id="btnFull" title="Fullscreen">⛶</button>
+      <button class="icon-btn" id="btnExport" title="Map export (PowerCommander)" disabled style="opacity:.4">↓</button>
+      <button class="icon-btn primary" id="btnSheet" title="Settings">☰</button>
+    </div>
+  </header>
+
+  <div class="plot-area">
+    <div class="empty" id="empty">
+      <div class="icon">📊</div>
+      <h2>No data</h2>
+      <p>Load a CSV log to build the lambda map over RPM × throttle<br><br>1 finger rotates · 2 fingers zoom & pan</p>
+      <button class="big-btn" id="btnLoad">Load CSV</button>
+    </div>
+    <div id="plot"></div>
+    <div class="info-strip" id="infoStrip">
+      <div class="info-pill"><div class="l">points</div><div class="v" id="iPoints">—</div></div>
+      <div class="info-pill"><div class="l">Cells</div><div class="v" id="iCells">—</div></div>
+      <div class="info-pill"><div class="l" id="iAvgL">λ avg</div><div class="v" id="iAvg">—</div></div>
+      <div class="info-pill"><div class="l" id="iMML">λ min/max</div><div class="v" id="iMM">—</div></div>
+    </div>
+  </div>
+
+</div>
+
+<input type="file" id="fileInput" accept=".csv,.txt">
+
+<!-- Bottom Sheet -->
+<div class="sheet-backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle" id="sheetHandle"></div>
+  <div class="sheet-header">
+    <div class="sheet-title">Settings</div>
+    <button class="icon-btn" id="btnClose">✕</button>
+  </div>
+  <div class="sheet-body">
+
+    <div class="section">
+      <div class="section-label">File</div>
+      <button class="big-btn" id="btnLoad2" style="width:100%">Choose CSV file</button>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Bin sizes</div>
+      <div class="stepper-row">
+        <div class="lbl">RPM step</div>
+        <button class="step-btn" data-step="rpm" data-dir="-1">−</button>
+        <input type="number" class="step-val" id="rpmStep" value="500" min="100" step="100">
+        <button class="step-btn" data-step="rpm" data-dir="1">+</button>
+      </div>
+      <div class="stepper-row">
+        <div class="lbl">Throttle step %</div>
+        <button class="step-btn" data-step="thr" data-dir="-1">−</button>
+        <input type="number" class="step-val" id="thrStep" value="5" min="1" step="1">
+        <button class="step-btn" data-step="thr" data-dir="1">+</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Aggregation</div>
+      <div class="chips" id="aggChips">
+        <div class="chip on" data-agg="median">Median</div>
+        <div class="chip" data-agg="mean">Mean</div>
+        <div class="chip" data-agg="min">Min</div>
+        <div class="chip" data-agg="max">Max</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Unit</div>
+      <div class="chips" id="unitChips">
+        <div class="chip on" data-unit="lambda">Lambda (λ)</div>
+        <div class="chip" data-unit="afr">AFR (14.7)</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Colour scale</div>
+      <div class="scale-grid" id="scaleGrid"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label" id="rangeLabel">λ range</div>
+      <div class="range-row">
+        <div class="group">
+          <div class="l">Min (rich)</div>
+          <input type="number" id="cmin" value="0.65" step="0.01" inputmode="decimal">
+        </div>
+        <div class="group">
+          <div class="l">Max (lean)</div>
+          <input type="number" id="cmax" value="1.10" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Camera view</div>
+      <div class="cam-row">
+        <button class="cam-btn" data-cam="iso"><span class="ico">⬢</span><span class="lbl">ISO</span></button>
+        <button class="cam-btn" data-cam="top"><span class="ico">▦</span><span class="lbl">Top</span></button>
+        <button class="cam-btn" data-cam="rpm"><span class="ico">▶</span><span class="lbl">RPM</span></button>
+        <button class="cam-btn" data-cam="thr"><span class="ico">▲</span><span class="lbl">TPS</span></button>
+      </div>
+    </div>
+
+    <div class="section" id="statsSection" style="display:none">
+      <div class="section-label">Statistics</div>
+      <div class="stats" id="statsGrid"></div>
+    </div>
+
+    <div class="section" id="cellsSection" style="display:none">
+      <div class="section-label">Cells (all, by TPS · RPM)</div>
+      <div class="cells-preview" id="cellsPreview"></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Prep modal: shown after CSV is picked, before data is rendered -->
+<div class="modal-backdrop" id="prepBackdrop"></div>
+<div class="modal" id="prepModal" role="dialog" aria-modal="true" aria-labelledby="prepTitle">
+  <div class="modal-header">
+    <div class="modal-title" id="prepTitle">Data preparation</div>
+    <div class="modal-sub" id="prepSub">File <span id="prepFile">—</span> · <span id="prepCount">0</span> raw points</div>
+  </div>
+  <div class="modal-body">
+    <div id="prepStep1">
+      <button class="prep-option" data-mode="raw" type="button">
+        <div class="opt-title">Raw data</div>
+        <div class="opt-desc">All valid samples, no pre-selection. Includes transients (acceleration, overrun, load changes).</div>
+      </button>
+      <button class="prep-option" data-mode="standard" type="button">
+        <div class="opt-title">Smoothed (standard) <span class="opt-badge">recommended</span></div>
+        <div class="opt-desc">Steady-state operating points only: load and RPM held constant for about 0.5 s (window of 10 samples, Δload ≤ 4 %, ΔRPM ≤ 500). Discards transients.</div>
+      </button>
+      <button class="prep-option" data-mode="custom" type="button">
+        <div class="opt-title">Custom smoothing parameters</div>
+        <div class="opt-desc">Set the window size and the permitted load/RPM change yourself.</div>
+      </button>
+    </div>
+    <div id="prepStep2" style="display:none">
+      <div class="prep-params open">
+        <div class="pp-row">
+          <div class="pp-label">
+            <div class="pp-name">Window (samples)</div>
+            <div class="pp-hint">Spacing for the stability check (about 0.5 s at 20 Hz = 10)</div>
+          </div>
+          <input type="number" id="ppWindow" value="10" min="2" max="200" step="1" inputmode="numeric">
+        </div>
+        <div class="pp-row">
+          <div class="pp-label">
+            <div class="pp-name">Δload max (%)</div>
+            <div class="pp-hint">Largest permitted TPS change within the window</div>
+          </div>
+          <input type="number" id="ppLastDelta" value="4" min="0.5" max="50" step="0.5" inputmode="decimal">
+        </div>
+        <div class="pp-row">
+          <div class="pp-label">
+            <div class="pp-name">ΔRPM max</div>
+            <div class="pp-hint">Largest permitted RPM change within the window</div>
+          </div>
+          <input type="number" id="ppRpmDelta" value="500" min="50" max="5000" step="50" inputmode="numeric">
+        </div>
+        <div class="pp-row">
+          <div class="pp-label">
+            <div class="pp-name">Load min (%)</div>
+            <div class="pp-hint">Above this load only the normal stability rule applies</div>
+          </div>
+          <input type="number" id="ppLastMin" value="3" min="0" max="20" step="0.5" inputmode="decimal">
+        </div>
+      </div>
+      <div class="modal-sub" style="margin-top:12px">For load 1–2 % it additionally requires &lt; 4500 rpm and ΔRPM ≤ 300; for load 0 % &lt; 1800 rpm and ΔRPM ≤ 200. (Keeps overrun out.)</div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="modal-btn" id="prepCancel" type="button">Cancel</button>
+    <button class="modal-btn primary" id="prepApply" type="button" style="display:none">Apply</button>
+  </div>
+</div>
+
+<!-- Export modal: generate a PowerCommander-compatible fuel map -->
+<div class="modal-backdrop" id="expBackdrop"></div>
+<div class="modal export-modal" id="expModal" role="dialog" aria-modal="true" aria-labelledby="expTitle">
+  <div class="modal-header">
+    <div class="modal-title" id="expTitle">Map export (compatible with PowerCommander)</div>
+    <div class="modal-sub">Builds a percentage map from the loaded lambda data that can be imported into the PowerCommander software.</div>
+  </div>
+  <div class="modal-body">
+
+    <!-- Target lambda per TPS zone (inherited from the 2D app's tuning targets) -->
+    <div class="exp-section">
+      <div class="exp-section-title">Target λ per TPS zone</div>
+      <div class="exp-grid-4" id="expTargetsGrid"><!-- filled dynamically --></div>
+      <div class="modal-sub" style="margin-top:8px">Intermediate TPS values are interpolated linearly. The values are taken from the tuning targets of the 2D app (localStorage).</div>
+    </div>
+
+    <!-- Grid: RPM and TPS axes -->
+    <div class="exp-section">
+      <div class="exp-section-title">Grid (PowerCommander standard)</div>
+      <div class="exp-grid-2">
+        <div class="exp-field">
+          <label>RPM from</label>
+          <input type="number" id="expRpmMin" value="500" min="0" max="20000" step="250">
+        </div>
+        <div class="exp-field">
+          <label>RPM to</label>
+          <input type="number" id="expRpmMax" value="13000" min="500" max="20000" step="250">
+        </div>
+        <div class="exp-field">
+          <label>RPM step</label>
+          <select id="expRpmStep">
+            <option value="250">250 rpm</option>
+            <option value="500" selected>500 rpm</option>
+            <option value="1000">1000 rpm</option>
+          </select>
+        </div>
+        <div class="exp-field">
+          <label>TPS grid</label>
+          <select id="expTpsSet">
+            <option value="pc-standard" selected>0 · 2 · 5 · 10 · 15 · 20 · 40 · 60 · 80 · 100</option>
+            <option value="pc-fine">0 · 2 · 5 · 10 · 15 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100</option>
+            <option value="deca">0 · 10 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clamping + fill strategy -->
+    <div class="exp-section">
+      <div class="exp-section-title">Limits &amp; gaps</div>
+      <div class="exp-grid-2">
+        <div class="exp-field">
+          <label>Max. change ±%</label>
+          <input type="number" id="expClamp" value="25" min="5" max="100" step="1">
+        </div>
+        <div class="exp-field">
+          <label>Fill gaps</label>
+          <select id="expFill">
+            <option value="smart" selected>close inside, 0 % outside</option>
+            <option value="zero">0 % everywhere (unchanged)</option>
+            <option value="nearest">nearest neighbour everywhere</option>
+            <option value="empty">leave empty</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="exp-section">
+      <div class="exp-section-title">Preview</div>
+      <div class="exp-preview-wrap" id="expPreviewWrap">
+        <div class="modal-sub" style="padding:14px 0">—</div>
+      </div>
+      <div class="exp-summary" id="expSummary"></div>
+    </div>
+
+    <div class="modal-sub">
+      Note: the file format for direct import into the PowerCommander software is not finalised yet. This preliminary version writes a readable CSV file; it will be matched exactly to the PC software once a sample export is available.
+    </div>
+
+  </div>
+  <div class="modal-footer">
+    <button class="modal-btn" id="expClose" type="button">Close</button>
+    <button class="modal-btn primary" id="expDownload" type="button">↓ Download CSV</button>
+  </div>
+</div>
+
+<script>
+// ============ CONSTANTS ============
+const AFR_STOICH = 14.7;
+
+// ============ STATE ============
+const STATE = {
+  unit: 'lambda',  // 'lambda' or 'afr'
+  fileName: null,
+  rawData: { rpm: [], throttle: [], lambda: [] },
+  agg: 'median',
+  scale: 'Rainbow',
+  currentSurface: null,
+  hasData: false,
+  cells: [],
+};
+
+const CAMS = {
+  iso: { eye: { x: -2.0, y: -2.0, z: 0.9 }, center: { x: 0, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 } },
+  top: { eye: { x: 0,    y: 0,    z: 2.5 }, center: { x: 0, y: 0, z: 0 }, up: { x: 0, y: 1, z: 0 } },
+  rpm: { eye: { x: 0,    y: -2.5, z: 0.4 }, center: { x: 0, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 } },
+  thr: { eye: { x: -2.5, y: 0,    z: 0.4 }, center: { x: 0, y: 0, z: 0 }, up: { x: 0, y: 0, z: 1 } },
+};
+
+const SCALES = ['Rainbow', 'Viridis', 'Cividis', 'Jet', 'Plasma', 'Inferno'];
+
+// ============ UNIT HELPERS ============
+function toUnit(l) { return STATE.unit === 'afr' ? l * AFR_STOICH : l; }
+function fmtVal(l, d) {
+  if (STATE.unit === 'afr') return (l * AFR_STOICH).toFixed(d != null ? d : 2);
+  return l.toFixed(d != null ? d : 2);
+}
+function unitShort() { return STATE.unit === 'afr' ? 'AFR' : 'λ'; }
+
+// ============ HELPERS ============
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function toast(msg, ms=2000) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+function setStatus(s) { $('#status').textContent = s; }
+
+function parseFloatDE(v) {
+  const n = parseFloat(String(v).trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function binCenter(v, step) { return Math.round(v / step) * step; }
+
+// === Stability filter: keep only steady-state operating points ===
+const STABILITY_DEFAULTS = {
+  window:    10,
+  lastDelta: 4,
+  rpmDelta:  500,
+  lastMin:   3,
+};
+
+function applyStability(rawData, p) {
+  const { rpm, throttle, lambda } = rawData;
+  const n = rpm.length;
+  const outRpm = [], outThr = [], outLam = [];
+  const w = Math.max(1, Math.floor(p.window));
+  if (n <= w) return { rpm: outRpm, throttle: outThr, lambda: outLam };
+  for (let i = w; i < n; i++) {
+    const t = throttle[i], r = rpm[i], l = lambda[i];
+    const tPrev = throttle[i - w], rPrev = rpm[i - w];
+    const dt = Math.abs(t - tPrev), dr = Math.abs(r - rPrev);
+    if (dt > p.lastDelta) continue;
+    if (dr > p.rpmDelta)  continue;
+    let ok = false;
+    if (t >= p.lastMin) {
+      ok = true;
+    } else if (t >= 1) {
+      if (r < 4500 && dr <= 300) ok = true;
+    } else {
+      if (r < 1800 && dr <= 200) ok = true;
+    }
+    if (!ok) continue;
+    outRpm.push(r); outThr.push(t); outLam.push(l);
+  }
+  return { rpm: outRpm, throttle: outThr, lambda: outLam };
+}
+
+function median(values) {
+  const a = values.slice().sort((x, y) => x - y);
+  const mid = Math.floor(a.length / 2);
+  return (a.length % 2) ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+}
+
+function aggregate(values, method) {
+  if (!values || values.length === 0) return null;
+  switch (method) {
+    case 'mean':   return values.reduce((a, b) => a + b, 0) / values.length;
+    case 'median': return median(values);
+    case 'min':    return Math.min(...values);
+    case 'max':    return Math.max(...values);
+    default:       return values.reduce((a, b) => a + b, 0) / values.length;
+  }
+}
+
+function sortedUnique(arr) { return [...new Set(arr)].sort((a, b) => a - b); }
+
+// ============ COLOR SCALE PREVIEWS ============
+function buildScaleChips() {
+  const grid = $('#scaleGrid');
+  grid.innerHTML = '';
+  // Rough gradient previews matching Plotly named scales
+  const previews = {
+    Rainbow:  'linear-gradient(90deg, #6e40aa, #4d7eff, #00d4aa, #ffd23f, #ff5050)',
+    Viridis:  'linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725)',
+    Cividis:  'linear-gradient(90deg, #00224e, #404e7c, #7c7b78, #ada762, #ffe945)',
+    Jet:      'linear-gradient(90deg, #00007f, #0000ff, #00ffff, #ffff00, #ff0000)',
+    Plasma:   'linear-gradient(90deg, #0d0887, #7e03a8, #cc4778, #f89441, #f0f921)',
+    Inferno:  'linear-gradient(90deg, #000004, #420a68, #932667, #dd513a, #fcffa4)',
+  };
+  for (const s of SCALES) {
+    const el = document.createElement('div');
+    el.className = 'scale-chip' + (s === STATE.scale ? ' on' : '');
+    el.style.background = previews[s];
+    el.dataset.scale = s;
+    el.innerHTML = `<span>${s}</span>`;
+    el.addEventListener('click', () => {
+      STATE.scale = s;
+      $$('.scale-chip').forEach(c => c.classList.toggle('on', c.dataset.scale === s));
+      if (STATE.hasData) render3D();
+    });
+    grid.appendChild(el);
+  }
+}
+
+// ============ FILE LOADING ============
+function pickFile() { $('#fileInput').click(); }
+
+$('#fileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setStatus('Reading ' + file.name + '…');
+
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const raw = ev.target.result.trim();
+      const lines = raw.split(/\r?\n/).filter(l => l && l.trim().length > 0);
+      if (lines.length < 2) { toast('CSV is empty'); return; }
+
+      const rpm = [], throttle = [], lambda = [];
+      let skipped = 0;
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line.startsWith('#')) continue;
+        const values = line.split(';');
+        if (values.length < 5) { skipped++; continue; }
+
+        const r = parseFloatDE(values[1]);
+        const t = parseFloatDE(values[2]);
+        const l = parseFloatDE(values[4]);
+
+        if (!Number.isFinite(r) || !Number.isFinite(t) || !Number.isFinite(l)) { skipped++; continue; }
+        if (r < 0 || r > 20000) { skipped++; continue; }
+        if (t < -1 || t > 105) { skipped++; continue; }
+        if (l < 0.5 || l > 2.5) { skipped++; continue; }
+
+        rpm.push(r); throttle.push(t); lambda.push(l);
+      }
+
+      if (rpm.length === 0) { toast('No valid data'); setStatus('Error'); return; }
+
+      // Hand off to prep-modal; it will commit the data when the user chooses.
+      openPrepModal(file.name, { rpm, throttle, lambda });
+    } catch (err) {
+      console.error(err);
+      toast('Error: ' + err.message);
+      setStatus('Error');
+    }
+  };
+  reader.readAsText(file);
+});
+
+// === Prep modal state + wiring ===
+const PREP = { fileName: '', raw: null };
+
+function openPrepModal(fileName, raw) {
+  PREP.fileName = fileName;
+  PREP.raw = raw;
+  $('#prepFile').textContent = fileName;
+  $('#prepCount').textContent = raw.rpm.length.toLocaleString('en-US');
+  $('#prepStep1').style.display = '';
+  $('#prepStep2').style.display = 'none';
+  $('#prepApply').style.display = 'none';
+  $('#prepModal').classList.add('open');
+  $('#prepBackdrop').classList.add('open');
+}
+
+function closePrepModal() {
+  $('#prepModal').classList.remove('open');
+  $('#prepBackdrop').classList.remove('open');
+  PREP.raw = null;
+}
+
+function commitFile(fileName, rawToUse, modeLabel) {
+  if (rawToUse.rpm.length === 0) {
+    toast('No points left after preparation — check the parameters', 3500);
+    return false;
+  }
+  STATE.rawData = rawToUse;
+  STATE.fileName = fileName;
+  STATE.hasData = true;
+  $('#empty').classList.add('hidden');
+  $('#infoStrip').classList.add('active');
+  $('#statsSection').style.display = '';
+  $('#cellsSection').style.display = '';
+  $('#btnCam').disabled = false;
+  $('#btnCam').style.opacity = '1';
+  $('#btnExport').disabled = false;
+  $('#btnExport').style.opacity = '1';
+  setStatus(fileName + ' · ' + rawToUse.rpm.length.toLocaleString('en-US') + ' points');
+  render3D();
+  toast(`${rawToUse.rpm.length.toLocaleString('en-US')} points (${modeLabel})`, 2800);
+  return true;
+}
+
+$$('#prepStep1 .prep-option').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    if (!PREP.raw) return;
+    if (mode === 'raw') {
+      if (commitFile(PREP.fileName, PREP.raw, 'Raw data')) closePrepModal();
+    } else if (mode === 'standard') {
+      const filtered = applyStability(PREP.raw, STABILITY_DEFAULTS);
+      if (commitFile(PREP.fileName, filtered, 'standard smoothing')) closePrepModal();
+    } else if (mode === 'custom') {
+      $('#prepStep1').style.display = 'none';
+      $('#prepStep2').style.display = '';
+      $('#prepApply').style.display = '';
+    }
+  });
+});
+
+$('#prepApply').addEventListener('click', () => {
+  if (!PREP.raw) return;
+  const params = {
+    window:    parseInt($('#ppWindow').value, 10)  || STABILITY_DEFAULTS.window,
+    lastDelta: parseFloat($('#ppLastDelta').value) || STABILITY_DEFAULTS.lastDelta,
+    rpmDelta:  parseFloat($('#ppRpmDelta').value)  || STABILITY_DEFAULTS.rpmDelta,
+    lastMin:   parseFloat($('#ppLastMin').value)   || STABILITY_DEFAULTS.lastMin,
+  };
+  const filtered = applyStability(PREP.raw, params);
+  if (commitFile(PREP.fileName, filtered, `custom · window ${params.window}`)) {
+    closePrepModal();
+  }
+});
+
+$('#prepCancel').addEventListener('click', closePrepModal);
+$('#prepBackdrop').addEventListener('click', closePrepModal);
+
+// ============ EXPORT: POWERCOMMANDER-COMPATIBLE MAP ============
+// Default zone targets — mirror the 2D app's TUNE defaults. If the 2D app
+// has saved overrides to localStorage (key 'mdlv_tune_targets_v1'), load those.
+const EXP_ZONES_DEFAULT = [
+  { key: 'idle',       name: 'Idle', tpsHi:   5, target: 0.98 },
+  { key: 'transition', name: 'Transition', tpsHi:  20, target: 0.92 },
+  { key: 'partial',    name: 'Part throttle', tpsHi:  60, target: 0.90 },
+  { key: 'full',       name: 'Full throttle', tpsHi: 100, target: 0.88 },
+];
+const EXP_ZONES = EXP_ZONES_DEFAULT.map(z => ({ ...z }));
+const EXP_BOUNDS_DEFAULT = [5, 20, 60];
+const EXP_BOUNDS = EXP_BOUNDS_DEFAULT.slice();
+
+// Load targets + bounds persisted by the 2D app (if present)
+(function loadExpTargets() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mdlv_tune_targets_v1') || '{}');
+    if (saved && saved.targets) {
+      Object.keys(saved.targets).forEach(k => {
+        const z = EXP_ZONES.find(x => x.key === k);
+        const v = parseFloat(saved.targets[k]);
+        if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) z.target = v;
+      });
+    } else if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+      // v1 flat shape
+      Object.keys(saved).forEach(k => {
+        const z = EXP_ZONES.find(x => x.key === k);
+        const v = parseFloat(saved[k]);
+        if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) z.target = v;
+      });
+    }
+    if (saved && Array.isArray(saved.bounds) && saved.bounds.length === 3) {
+      const b = saved.bounds.map(x => parseFloat(x));
+      if (b.every(Number.isFinite) && b[0] < b[1] && b[1] < b[2]) {
+        EXP_BOUNDS[0] = b[0]; EXP_BOUNDS[1] = b[1]; EXP_BOUNDS[2] = b[2];
+        EXP_ZONES[0].tpsHi = b[0];
+        EXP_ZONES[1].tpsHi = b[1];
+        EXP_ZONES[2].tpsHi = b[2];
+      }
+    }
+  } catch (e) { /* ignore */ }
+})();
+
+const TPS_SETS = {
+  'pc-standard': [0, 2, 5, 10, 15, 20, 40, 60, 80, 100],
+  'pc-fine':     [0, 2, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+  'deca':        [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+};
+
+// Interpolated target-lambda at a given TPS (linear between zone centers)
+function targetLambdaAt(tps) {
+  // Place a knot in the middle of each zone's TPS range
+  const knots = [];
+  let prevHi = 0;
+  EXP_ZONES.forEach(z => {
+    knots.push({ tps: (prevHi + z.tpsHi) / 2, lam: z.target });
+    prevHi = z.tpsHi;
+  });
+  if (tps <= knots[0].tps) return knots[0].lam;
+  if (tps >= knots[knots.length - 1].tps) return knots[knots.length - 1].lam;
+  for (let i = 0; i < knots.length - 1; i++) {
+    const a = knots[i], b = knots[i + 1];
+    if (tps >= a.tps && tps <= b.tps) {
+      const t = (tps - a.tps) / (b.tps - a.tps);
+      return a.lam + t * (b.lam - a.lam);
+    }
+  }
+  return EXP_ZONES[EXP_ZONES.length - 1].target;
+}
+
+// Bilinearly sample the current 3D map (STATE.cells) at the given RPM/TPS point.
+// Returns null if no cell within reasonable distance is populated.
+function sampleMeasuredLambda(rpm, tps) {
+  if (!STATE.cells || STATE.cells.length === 0) return null;
+  // Build RPM/TPS unique sorted axes from the cells
+  const rpmSet = new Set(), tpsSet = new Set();
+  STATE.cells.forEach(c => { rpmSet.add(c.rpm); tpsSet.add(c.thr); });
+  const rpmAx = [...rpmSet].sort((a, b) => a - b);
+  const tpsAx = [...tpsSet].sort((a, b) => a - b);
+  const cellMap = new Map();
+  STATE.cells.forEach(c => cellMap.set(c.rpm + '|' + c.thr, c.lam));
+
+  // Find bracket indices
+  function bracket(ax, v) {
+    if (v <= ax[0])              return { lo: 0, hi: 0, t: 0 };
+    if (v >= ax[ax.length - 1])  return { lo: ax.length - 1, hi: ax.length - 1, t: 0 };
+    for (let i = 0; i < ax.length - 1; i++) {
+      if (v >= ax[i] && v <= ax[i + 1]) {
+        return { lo: i, hi: i + 1, t: (v - ax[i]) / (ax[i + 1] - ax[i]) };
+      }
+    }
+    return { lo: ax.length - 1, hi: ax.length - 1, t: 0 };
+  }
+  const r = bracket(rpmAx, rpm);
+  const t = bracket(tpsAx, tps);
+  const r0 = rpmAx[r.lo], r1 = rpmAx[r.hi];
+  const t0 = tpsAx[t.lo], t1 = tpsAx[t.hi];
+  const v00 = cellMap.get(r0 + '|' + t0);
+  const v10 = cellMap.get(r1 + '|' + t0);
+  const v01 = cellMap.get(r0 + '|' + t1);
+  const v11 = cellMap.get(r1 + '|' + t1);
+  // Weighted average over defined corners
+  let sum = 0, w = 0;
+  const w00 = (1 - r.t) * (1 - t.t);
+  const w10 = r.t * (1 - t.t);
+  const w01 = (1 - r.t) * t.t;
+  const w11 = r.t * t.t;
+  if (v00 != null) { sum += v00 * w00; w += w00; }
+  if (v10 != null) { sum += v10 * w10; w += w10; }
+  if (v01 != null) { sum += v01 * w01; w += w01; }
+  if (v11 != null) { sum += v11 * w11; w += w11; }
+  return w > 0 ? sum / w : null;
+}
+
+// For 'nearest neighbour' fill: find the closest populated cell
+function nearestCellLambda(rpm, tps) {
+  if (!STATE.cells || STATE.cells.length === 0) return null;
+  // Normalize distances across the two axes
+  let best = null, bestD = Infinity;
+  STATE.cells.forEach(c => {
+    const dr = (c.rpm - rpm) / 1000;
+    const dt = (c.thr - tps) / 10;
+    const d  = dr * dr + dt * dt;
+    if (d < bestD) { bestD = d; best = c.lam; }
+  });
+  return best;
+}
+
+// For the 'smart' fill: determine, per TPS row, the RPM span that is actually
+// covered by measurements. Cells inside that span get closed by interpolation,
+// cells outside stay at 0 % so the map does not invent data beyond the log.
+function coveredRpmSpanAt(tps, tpsAxis, idx) {
+  if (!STATE.cells || STATE.cells.length === 0) return null;
+  // Widen the TPS window to the neighbouring grid rows so a row that sits
+  // between two measured TPS bins still finds its span.
+  const lo = idx > 0 ? (tpsAxis[idx - 1] + tps) / 2 : -1;
+  const hi = idx < tpsAxis.length - 1 ? (tps + tpsAxis[idx + 1]) / 2 : 101;
+  let rMin = Infinity, rMax = -Infinity, found = false;
+  STATE.cells.forEach(c => {
+    if (c.thr >= lo && c.thr <= hi) {
+      if (c.rpm < rMin) rMin = c.rpm;
+      if (c.rpm > rMax) rMax = c.rpm;
+      found = true;
+    }
+  });
+  return found ? { rMin, rMax } : null;
+}
+
+// Build the full map: 2D array of {pct, src} where
+// src ∈ {'measured','nearest','filled','empty'}
+function buildExportMap(opts) {
+  const rpmAxis = [];
+  for (let r = opts.rpmMin; r <= opts.rpmMax; r += opts.rpmStep) rpmAxis.push(r);
+  const tpsAxis = TPS_SETS[opts.tpsSet] || TPS_SETS['pc-standard'];
+
+  const rows = tpsAxis.map((tps, ti) => {
+    const span = (opts.fill === 'smart') ? coveredRpmSpanAt(tps, tpsAxis, ti) : null;
+    return rpmAxis.map(rpm => {
+      let lam = sampleMeasuredLambda(rpm, tps);
+      let src = 'measured';
+      if (lam == null) {
+        if (opts.fill === 'nearest') {
+          lam = nearestCellLambda(rpm, tps);
+          src = (lam == null) ? 'empty' : 'nearest';
+        } else if (opts.fill === 'smart') {
+          // Only close gaps that sit inside the measured RPM span of this row
+          if (span && rpm >= span.rMin && rpm <= span.rMax) {
+            lam = nearestCellLambda(rpm, tps);
+            src = (lam == null) ? 'filled' : 'nearest';
+          } else {
+            src = 'filled';   // outside the logged range → leave untouched
+          }
+        } else if (opts.fill === 'empty') {
+          src = 'empty';
+        } else {
+          src = 'filled';     // → 0 %
+        }
+      }
+      let pct = null;
+      let clamped = false;
+      if (lam != null) {
+        const tgt = targetLambdaAt(tps);
+        pct = (lam / tgt - 1) * 100;
+        if (pct > opts.clamp) { pct = opts.clamp; clamped = true; }
+        if (pct < -opts.clamp){ pct = -opts.clamp; clamped = true; }
+      } else if (src === 'filled') {
+        pct = 0;
+      }
+      return { pct, src, clamped };
+    });
+  });
+  return { rpmAxis, tpsAxis, rows };
+}
+
+function readExportOpts() {
+  return {
+    rpmMin:  parseInt($('#expRpmMin').value, 10) || 500,
+    rpmMax:  parseInt($('#expRpmMax').value, 10) || 13000,
+    rpmStep: parseInt($('#expRpmStep').value, 10) || 500,
+    tpsSet:  $('#expTpsSet').value,
+    clamp:   Math.max(1, Math.min(100, parseFloat($('#expClamp').value) || 25)),
+    fill:    $('#expFill').value,
+  };
+}
+
+function renderTargetsForExport() {
+  const html = EXP_ZONES.map(z => `
+    <div class="exp-field">
+      <label>${z.name}</label>
+      <input type="number" value="${z.target.toFixed(2)}" step="0.01" min="0.5" max="2.0" inputmode="decimal" data-key="${z.key}">
+    </div>`).join('');
+  $('#expTargetsGrid').innerHTML = html;
+  $$('#expTargetsGrid input').forEach(input => {
+    input.addEventListener('change', () => {
+      const key = input.dataset.key;
+      const z = EXP_ZONES.find(x => x.key === key);
+      const v = parseFloat(String(input.value).replace(',', '.'));
+      if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) {
+        z.target = v;
+        input.value = v.toFixed(2);
+        renderExportPreview();
+      } else {
+        input.value = z.target.toFixed(2);
+      }
+    });
+  });
+}
+
+function renderExportPreview() {
+  if (!STATE.hasData) {
+    $('#expPreviewWrap').innerHTML = `<div class="modal-sub" style="padding:14px 0">No data loaded.</div>`;
+    $('#expSummary').innerHTML = '';
+    return;
+  }
+  const opts = readExportOpts();
+  const { rpmAxis, tpsAxis, rows } = buildExportMap(opts);
+  // Build table — TPS as rows (high at top, like PC software), RPM as columns
+  const headerCells = rpmAxis.map(r => `<th>${r}</th>`).join('');
+  const bodyRows = tpsAxis.slice().reverse().map((tps, iiRev) => {
+    const i = tpsAxis.length - 1 - iiRev;
+    const cells = rows[i].map(cell => {
+      if (cell.pct == null) {
+        return `<td class="exp-cell empty">—</td>`;
+      }
+      const v = Math.round(cell.pct);
+      const cls = v === 0 ? 'zero' : (v > 0 ? 'pos' : 'neg');
+      const clamp = cell.clamped ? ' clamp' : '';
+      const sign = v > 0 ? '+' : '';
+      return `<td class="exp-cell ${cls}${clamp}">${sign}${v}</td>`;
+    }).join('');
+    return `<tr><th>${tps}%</th>${cells}</tr>`;
+  }).join('');
+  $('#expPreviewWrap').innerHTML = `
+    <table class="exp-preview">
+      <thead><tr><th>TPS \\ RPM</th>${headerCells}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+  `;
+  // Summary line
+  let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0;
+  rows.forEach(row => row.forEach(c => {
+    if (c.src === 'measured') countMeasured++;
+    else if (c.src === 'nearest') countNearest++;
+    else if (c.src === 'filled')  countFilled++;
+    else countEmpty++;
+    if (c.clamped) countClamp++;
+  }));
+  const total = rows.length * (rows[0] ? rows[0].length : 0);
+  $('#expSummary').innerHTML = `
+    <span><strong>${countMeasured}</strong>/${total} from measurement</span>
+    ${countNearest ? `<span><strong>${countNearest}</strong> interpolated</span>` : ''}
+    ${countFilled ? `<span><strong>${countFilled}</strong> set to 0 % (no data)</span>` : ''}
+    ${countEmpty ? `<span><strong>${countEmpty}</strong> empty</span>` : ''}
+    ${countClamp ? `<span><strong>${countClamp}</strong> clamped<span class="exp-badge-warn">±${opts.clamp}%</span></span>` : ''}
+  `;
+}
+
+function buildExportCsv(opts, map) {
+  const { rpmAxis, tpsAxis, rows } = map;
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
+  const srcName = (STATE.fileName || 'MD-Lambda-View');
+  const targets = EXP_ZONES.map(z => `${z.name} ${z.target.toFixed(2)}`).join(', ');
+  const header = [
+    `# MD-Lambda-View · map export (compatible with PowerCommander software)`,
+    `# Date: ${now}`,
+    `# Source file: ${srcName}`,
+    `# Target lambda (per zone): ${targets}`,
+    `# TPS grid: ${tpsAxis.join(', ')} %`,
+    `# RPM grid: ${opts.rpmMin}–${opts.rpmMax} in steps of ${opts.rpmStep}`,
+    `# Clamping: ±${opts.clamp}%`,
+    `# Values: fuel change in % (positive = more fuel, negative = less)`,
+    `# NOTE: preliminary format. The final format will be matched to the PC software.`,
+    ``,
+    ``,
+  ];
+  // Table: TPS as rows (ascending), RPM as columns
+  const headRow = ['TPS\\RPM', ...rpmAxis].join(';');
+  const dataRows = tpsAxis.map((tps, i) => {
+    const cells = rows[i].map(c => c.pct == null ? '' : String(Math.round(c.pct)));
+    return [tps, ...cells].join(';');
+  });
+  return header.join('\n') + headRow + '\n' + dataRows.join('\n') + '\n';
+}
+
+function downloadExportCsv() {
+  if (!STATE.hasData) { toast('No data loaded', 2500); return; }
+  const opts = readExportOpts();
+  const map = buildExportMap(opts);
+  const csv = buildExportCsv(opts, map);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const base = (STATE.fileName || 'md-lambda-view').replace(/\.[^.]+$/, '');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${base}_PC-Map.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
+  toast('CSV downloaded', 2000);
+}
+
+function openExportModal() {
+  if (!STATE.hasData) { toast('Load a CSV first', 2500); return; }
+  renderTargetsForExport();
+  renderExportPreview();
+  $('#expModal').classList.add('open');
+  $('#expBackdrop').classList.add('open');
+}
+function closeExportModal() {
+  $('#expModal').classList.remove('open');
+  $('#expBackdrop').classList.remove('open');
+}
+
+// Wire controls → re-render preview
+['expRpmMin','expRpmMax','expRpmStep','expTpsSet','expClamp','expFill'].forEach(id => {
+  $('#' + id).addEventListener('change', renderExportPreview);
+});
+
+$('#btnExport').addEventListener('click', () => {
+  if ($('#btnExport').disabled) return;
+  openExportModal();
+});
+$('#expClose').addEventListener('click', closeExportModal);
+$('#expBackdrop').addEventListener('click', closeExportModal);
+$('#expDownload').addEventListener('click', downloadExportCsv);
+
+// ============ RENDER ============
+function render3D() {
+  if (!STATE.hasData) return;
+  if (typeof Plotly === 'undefined') {
+    toast('Plotly unavailable – content blocker?', 4000);
+    return;
+  }
+
+  const rpmStep = parseFloat($('#rpmStep').value) || 500;
+  const thrStep = parseFloat($('#thrStep').value) || 5;
+  const cmin = parseFloat($('#cmin').value);
+  const cmax = parseFloat($('#cmax').value);
+  const aggMethod = STATE.agg;
+  const scale = STATE.scale;
+
+  const { rpm, throttle, lambda } = STATE.rawData;
+
+  const rpmBins = sortedUnique(rpm.map(v => binCenter(v, rpmStep)));
+  const thrBins = sortedUnique(throttle.map(v => binCenter(v, thrStep)));
+
+  const valueMatrix = Array.from({ length: thrBins.length }, () =>
+    Array.from({ length: rpmBins.length }, () => [])
+  );
+
+  const rpmIdx = new Map(rpmBins.map((v, i) => [v, i]));
+  const thrIdx = new Map(thrBins.map((v, i) => [v, i]));
+
+  for (let i = 0; i < rpm.length; i++) {
+    const rIdx = rpmIdx.get(binCenter(rpm[i], rpmStep));
+    const tIdx = thrIdx.get(binCenter(throttle[i], thrStep));
+    if (rIdx !== undefined && tIdx !== undefined) {
+      valueMatrix[tIdx][rIdx].push(lambda[i]);
+    }
+  }
+
+  const zMatrix = Array.from({ length: thrBins.length }, () => Array(rpmBins.length).fill(null));
+  const cells = [];
+  let totalLam = 0, lamCount = 0, lamMin = Infinity, lamMax = -Infinity, validCells = 0;
+
+  for (let t = 0; t < thrBins.length; t++) {
+    for (let r = 0; r < rpmBins.length; r++) {
+      const vals = valueMatrix[t][r];
+      if (vals.length > 0) {
+        const zLam = aggregate(vals, aggMethod);
+        // store the display-unit value in zMatrix for the surface
+        zMatrix[t][r] = toUnit(zLam);
+        cells.push({ rpm: rpmBins[r], thr: thrBins[t], lam: zLam, n: vals.length });
+        totalLam += zLam; lamCount++;
+        if (zLam < lamMin) lamMin = zLam;
+        if (zLam > lamMax) lamMax = zLam;
+        validCells++;
+      }
+    }
+  }
+
+  if (validCells === 0) { toast('No filled bins'); return; }
+  STATE.cells = cells;
+
+  // Update info strip + stats
+  $('#iPoints').textContent = rpm.length.toLocaleString('en-US');
+  $('#iCells').textContent = validCells;
+  $('#iAvgL').textContent = unitShort() + ' Ø';
+  $('#iMML').textContent = unitShort() + ' min/max';
+  $('#iAvg').textContent = fmtVal(totalLam / lamCount);
+  $('#iMM').textContent = fmtVal(lamMin) + '/' + fmtVal(lamMax);
+
+  const u = unitShort();
+  $('#statsGrid').innerHTML = `
+    <div class="stat"><div class="l">Raw points</div><div class="v">${rpm.length.toLocaleString('en-US')}</div></div>
+    <div class="stat"><div class="l">Filled cells</div><div class="v">${validCells} / ${rpmBins.length * thrBins.length}</div></div>
+    <div class="stat"><div class="l">RPM range</div><div class="v">${rpmBins[0]}–${rpmBins[rpmBins.length-1]}</div></div>
+    <div class="stat"><div class="l">TPS range</div><div class="v">${thrBins[0]}–${thrBins[thrBins.length-1]}%</div></div>
+    <div class="stat"><div class="l">${u} avg</div><div class="v">${fmtVal(totalLam/lamCount, 3)}</div></div>
+    <div class="stat"><div class="l">${u} min/max</div><div class="v">${fmtVal(lamMin)} / ${fmtVal(lamMax)}</div></div>
+  `;
+
+  // All cells sorted by TPS bin (asc), then by RPM bin (asc)
+  const sorted = [...cells].sort((a, b) => a.thr - b.thr || a.rpm - b.rpm);
+  const rows = sorted.map(c => {
+    // Rich/lean classification always in lambda terms
+    const cls = c.lam < 0.95 ? 'lam-rich' : c.lam > 1.05 ? 'lam-lean' : 'lam-ok';
+    return `<tr><td>${c.rpm}</td><td>${c.thr}</td><td class="${cls}">${fmtVal(c.lam)}</td><td>${c.n}</td></tr>`;
+  }).join('');
+  $('#cellsPreview').innerHTML = `
+    <table>
+      <thead><tr><th>RPM</th><th>TPS%</th><th>${u}</th><th>n</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+
+  // Plot
+  const defaultMin = STATE.unit === 'afr' ? 0.65 * AFR_STOICH : 0.65;
+  const defaultMax = STATE.unit === 'afr' ? 1.10 * AFR_STOICH : 1.10;
+  const surface = {
+    x: rpmBins,
+    y: thrBins,
+    z: zMatrix,
+    type: 'surface',
+    colorscale: scale,
+    cmin: Number.isFinite(cmin) ? cmin : defaultMin,
+    cmax: Number.isFinite(cmax) ? cmax : defaultMax,
+    showscale: true,
+    connectgaps: false,
+    colorbar: {
+      title: { text: u, font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+      tickfont: { color: '#6b6555', family: '-apple-system, sans-serif', size: 10 },
+      thickness: 12,
+      len: 0.6,
+      x: 1.0,
+      outlinewidth: 0,
+    },
+    contours: {
+      z: { show: true, usecolormap: false, color: '#6b6555', project: { z: true }, width: 1 }
+    },
+    hovertemplate: 'RPM %{x}<br>TPS %{y}%<br>' + u + ' %{z:.3f}<extra></extra>'
+  };
+  STATE.currentSurface = surface;
+
+  const layout = {
+    paper_bgcolor: 'rgba(0,0,0,0)',
+    plot_bgcolor: 'rgba(0,0,0,0)',
+    margin: { l: 0, r: 0, t: 0, b: 0 },
+    scene: {
+      aspectmode: 'manual',
+      aspectratio: { x: 2.5, y: 1.6, z: 1 },
+      bgcolor: 'rgba(0,0,0,0)',
+      xaxis: {
+        title: { text: 'RPM', font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+        color: '#6b6555',
+        gridcolor: 'rgba(60,50,20,.10)',
+        zerolinecolor: 'rgba(60,50,20,.18)',
+        showbackground: false,
+      },
+      yaxis: {
+        title: { text: 'TPS %', font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+        color: '#6b6555',
+        gridcolor: 'rgba(60,50,20,.10)',
+        zerolinecolor: 'rgba(60,50,20,.18)',
+        showbackground: false,
+      },
+      zaxis: {
+        title: { text: u, font: { color: '#3a3a3a', family: '-apple-system, sans-serif', size: 12 } },
+        color: '#6b6555',
+        gridcolor: 'rgba(60,50,20,.10)',
+        zerolinecolor: 'rgba(60,50,20,.18)',
+        showbackground: false,
+      },
+      camera: CAMS.iso,
+    },
+    uirevision: 'keep'
+  };
+
+  const config = {
+    responsive: true,
+    displayModeBar: false,
+    scrollZoom: true,
+    doubleClick: 'reset',
+  };
+
+  Plotly.react('plot', [surface], layout, config);
+  setTimeout(() => {
+    Plotly.Plots.resize('plot');
+    setupTouchGestures();
+  }, 50);
+}
+
+function setCamera(name) {
+  if (!STATE.hasData) return;
+  STATE.camera = JSON.parse(JSON.stringify(CAMS[name]));
+  Plotly.relayout('plot', { 'scene.camera': STATE.camera });
+}
+
+// ============ TOUCH GESTURES (Zoom + Pan) ============
+// Single finger: rotate (Plotly default). Two fingers: pinch zoom + pan.
+function getCurrentCamera() {
+  const gd = document.getElementById('plot');
+  if (gd && gd.layout && gd.layout.scene && gd.layout.scene.camera) {
+    return JSON.parse(JSON.stringify(gd.layout.scene.camera));
+  }
+  return STATE.camera ? JSON.parse(JSON.stringify(STATE.camera)) : JSON.parse(JSON.stringify(CAMS.iso));
+}
+
+function vecLen(v) { return Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z); }
+function vecSub(a, b) { return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }; }
+function vecAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }; }
+function vecScale(v, s) { return { x: v.x * s, y: v.y * s, z: v.z * s }; }
+function vecNorm(v) { const l = vecLen(v) || 1; return vecScale(v, 1/l); }
+function vecCross(a, b) {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
+  };
+}
+
+let touchState = null;
+
+function setupTouchGestures() {
+  const plotEl = document.getElementById('plot');
+  if (!plotEl || plotEl._mdGesturesAttached) return;
+  plotEl._mdGesturesAttached = true;
+
+  plotEl.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const t1 = e.touches[0], t2 = e.touches[1];
+      const dx = t2.clientX - t1.clientX;
+      const dy = t2.clientY - t1.clientY;
+      const cx = (t1.clientX + t2.clientX) / 2;
+      const cy = (t1.clientY + t2.clientY) / 2;
+      touchState = {
+        startDist: Math.hypot(dx, dy),
+        startCx: cx,
+        startCy: cy,
+        lastCx: cx,
+        lastCy: cy,
+        startCam: getCurrentCamera(),
+      };
+    }
+  }, { passive: false });
+
+  plotEl.addEventListener('touchmove', e => {
+    if (e.touches.length !== 2 || !touchState) return;
+    e.preventDefault();
+
+    const t1 = e.touches[0], t2 = e.touches[1];
+    const dx = t2.clientX - t1.clientX;
+    const dy = t2.clientY - t1.clientY;
+    const dist = Math.hypot(dx, dy);
+    const cx = (t1.clientX + t2.clientX) / 2;
+    const cy = (t1.clientY + t2.clientY) / 2;
+
+    // --- ZOOM via pinch ---
+    // Move eye along its vector relative to center.
+    const cam = JSON.parse(JSON.stringify(touchState.startCam));
+    const ratio = touchState.startDist > 0 ? touchState.startDist / dist : 1;
+    // Clamp zoom range
+    const clampedRatio = Math.max(0.25, Math.min(4, ratio));
+    const eyeRel = vecSub(cam.eye, cam.center);
+    const newEyeRel = vecScale(eyeRel, clampedRatio);
+    cam.eye = vecAdd(cam.center, newEyeRel);
+
+    // --- PAN via two-finger translation ---
+    // Move center perpendicular to view direction.
+    const panX = (cx - touchState.startCx);
+    const panY = (cy - touchState.startCy);
+    const rect = plotEl.getBoundingClientRect();
+    const eyeDist = vecLen(newEyeRel) || 1;
+    // Pan speed scales with current eye distance and screen size
+    const panScale = eyeDist / Math.min(rect.width, rect.height) * 1.2;
+
+    const forward = vecNorm(vecSub(cam.center, cam.eye));
+    const up = cam.up || { x: 0, y: 0, z: 1 };
+    const right = vecNorm(vecCross(forward, up));
+    const trueUp = vecNorm(vecCross(right, forward));
+
+    const panOffset = vecAdd(
+      vecScale(right, -panX * panScale),
+      vecScale(trueUp, panY * panScale)
+    );
+    cam.center = vecAdd(cam.center, panOffset);
+    cam.eye = vecAdd(cam.eye, panOffset);
+
+    STATE.camera = cam;
+    if (typeof Plotly !== 'undefined') {
+      Plotly.relayout('plot', { 'scene.camera': cam });
+    }
+  }, { passive: false });
+
+  plotEl.addEventListener('touchend', e => {
+    if (e.touches.length < 2) touchState = null;
+  });
+  plotEl.addEventListener('touchcancel', () => { touchState = null; });
+}
+
+// ============ UI: STEPPERS ============
+$$('.step-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const which = btn.dataset.step;
+    const dir = parseInt(btn.dataset.dir, 10);
+    const input = $(which === 'rpm' ? '#rpmStep' : '#thrStep');
+    const min = parseFloat(input.min) || 1;
+    const step = parseFloat(input.step) || 1;
+    let v = (parseFloat(input.value) || 0) + dir * step;
+    if (v < min) v = min;
+    input.value = v;
+    if (STATE.hasData) render3D();
+  });
+});
+
+['rpmStep', 'thrStep', 'cmin', 'cmax'].forEach(id => {
+  $('#' + id).addEventListener('change', () => { if (STATE.hasData) render3D(); });
+});
+
+// ============ UI: CHIPS / CAM ============
+$$('#aggChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    STATE.agg = c.dataset.agg;
+    $$('#aggChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    if (STATE.hasData) render3D();
+  });
+});
+
+$$('#unitChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    const newUnit = c.dataset.unit;
+    if (newUnit === STATE.unit) return;
+    const oldUnit = STATE.unit;
+    STATE.unit = newUnit;
+    $$('#unitChips .chip').forEach(x => x.classList.toggle('on', x === c));
+    // Update sidebar labels
+    $('#rangeLabel').textContent = (newUnit === 'afr' ? 'AFR range' : 'λ range');
+    // Convert the min/max fields so the current window stays meaningful
+    const cminEl = $('#cmin'), cmaxEl = $('#cmax');
+    const curMin = parseFloat(cminEl.value), curMax = parseFloat(cmaxEl.value);
+    if (Number.isFinite(curMin) && Number.isFinite(curMax)) {
+      if (oldUnit === 'lambda' && newUnit === 'afr') {
+        cminEl.value = (curMin * AFR_STOICH).toFixed(2);
+        cmaxEl.value = (curMax * AFR_STOICH).toFixed(2);
+        cminEl.step = '0.1';
+        cmaxEl.step = '0.1';
+      } else if (oldUnit === 'afr' && newUnit === 'lambda') {
+        cminEl.value = (curMin / AFR_STOICH).toFixed(2);
+        cmaxEl.value = (curMax / AFR_STOICH).toFixed(2);
+        cminEl.step = '0.01';
+        cmaxEl.step = '0.01';
+      }
+    }
+    if (STATE.hasData) render3D();
+  });
+});
+
+$$('.cam-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    setCamera(b.dataset.cam);
+    closeSheet();
+  });
+});
+
+$('#btnCam').addEventListener('click', () => setCamera('iso'));
+
+// ============ FULLSCREEN ============
+const fullBtn = $('#btnFull');
+let pseudoFull = false;
+
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (req) {
+    try {
+      const p = req.call(el);
+      if (p && p.catch) p.catch(() => enterPseudoFullscreen());
+      return;
+    } catch (e) { /* fall through */ }
+  }
+  enterPseudoFullscreen();
+}
+
+function exitFullscreen() {
+  if (isFullscreen()) {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit) { try { exit.call(document); } catch (e) {} }
+  }
+  if (pseudoFull) exitPseudoFullscreen();
+}
+
+// iOS Safari fallback: hide header + status bars, plot fills viewport
+function enterPseudoFullscreen() {
+  pseudoFull = true;
+  document.body.classList.add('pseudo-full');
+  fullBtn.textContent = '⤢';
+  fullBtn.title = 'Exit fullscreen';
+  setTimeout(() => { if (STATE.hasData && typeof Plotly !== 'undefined') Plotly.Plots.resize('plot'); }, 80);
+}
+
+function exitPseudoFullscreen() {
+  pseudoFull = false;
+  document.body.classList.remove('pseudo-full');
+  fullBtn.textContent = '⛶';
+  fullBtn.title = 'Fullscreen';
+  setTimeout(() => { if (STATE.hasData && typeof Plotly !== 'undefined') Plotly.Plots.resize('plot'); }, 80);
+}
+
+fullBtn.addEventListener('click', () => {
+  if (isFullscreen() || pseudoFull) exitFullscreen();
+  else enterFullscreen();
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (isFullscreen()) {
+    fullBtn.textContent = '⤢';
+    fullBtn.title = 'Exit fullscreen';
+  } else {
+    fullBtn.textContent = '⛶';
+    fullBtn.title = 'Fullscreen';
+  }
+  setTimeout(() => { if (STATE.hasData && typeof Plotly !== 'undefined') Plotly.Plots.resize('plot'); }, 80);
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  document.dispatchEvent(new Event('fullscreenchange'));
+});
+
+// ESC also exits pseudo-fullscreen
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && pseudoFull) exitPseudoFullscreen();
+});
+
+// ============ BOTTOM SHEET ============
+function openSheet() {
+  $('#sheet').classList.add('open');
+  $('#backdrop').classList.add('open');
+}
+function closeSheet() {
+  $('#sheet').classList.remove('open');
+  $('#backdrop').classList.remove('open');
+}
+$('#btnSheet').addEventListener('click', openSheet);
+$('#btnClose').addEventListener('click', closeSheet);
+$('#backdrop').addEventListener('click', closeSheet);
+
+// Drag handle to close
+let dragStart = null;
+const handle = $('#sheetHandle');
+const sheetEl = $('#sheet');
+handle.addEventListener('touchstart', e => {
+  dragStart = e.touches[0].clientY;
+  sheetEl.style.transition = 'none';
+}, { passive: true });
+handle.addEventListener('touchmove', e => {
+  if (dragStart === null) return;
+  const dy = e.touches[0].clientY - dragStart;
+  if (dy > 0) sheetEl.style.transform = 'translateY(' + dy + 'px)';
+}, { passive: true });
+handle.addEventListener('touchend', e => {
+  sheetEl.style.transition = '';
+  sheetEl.style.transform = '';
+  if (dragStart !== null) {
+    const endY = e.changedTouches[0].clientY;
+    if (endY - dragStart > 80) closeSheet();
+  }
+  dragStart = null;
+});
+
+// ============ LOAD BUTTONS ============
+$('#btnLoad').addEventListener('click', pickFile);
+$('#btnLoad2').addEventListener('click', () => { closeSheet(); setTimeout(pickFile, 150); });
+
+// ============ INIT ============
+buildScaleChips();
+window.addEventListener('resize', () => {
+  if (STATE.hasData) Plotly.Plots.resize('plot');
+});
+window.addEventListener('orientationchange', () => {
+  setTimeout(() => { if (STATE.hasData) Plotly.Plots.resize('plot'); }, 250);
+});
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW failed:', e));
+}
+</script>
+</body>
+</html>

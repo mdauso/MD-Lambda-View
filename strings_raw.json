@@ -1,0 +1,1059 @@
+{
+ "# HINWEIS: Vorab-Format. Endgültiges Format wird an die PC-Software angepasst.": [
+  "3d.html:tpl"
+ ],
+ "# MD-Lambda-View · Map-Export (kompatibel mit PowerCommander-Software)": [
+  "3d.html:tpl"
+ ],
+ "# Werte: Kraftstoff-Änderung in % (positiv = mehr Kraftstoff, negativ = weniger)": [
+  "3d.html:tpl"
+ ],
+ "#aggChips .chip": [
+  "3d.html:js"
+ ],
+ "#bandChips .chip": [
+  "2d.html:js"
+ ],
+ "#expTargetsGrid input": [
+  "3d.html:js"
+ ],
+ "#prepStep1 .prep-option": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "#tuneBoundsGrid input": [
+  "2d.html:js"
+ ],
+ "#tuneTargetsGrid input": [
+  "2d.html:js"
+ ],
+ "#unitChips .chip": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "#xAxisChips .chip": [
+  "2d.html:js"
+ ],
+ "${asAfr ? 29 : 2}": [
+  "2d.html:js"
+ ],
+ "${asAfr ? 7 : 0.5}": [
+  "2d.html:js"
+ ],
+ "${c.idx}": [
+  "2d.html:js"
+ ],
+ "${cls}": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "${dCls}": [
+  "2d.html:js"
+ ],
+ "${shown}": [
+  "2d.html:js"
+ ],
+ "${step}": [
+  "2d.html:js"
+ ],
+ "${v}": [
+  "2d.html:js"
+ ],
+ "${z.key}": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "${z.target.toFixed(2)}": [
+  "3d.html:js"
+ ],
+ "%{z:.3f}<extra></extra>": [
+  "3d.html:js"
+ ],
+ "(AFR)": [
+  "2d.html:js"
+ ],
+ "(display-mode: standalone)": [
+  "index.html:js"
+ ],
+ "-apple-system, sans-serif": [
+  "3d.html:js"
+ ],
+ "0 · 10 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100": [
+  "3d.html:option"
+ ],
+ "0 · 2 · 5 · 10 · 15 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100": [
+  "3d.html:option"
+ ],
+ "0 · 2 · 5 · 10 · 15 · 20 · 40 · 60 · 80 · 100": [
+  "3d.html:option"
+ ],
+ "1 Finger dreht · 2 Finger zoomen & verschieben": [
+  "3d.html:text"
+ ],
+ "1000 U/min": [
+  "3d.html:option",
+  "3d.html:text"
+ ],
+ "250 U/min": [
+  "3d.html:option",
+  "3d.html:text"
+ ],
+ "2D · TPS / λ": [
+  "2d.html:text"
+ ],
+ "3D · RPM / TPS / λ": [
+  "3d.html:text"
+ ],
+ "3D-Surface der Lambda-Map · Aggregation &amp; Bin-Größen einstellbar": [
+  "index.html:text"
+ ],
+ "500 9px -apple-system, sans-serif": [
+  "2d.html:js"
+ ],
+ "500 U/min": [
+  "3d.html:option",
+  "3d.html:text"
+ ],
+ "<div class=\"icon\" style=\"background:#c9302c\">⚠</div>": [
+  "2d.html:js"
+ ],
+ "<div class=\"icon\" style=\"color:#ff5050\">⚠</div>": [
+  "3d.html:js"
+ ],
+ "<div class=\"modal-sub\" style=\"padding:14px 0\">Keine Daten geladen.</div>": [
+  "3d.html:tpl"
+ ],
+ "<div class=\"tune-empty\">Noch keine Daten geladen. Erst eine CSV-Datei öffnen.</div>": [
+  "2d.html:tpl"
+ ],
+ "<h2 style=\"color:#ff5050\">Plotly blockiert</h2>": [
+  "3d.html:js"
+ ],
+ "<h2>Chart-Bibliothek blockiert</h2>": [
+  "2d.html:js"
+ ],
+ "<hr style=\"border:0; border-top:1px dashed var(--line); margin:16px 0;\">": [
+  "2d.html:js"
+ ],
+ "<p>Die Chart-Bibliothek konnte nicht geladen werden. Vermutlich ist ein Content-Blocker oder Tracking-Schutz aktiv.<br><br>Tipp: in Safari unter <b>Einstellungen → Apps → Safari → Erweitert → Inhalte blockieren</b> für diese Seite deaktivieren, oder die Datei in Chrome/Firefox öffnen.</p>": [
+  "3d.html:js"
+ ],
+ "<p>Vermutlich ist ein Content-Blocker oder Tracking-Schutz aktiv. Tipp: Inhalte-Blocker für diese Seite deaktivieren oder in Chrome/Firefox öffnen.</p>": [
+  "2d.html:js"
+ ],
+ "<td class=\"exp-cell empty\">—</td>": [
+  "3d.html:tpl"
+ ],
+ "A": [
+  "2d.html:text"
+ ],
+ "AFR": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "AFR (14,7)": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "AFR (Air/Fuel)": [
+  "2d.html:js"
+ ],
+ "AFR-Achse": [
+  "2d.html:js"
+ ],
+ "AFR-Bereich": [
+  "3d.html:js"
+ ],
+ "Ab dieser Last gilt nur die normale Stabilitätsregel": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Abbrechen": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Abstand für die Stabilitätsprüfung (ca. 0,5 s bei 20 Hz = 10)": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Aggregation": [
+  "3d.html:text"
+ ],
+ "Alle gültigen Messwerte ohne Vorauswahl. Enthält auch Transienten (Beschleunigung, Schub, Lastwechsel).": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Analyse der λ-Werte nach Vergaser-Lastbereichen ·": [
+  "2d.html:text"
+ ],
+ "Andere wählen": [
+  "2d.html:js"
+ ],
+ "Ansicht zurücksetzen": [
+  "3d.html:attr"
+ ],
+ "Anzeige": [
+  "2d.html:text"
+ ],
+ "Auf iPhone installieren:": [
+  "index.html:text"
+ ],
+ "Auswertungen": [
+  "index.html:text"
+ ],
+ "B": [
+  "2d.html:text"
+ ],
+ "Bereichsgrenzen (TPS %)": [
+  "2d.html:text"
+ ],
+ "Bereit": [
+  "3d.html:text"
+ ],
+ "Bin-Größe": [
+  "2d.html:text"
+ ],
+ "Bin-Größen": [
+  "3d.html:text"
+ ],
+ "Bins": [
+  "2d.html:text"
+ ],
+ "Bins (Median pro RPM)": [
+  "2d.html:js"
+ ],
+ "Bins (Median pro TPS)": [
+  "2d.html:js",
+  "2d.html:text"
+ ],
+ "CSV heruntergeladen": [
+  "3d.html:js"
+ ],
+ "CSV laden": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "CSV leer": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "CSV wählen": [
+  "2d.html:js",
+  "2d.html:text"
+ ],
+ "CSV-Datei wählen": [
+  "3d.html:text"
+ ],
+ "CSV-Log laden zum Erzeugen der Lambda-Map über RPM × Drosselklappe": [
+  "3d.html:text"
+ ],
+ "CSV-Log laden — zeigt λ-Median pro Drosselklappenstellung mit Streubändern": [
+  "2d.html:text"
+ ],
+ "Chart-Bibliothek nicht verfügbar": [
+  "2d.html:js"
+ ],
+ "Cividis": [
+  "3d.html:js"
+ ],
+ "Clear": [
+  "2d.html:js"
+ ],
+ "Clip-Position": [
+  "2d.html:text"
+ ],
+ "DOMContentLoaded": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Datei": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Dateien (zwei zum Vergleichen)": [
+  "2d.html:text"
+ ],
+ "Datenaufbereitung": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Der": [
+  "2d.html:text"
+ ],
+ "Die Skizze zeigt einen klassischen Rundschiebervergaser. Bei Flachschiebern und CV-Vergasern (Konstantunterdruck) ist das Prinzip ähnlich — die Zuordnung der Lastbereiche gilt dort genauso.": [
+  "2d.html:text"
+ ],
+ "Drehzahl (RPM)": [
+  "2d.html:text"
+ ],
+ "Drehzahl (U/min)": [
+  "2d.html:js"
+ ],
+ "Drossel-Schritt %": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Drosselklappe (%)": [
+  "2d.html:js"
+ ],
+ "Drosselklappe (TPS)": [
+  "2d.html:text"
+ ],
+ "Düsennadel (Mittelbereich)": [
+  "2d.html:js"
+ ],
+ "Düsennadel-Konus / Schieberausschnitt": [
+  "2d.html:js"
+ ],
+ "Einheit": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Einstellungen": [
+  "2d.html:attr",
+  "2d.html:text",
+  "3d.html:attr",
+  "3d.html:text"
+ ],
+ "Empfehlungen sind Richtwerte für klassische Rundschieber- und Flachschieber-Vergaser. Immer in kleinen Schritten ändern und nachmessen. Veränderungen erst am Volllast-Ende prüfen, dann abwärts (Hauptdüse → Nadel → Übergang → Leerlauf).": [
+  "2d.html:text"
+ ],
+ "Entfernen": [
+  "2d.html:attr"
+ ],
+ "Erst eine CSV laden": [
+  "3d.html:js"
+ ],
+ "Erzeugt aus den geladenen Lambda-Daten eine Prozent-Map, die in die PowerCommander-Software importiert werden kann.": [
+  "3d.html:text"
+ ],
+ "Escape": [
+  "3d.html:js"
+ ],
+ "Farbskala": [
+  "3d.html:text"
+ ],
+ "Fehler": [
+  "3d.html:js"
+ ],
+ "Fehler:": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Fenster (Messwerte)": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Fenstergröße und erlaubte Last-/Drehzahl-Änderung selbst festlegen.": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Für Last 1–2 % wird zusätzlich &lt; 4500 U/min und ΔRPM ≤ 300 verlangt; für Last 0 % &lt; 1800 U/min und ΔRPM ≤ 200. (Vermeidet Schub-Phasen.)": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Für Zwischen-TPS-Werte wird linear interpoliert. Die Werte werden aus den Tuning-Zielen der 2D-App übernommen (localStorage).": [
+  "3d.html:text"
+ ],
+ "Gasschieber": [
+  "2d.html:text"
+ ],
+ "Geglättet (Standard)": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Gemischschraube": [
+  "2d.html:text"
+ ],
+ "Glättungsparameter individuell": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Grenzen &amp; Lücken": [
+  "3d.html:text"
+ ],
+ "Größte erlaubte Drehzahl-Änderung im Fenster": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Größte erlaubte TPS-Änderung im Fenster": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Hauptdüse": [
+  "2d.html:js",
+  "2d.html:text"
+ ],
+ "Hinweis: Das Dateiformat für den direkten Import in die PowerCommander-Software ist noch nicht\n      endgültig festgezurrt. Diese Vorab-Version schreibt eine lesbare CSV-Datei; sobald Du ein\n      Beispiel-Export aus der PC-Software geschickt hast, passe ich das Format exakt an.": [
+  "3d.html:text"
+ ],
+ "ISO": [
+  "3d.html:text"
+ ],
+ "Inferno": [
+  "3d.html:js"
+ ],
+ "Jet": [
+  "3d.html:js"
+ ],
+ "Kameraperspektive": [
+  "3d.html:text"
+ ],
+ "Keine Daten": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Keine Daten geladen": [
+  "3d.html:js"
+ ],
+ "Keine Punkte nach Aufbereitung — Parameter prüfen": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Keine gefüllten Bins": [
+  "3d.html:js"
+ ],
+ "Keine gültigen Daten": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Konusbeginn der Düsennadel": [
+  "2d.html:text"
+ ],
+ "Lambda (λ)": [
+  "2d.html:js",
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Lambda über Drosselklappe · Median &amp; Streuband · Vergleich zweier Logs": [
+  "index.html:text"
+ ],
+ "Last-Min (%)": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Leerlauf": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Leerlauf · 0–5 % TPS → Leerlaufsystem": [
+  "2d.html:text"
+ ],
+ "Leerlauf → Übergang": [
+  "2d.html:js"
+ ],
+ "Leerlaufdüse": [
+  "2d.html:text"
+ ],
+ "Leerlaufdüse / Gemischschraube": [
+  "2d.html:js"
+ ],
+ "Lese": [
+  "3d.html:js"
+ ],
+ "Load": [
+  "2d.html:js"
+ ],
+ "Log-Auswertung · Tuning-Tools": [
+  "index.html:text"
+ ],
+ "Luft strömt nur durch den schmalen Spalt unter dem geschlossenen Gasschieber. Kraftstoff kommt ausschließlich über die": [
+  "2d.html:text"
+ ],
+ "Lücken füllen": [
+  "3d.html:text"
+ ],
+ "MD-Lambda-View": [
+  "2d.html:text",
+  "3d.html:js",
+  "3d.html:text",
+  "index.html:text"
+ ],
+ "MD-Lambda-View 2026 ·": [
+  "index.html:text"
+ ],
+ "MD-Lambda-View · 2D TPS/λ": [
+  "2d.html:text"
+ ],
+ "MD-Lambda-View · 3D Map": [
+  "3d.html:text"
+ ],
+ "Map-Export (PowerCommander)": [
+  "3d.html:attr"
+ ],
+ "Map-Export (kompatibel mit PowerCommander)": [
+  "3d.html:text"
+ ],
+ "Max": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Max (mager)": [
+  "3d.html:text"
+ ],
+ "Max. Änderung ±%": [
+  "3d.html:text"
+ ],
+ "Mean": [
+  "3d.html:text"
+ ],
+ "Median": [
+  "3d.html:text"
+ ],
+ "Min": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Min (fett)": [
+  "3d.html:text"
+ ],
+ "Mittelbereich der Düsennadel": [
+  "2d.html:text"
+ ],
+ "Nadeldüse": [
+  "2d.html:text"
+ ],
+ "Name": [
+  "2d.html:js"
+ ],
+ "Nur stabile Betriebspunkte: Last und Drehzahl waren ca. 0,5 s konstant (Fenster 10 Werte, ΔLast ≤ 4 %, ΔRPM ≤ 500). Verwirft Transienten.": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Oben": [
+  "3d.html:text"
+ ],
+ "P10–P90": [
+  "2d.html:js"
+ ],
+ "P25–P75": [
+  "2d.html:js"
+ ],
+ "Plasma": [
+  "3d.html:js"
+ ],
+ "Plotly nicht verfügbar – Content-Blocker?": [
+  "3d.html:js"
+ ],
+ "Punktanzahl je Bin": [
+  "2d.html:text"
+ ],
+ "Punkte": [
+  "2d.html:text",
+  "3d.html:js",
+  "3d.html:text"
+ ],
+ "RPM": [
+  "2d.html:js",
+  "3d.html:js",
+  "3d.html:text"
+ ],
+ "RPM %{x}<br>TPS %{y}%<br>": [
+  "3d.html:js"
+ ],
+ "RPM bis": [
+  "3d.html:text"
+ ],
+ "RPM von": [
+  "3d.html:text"
+ ],
+ "RPM · TPS · λ": [
+  "index.html:text"
+ ],
+ "RPM-Schritt": [
+  "2d.html:js",
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Rainbow": [
+  "3d.html:js"
+ ],
+ "Raster (PowerCommander-Standard)": [
+  "3d.html:text"
+ ],
+ "Referenzlinie": [
+  "2d.html:js"
+ ],
+ "Rohdaten": [
+  "2d.html:js",
+  "2d.html:text",
+  "3d.html:js",
+  "3d.html:text"
+ ],
+ "Rohpunkte": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "SW failed:": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "SW registration failed:": [
+  "index.html:js"
+ ],
+ "Schieber ganz oben, Nadel vollständig aus der Nadeldüse gezogen. Jetzt limitiert allein die": [
+  "2d.html:text"
+ ],
+ "Schieber zur Hälfte geöffnet. Der": [
+  "2d.html:text"
+ ],
+ "Schließen": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Standard-Glättung": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Startseite": [
+  "2d.html:attr",
+  "3d.html:attr"
+ ],
+ "Statistik": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "Streuband": [
+  "2d.html:text"
+ ],
+ "Streuband anzeigen": [
+  "2d.html:text"
+ ],
+ "Streupunkte zeigen": [
+  "2d.html:text"
+ ],
+ "TPS": [
+  "2d.html:js",
+  "3d.html:text"
+ ],
+ "TPS %": [
+  "3d.html:js"
+ ],
+ "TPS · λ": [
+  "index.html:text"
+ ],
+ "TPS-Raster": [
+  "3d.html:text"
+ ],
+ "TPS-Schritt": [
+  "2d.html:js"
+ ],
+ "Teillast": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Teillast · 20–60 % TPS → Nadeldüse &amp; Düsennadel": [
+  "2d.html:text"
+ ],
+ "Teillast → Volllast": [
+  "2d.html:js"
+ ],
+ "Tippe auf das Teilen-Symbol unten in Safari und wähle „Zum Home-Bildschirm\".": [
+  "index.html:text"
+ ],
+ "Tooltip beim Antippen": [
+  "2d.html:text"
+ ],
+ "Vergaser-Bereiche": [
+  "2d.html:text"
+ ],
+ "Vergaser-Bereiche erklärt": [
+  "2d.html:attr"
+ ],
+ "Vergaser-Empfehlungen": [
+  "2d.html:attr",
+  "2d.html:text"
+ ],
+ "Vergaser-Querschnitt mit Zuordnung der Komponenten zu den TPS-Bereichen": [
+  "2d.html:attr"
+ ],
+ "Viridis": [
+  "3d.html:js"
+ ],
+ "Vollbild": [
+  "2d.html:attr",
+  "3d.html:attr",
+  "3d.html:js"
+ ],
+ "Vollbild beenden": [
+  "3d.html:js"
+ ],
+ "Volllast": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Volllast · 60–100 % TPS → Hauptdüse": [
+  "2d.html:text"
+ ],
+ "Vorschau": [
+  "3d.html:text"
+ ],
+ "Welche Komponente wirkt in welchem Last­bereich": [
+  "2d.html:text"
+ ],
+ "X-Achse": [
+  "2d.html:text"
+ ],
+ "Zellen": [
+  "3d.html:text"
+ ],
+ "Zellen (alle, nach TPS · RPM)": [
+  "3d.html:text"
+ ],
+ "Ziel-λ pro TPS-Zone": [
+  "3d.html:text"
+ ],
+ "Ziele": [
+  "2d.html:text"
+ ],
+ "Ziele und Bereichsgrenzen auf Standardwerte zurücksetzen": [
+  "2d.html:attr"
+ ],
+ "Ziele und Bereichsgrenzen zurückgesetzt": [
+  "2d.html:js"
+ ],
+ "Zoom zurück": [
+  "2d.html:attr"
+ ],
+ "Zu fett: Düsennadel-Clip um eine Position nach oben (Nadel sinkt). Pro Clip-Position etwa 2–4 % weniger Kraftstoff.": [
+  "2d.html:js"
+ ],
+ "Zu fett: Düsennadel-Clip um eine Position nach oben setzen (Nadel sinkt) oder Nadel mit magererem Konus wählen.": [
+  "2d.html:js"
+ ],
+ "Zu fett: Gemischschraube in kleinen Schritten (⅛ Umdrehung) reindrehen; wenn das nicht reicht, Leerlaufdüse eine Nummer kleiner.": [
+  "2d.html:js"
+ ],
+ "Zu fett: Hauptdüse eine Nummer kleiner. Pro Düsennummer meist 2–4 % weniger Kraftstoff. Zuerst dort nachstellen, dann abwärts.": [
+  "2d.html:js"
+ ],
+ "Zu mager: Düsennadel-Clip um eine Position nach unten (Nadel hebt sich). Pro Clip-Position etwa 2–4 % mehr Kraftstoff.": [
+  "2d.html:js"
+ ],
+ "Zu mager: Düsennadel-Clip um eine Position nach unten setzen (Nadel hebt sich) oder Nadel mit fetterem Konus wählen. Bei starkem Ruckeln auch Schieberausschnitt prüfen.": [
+  "2d.html:js"
+ ],
+ "Zu mager: Gemischschraube in kleinen Schritten (⅛ Umdrehung) rausdrehen; wenn das nicht reicht, Leerlaufdüse eine Nummer größer. Auch Falschluft prüfen (Ansaugmanschette, Dichtung).": [
+  "2d.html:js"
+ ],
+ "Zu mager: Hauptdüse eine Nummer größer. Pro Düsennummer meist 2–4 % mehr Kraftstoff. Dünne Luft (Höhe/Hitze) kann magern lassen — Außenbedingungen notieren.": [
+  "2d.html:js"
+ ],
+ "_band_lower_": [
+  "2d.html:js"
+ ],
+ "background:${f.color}": [
+  "2d.html:js"
+ ],
+ "beforeinstallprompt": [
+  "index.html:js"
+ ],
+ "beginnt zu öffnen. Sein Ausschnitt (Chamfer) und der": [
+  "2d.html:text"
+ ],
+ "bestimmen das Gemisch — hier endet der Einfluss des Leerlaufsystems, die Hauptdüse übernimmt noch nicht.": [
+  "2d.html:text"
+ ],
+ "binCounts": [
+  "2d.html:js"
+ ],
+ "btnInstall": [
+  "index.html:js"
+ ],
+ "color:var(--ink-0)": [
+  "2d.html:js"
+ ],
+ "color:var(--ink-2);font-size:11.5px": [
+  "2d.html:js"
+ ],
+ "de-DE": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "den Kraftstofffluss. Für Volllast-Abstimmung die Hauptdüsengröße wählen.": [
+  "2d.html:text"
+ ],
+ "der Nadel verändert hier das Gemisch am stärksten.": [
+  "2d.html:text"
+ ],
+ "display:inline-block;width:10px;height:10px;border-radius:50%;background:${colorHex};vertical-align:middle;margin-right:6px": [
+  "2d.html:js"
+ ],
+ "exp-cell ${cls}${clamp}": [
+  "3d.html:js"
+ ],
+ "exp-cell empty": [
+  "3d.html:js"
+ ],
+ "expClamp": [
+  "3d.html:js"
+ ],
+ "expFill": [
+  "3d.html:js"
+ ],
+ "expRpmMax": [
+  "3d.html:js"
+ ],
+ "expRpmMin": [
+  "3d.html:js"
+ ],
+ "expRpmStep": [
+  "3d.html:js"
+ ],
+ "expTpsSet": [
+  "3d.html:js"
+ ],
+ "fein dosiert.": [
+  "2d.html:text"
+ ],
+ "font-size:12px; color:var(--ink-2); margin-bottom:10px;": [
+  "2d.html:js"
+ ],
+ "font-weight:400;color:var(--ink-2);font-size:11.5px": [
+  "2d.html:js"
+ ],
+ "frei. Die": [
+  "2d.html:text"
+ ],
+ "fullscreenchange": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "gibt den Querschnitt in der": [
+  "2d.html:text"
+ ],
+ "grid-column:1/-1;border-left:3px solid ${r.file.color}": [
+  "2d.html:js"
+ ],
+ "im Ziel": [
+  "2d.html:text"
+ ],
+ "innen schließen, außen 0 %": [
+  "3d.html:option",
+  "3d.html:text"
+ ],
+ "iosHint": [
+  "index.html:js"
+ ],
+ "leer lassen": [
+  "3d.html:option",
+  "3d.html:text"
+ ],
+ "linear-gradient(90deg, #000004, #420a68, #932667, #dd513a, #fcffa4)": [
+  "3d.html:js"
+ ],
+ "linear-gradient(90deg, #00007f, #0000ff, #00ffff, #ffff00, #ff0000)": [
+  "3d.html:js"
+ ],
+ "linear-gradient(90deg, #00224e, #404e7c, #7c7b78, #ada762, #ffe945)": [
+  "3d.html:js"
+ ],
+ "linear-gradient(90deg, #0d0887, #7e03a8, #cc4778, #f89441, #f0f921)": [
+  "3d.html:js"
+ ],
+ "linear-gradient(90deg, #440154, #3b528b, #21918c, #5ec962, #fde725)": [
+  "3d.html:js"
+ ],
+ "linear-gradient(90deg, #6e40aa, #4d7eff, #00d4aa, #ffd23f, #ff5050)": [
+  "3d.html:js"
+ ],
+ "md-lambda-view.com": [
+  "index.html:text"
+ ],
+ "mdlv_tune_targets_v1": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "n=": [
+  "2d.html:js"
+ ],
+ "nearest neighbour": [
+  "3d.html:js"
+ ],
+ "orientationchange": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "p10": [
+  "2d.html:js"
+ ],
+ "p10p90": [
+  "2d.html:js"
+ ],
+ "p25": [
+  "2d.html:js"
+ ],
+ "p75": [
+  "2d.html:js"
+ ],
+ "p90": [
+  "2d.html:js"
+ ],
+ "padding:14px 0": [
+  "3d.html:js"
+ ],
+ "px)": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "rgba(0,0,0,0)": [
+  "3d.html:js"
+ ],
+ "rgba(26, 26, 26, 0.92)": [
+  "2d.html:js"
+ ],
+ "rgba(45, 134, 89, 0.6)": [
+  "2d.html:js"
+ ],
+ "rgba(60, 50, 20, 0.08)": [
+  "2d.html:js"
+ ],
+ "rgba(60, 50, 20, 0.15)": [
+  "2d.html:js"
+ ],
+ "rgba(60,50,20,.10)": [
+  "3d.html:js"
+ ],
+ "rgba(60,50,20,.18)": [
+  "3d.html:js"
+ ],
+ "rpmStep": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "scene.camera": [
+  "3d.html:js"
+ ],
+ "serviceWorker": [
+  "2d.html:js",
+  "3d.html:js",
+  "index.html:js"
+ ],
+ "sw.js": [
+  "2d.html:js",
+  "3d.html:js",
+  "index.html:js"
+ ],
+ "text/csv;charset=utf-8": [
+  "3d.html:js"
+ ],
+ "thrStep": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "translateY(": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "tune-advice ${r.verdict}": [
+  "2d.html:js"
+ ],
+ "tune-advice sparse": [
+  "2d.html:js"
+ ],
+ "tune-bound-cell ${changed ? 'changed' : ''}": [
+  "2d.html:js"
+ ],
+ "tune-target-cell ${changed ? 'changed' : ''}": [
+  "2d.html:js"
+ ],
+ "tune-zone ${r.verdict}": [
+  "2d.html:js"
+ ],
+ "tune-zone sparse": [
+  "2d.html:js"
+ ],
+ "und wird über die": [
+  "2d.html:text"
+ ],
+ "webkitfullscreenchange": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "wenig Daten": [
+  "2d.html:text"
+ ],
+ "yMax": [
+  "2d.html:js"
+ ],
+ "yMin": [
+  "2d.html:js"
+ ],
+ "zu fett": [
+  "2d.html:text"
+ ],
+ "zu mager": [
+  "2d.html:text"
+ ],
+ "«SCRIPT»\n\n«STYLE»": [
+  "2d.html:text"
+ ],
+ "«SCRIPT»\n«SCRIPT»": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "«SCRIPT»\n«STYLE»": [
+  "3d.html:text"
+ ],
+ "· Rohdaten": [
+  "2d.html:js"
+ ],
+ "Übergang": [
+  "2d.html:js",
+  "3d.html:js"
+ ],
+ "Übergang · 5–20 % TPS → Gasschieber": [
+  "2d.html:text"
+ ],
+ "Übergang → Teillast": [
+  "2d.html:js"
+ ],
+ "Übernehmen": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "überall 0 % (unverändert)": [
+  "3d.html:option",
+  "3d.html:text"
+ ],
+ "überall nächster Nachbar": [
+  "3d.html:option",
+  "3d.html:text"
+ ],
+ "ΔLast max (%)": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "ΔRPM max": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "λ = 1.00 Referenzlinie": [
+  "2d.html:text"
+ ],
+ "λ min/max": [
+  "2d.html:text",
+  "3d.html:text"
+ ],
+ "λ-Achse": [
+  "2d.html:js",
+  "2d.html:text"
+ ],
+ "λ-Bereich": [
+  "3d.html:js",
+  "3d.html:text"
+ ],
+ "— keine Datei —": [
+  "2d.html:js",
+  "2d.html:text"
+ ],
+ "↓ CSV herunterladen": [
+  "3d.html:text"
+ ],
+ "↺ Standard": [
+  "2d.html:text"
+ ],
+ "📲 App installieren": [
+  "index.html:text"
+ ]
+}
