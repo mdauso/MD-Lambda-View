@@ -1780,9 +1780,11 @@ function writeI32LE(buf, offs, v) {
   buf[offs + 3] = (v >>> 24) & 0xff;
 }
 
-// Fetch the cell at (rpmIdx, tpsIdx) from the export map in a direction-safe
-// way. buildExportMap returns rows[tpsIdx][rpmIdx], but at the binary level
-// PCIII and PCV both store the matrix row-by-row with rpm as the outer index.
+// Fetch the cell at (rpmIdx, tpsIdx) from the export map. buildExportMap
+// returns rows[tpsIdx][rpmIdx]. The binary layouts differ between PC generations:
+// PCIII stores the matrix COLUMN-MAJOR (TPS outer, RPM inner) — verified by
+// loading a generated .djm into Power Commander 3 USB — while PCV stores it
+// row-major with RPM outer. Each builder handles its own index order.
 function cellPct(map, rpmIdx, tpsIdx) {
   const row = map.rows[tpsIdx];
   if (!row) return 0;
@@ -1823,15 +1825,17 @@ function buildDjmBinary(map) {
   for (let i = 0; i < 47; i++) {
     writeI32LE(out, 0x0E4 + i * 4, map.rpmAxis[i] | 0);
   }
-  // Matrix at 0x1A0: 47 RPM rows × 9 TPS cols × int32 LE, direct % values
-  for (let r = 0; r < 47; r++) {
-    for (let c = 0; c < 9; c++) {
-      writeI32LE(out, 0x1A0 + (r * 9 + c) * 4, cellPct(map, r, c));
+  // Matrix at 0x1A0: COLUMN-MAJOR — 9 TPS columns × 47 RPM rows × int32 LE.
+  // Each TPS column is a contiguous block of 47 values; the offset for cell
+  // (RPM r, TPS c) is 0x1A0 + (c*47 + r)*4. Values are direct percent.
+  for (let c = 0; c < 9; c++) {
+    for (let r = 0; r < 47; r++) {
+      writeI32LE(out, 0x1A0 + (c * 47 + r) * 4, cellPct(map, r, c));
     }
   }
-  // Repeat the RPM axis after matrix 1 (the file keeps a second copy at
-  // 0x0850, right before the cylinder-2 matrix). Keeps the two axes aligned
-  // when a user picks a different RPM range on a twin.
+  // Repeat the RPM axis at 0x0850 — this is NOT a second cylinder matrix as
+  // first assumed, but a mirror of the primary RPM axis used elsewhere by
+  // the PC3 software. Kept aligned with our main RPM axis.
   for (let i = 0; i < 47; i++) {
     writeI32LE(out, 0x0850 + i * 4, map.rpmAxis[i] | 0);
   }
