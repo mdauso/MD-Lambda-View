@@ -906,12 +906,27 @@ input[type="file"] { display: none; }
   top: 0;
 }
 .exp-preview tbody th { position: sticky; left: 0; top: auto; }
+.exp-warn-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: #fff2cc;
+  color: #a06500;
+  border: 1px solid #e8c870;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
 .exp-cell { font-weight: 600; }
-.exp-cell.pos  { color: #c9302c; }  /* needs more fuel (lean) */
-.exp-cell.neg  { color: #2c6fb3; }  /* needs less fuel (rich) */
-.exp-cell.zero { color: var(--ink-2); font-weight: 400; }
-.exp-cell.empty{ color: var(--ink-3); font-style: italic; }
-.exp-cell.clamp { outline: 1.5px solid #e2734a; outline-offset: -2px; }
+.exp-cell.exp-pos   { color: #c9302c; }  /* needs more fuel (lean) */
+.exp-cell.exp-neg   { color: #2c6fb3; }  /* needs less fuel (rich) */
+.exp-cell.exp-zero  { color: var(--ink-2); font-weight: 400; }
+.exp-cell.exp-empty { color: var(--ink-3); font-style: italic; }
+.exp-cell.exp-clamp { outline: 1.5px solid #e2734a; outline-offset: -2px; }
 
 .exp-summary {
   display: flex;
@@ -1204,7 +1219,7 @@ body.pseudo-full .plot-area {
 <div class="modal-backdrop" id="expBackdrop"></div>
 <div class="modal export-modal" id="expModal" role="dialog" aria-modal="true" aria-labelledby="expTitle">
   <div class="modal-header">
-    <div class="modal-title" id="expTitle">Map Export (PowerCommander)</div>
+    <div class="modal-title" id="expTitle">Map Export (PowerCommander) <span class="exp-warn-badge">⚠ Caution, experimental!</span></div>
     <div class="modal-sub">Builds a trim map from the loaded lambda data that can be imported into the PowerCommander software.</div>
   </div>
   <div class="modal-body">
@@ -1769,6 +1784,34 @@ function b64ToU8(b64) {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
+
+// Replace the template's free-text comment (the "2005 Yamaha XT660R ..." block
+// that PCIII shows as "Notiz" at the bottom) with our own MD-Lambda-View
+// branding. The region is fixed-size and NUL-padded; we overwrite the full
+// range first so no leftover characters from the template bleed through.
+function writeComment(buf, offs, region) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const date = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} `
+             + `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const src  = (STATE.fileName || '').replace(/\.[^.]+$/, '');
+  const lines = ['MD-Lambda-View (md-lambda-view.com)', `Export: ${date}`];
+  if (src) lines.push(`Log: ${src}`);
+  const text = lines.join('\r\n');
+  // Encode as Latin-1 (one byte per char) so byte length == string length.
+  // Any non-ASCII character outside 0x00..0xFF is replaced with '?'.
+  const bytes = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    bytes.push(c <= 0xff ? c : 0x3f);
+  }
+  // Wipe the whole region first, then write what fits — always leave the
+  // final byte as NUL so the string is properly terminated.
+  for (let i = 0; i < region; i++) buf[offs + i] = 0;
+  const maxText = region - 1;
+  const n = Math.min(bytes.length, maxText);
+  for (let i = 0; i < n; i++) buf[offs + i] = bytes[i];
+}
 function writeI16LE(buf, offs, v) {
   buf[offs]     = v & 0xff;
   buf[offs + 1] = (v >>> 8) & 0xff;
@@ -1797,6 +1840,9 @@ function cellPct(map, rpmIdx, tpsIdx) {
 // the template, we only overwrite RPM axis + fuel matrix.
 function buildPvmBinary(map) {
   const out = b64ToU8(PCV_TEMPLATE_B64);          // 1010 bytes
+  // Overwrite the template's "2008 Yamaha XT660R Tenere ..." note at 0x2F2
+  // with our own branding. 76-byte NUL-padded region.
+  writeComment(out, 0x2F2, 76);
   // RPM axis at 0x110: 29 × int16 LE
   for (let i = 0; i < 29; i++) {
     writeI16LE(out, 0x110 + i * 2, map.rpmAxis[i] | 0);
@@ -1817,6 +1863,9 @@ function buildPvmBinary(map) {
 // matrix = all zeros, trailing padding) is kept verbatim.
 function buildDjmBinary(map) {
   const out = b64ToU8(PCIII_TEMPLATE_B64);        // 5328 bytes
+  // Overwrite the template's "2005 Yamaha XT660R ..." note at 0x01C with our
+  // own branding. 144-byte NUL-padded region (PCIII shows this as "Notiz").
+  writeComment(out, 0x01C, 144);
   // TPS axis at 0x0AC: 9 × int32 LE
   for (let i = 0; i < 9; i++) {
     writeI32LE(out, 0x0AC + i * 4, map.tpsAxis[i] | 0);
@@ -2063,11 +2112,11 @@ function renderExportPreview() {
     const i = tpsAxis.length - 1 - iiRev;
     const cells = rows[i].map(cell => {
       if (cell.pct == null) {
-        return `<td class="exp-cell empty">—</td>`;
+        return `<td class="exp-cell exp-empty">—</td>`;
       }
       const v = Math.round(cell.pct);
-      const cls = v === 0 ? 'zero' : (v > 0 ? 'pos' : 'neg');
-      const clamp = cell.clamped ? ' clamp' : '';
+      const cls = v === 0 ? 'exp-zero' : (v > 0 ? 'exp-pos' : 'exp-neg');
+      const clamp = cell.clamped ? ' exp-clamp' : '';
       const sign = v > 0 ? '+' : '';
       return `<td class="exp-cell ${cls}${clamp}">${sign}${v}</td>`;
     }).join('');
