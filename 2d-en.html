@@ -943,6 +943,17 @@ label.toggle input { accent-color: var(--accent); transform: scale(1.2); }
 .tune-advice.rich  { color: #c9302c; }
 .tune-advice.lean  { color: #2c6fb3; }
 .tune-advice.sparse { color: var(--ink-2); font-style: italic; }
+.tune-note {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--paper-2);
+  border-left: 3px solid var(--ink-3);
+  border-radius: 4px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.tune-note strong { color: var(--ink-1); }
 .tune-legend {
   display: flex;
   gap: 14px;
@@ -1531,7 +1542,7 @@ body.pseudo-full .chart-area {
       <div class="carb-legend-row z-idle">
         <div class="carb-legend-body">
           <div class="carb-legend-title">Idle · 0–5 % TPS → pilot circuit</div>
-          <div class="carb-legend-sub">Air passes only through the narrow gap beneath the closed throttle slide. Fuel comes solely from the <strong>pilot jet</strong> and is metered finely by the <strong>mixture screw</strong>.</div>
+          <div class="carb-legend-sub">Air flows only through the narrow gap under the closed slide. Fuel comes exclusively through the <strong>pilot jet</strong> und wird über die <strong>pilot/fuel or air screw</strong> fine-tuned. The two work in opposite directions: pilot/fuel screw in = leaner, air screw in = richer.</div>
         </div>
       </div>
       <div class="carb-legend-row z-trans">
@@ -2524,9 +2535,10 @@ const TUNE_ZONES = [
     key:   'idle',
     name:  'Idle',
     defaultTarget: 0.98,
-    component: 'Pilot jet / mixture screw',
-    richAdvice: 'Too rich: turn the mixture screw in in small steps (⅛ turn); if that is not enough, drop one pilot jet size.',
-    leanAdvice: 'Too lean: turn the mixture screw out in small steps (⅛ turn); if that is not enough, go one pilot jet size up. Also check for air leaks (intake manifold, gaskets).',
+    component: 'Pilot jet / pilot or air screw',
+    richAdvice: 'Too rich: turn pilot/fuel screw in by small steps (⅛ turn) — or back the air screw out (opposite direction). If that is not enough: pilot jet one size smaller.',
+    leanAdvice: 'Too lean: back the pilot/fuel screw out by small steps (⅛ turn) — or turn the air screw in (opposite direction). If that is not enough: pilot jet one size larger. Also check for air leaks (intake manifold, gaskets).',
+    note:  'Which screw your carburettor has: pilot/fuel screw sits engine-side behind the slide (common on modern 4-stroke CV carburettors, e.g. BST/BSR, PD). Air screw sits airbox-side ahead of the slide (common on Mikuni VM, Keihin PWK/PE, two-stroke carburettors).',
   },
   {
     key:   'transition',
@@ -2678,6 +2690,12 @@ function renderTuningForFile(fileResult, fileLabel, fileName, colorHex) {
     } else {
       advice = `${z.leanAdvice} <br><em style="color:var(--ink-2);font-size:11.5px">Calculated: ${fuelStr} fuel.</em>`;
     }
+    // Component-specific side note (e.g. idle: pilot vs air screw). Only shown
+    // where the advice actually calls out two possible components with opposite
+    // directions, so the user can pick the one they have.
+    const noteHtml = (z.note && (r.verdict === 'rich' || r.verdict === 'lean'))
+      ? `<div class="tune-note"><strong>Hinweis:</strong> ${z.note}</div>`
+      : '';
     return `
       <div class="tune-zone ${r.verdict}">
         <div class="tune-head">
@@ -2691,6 +2709,7 @@ function renderTuningForFile(fileResult, fileLabel, fileName, colorHex) {
           <span>n = <strong>${r.n}</strong></span>
         </div>
         <div class="tune-advice ${r.verdict}">${advice}</div>
+        ${noteHtml}
       </div>`;
   }).join('');
 
