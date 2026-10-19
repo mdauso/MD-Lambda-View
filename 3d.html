@@ -833,6 +833,23 @@ input[type="file"] { display: none; }
   letter-spacing: 0.4px;
   margin-bottom: 10px;
 }
+.exp-tpl-row {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 10px;
+}
+.exp-tpl-status {
+  margin: 0;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.exp-tpl-status.exp-tpl-custom {
+  color: var(--accent-2);
+  font-weight: 600;
+}
+.exp-tpl-status.exp-tpl-error {
+  color: #c9302c;
+  font-weight: 600;
+}
 .exp-grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1235,6 +1252,23 @@ body.pseudo-full .plot-area {
         </select>
       </div>
       <div class="modal-sub" id="expTargetHint" style="margin-top:8px"></div>
+    </div>
+
+    <!-- Custom template: user uploads their own empty .pvm/.djm so the export
+         carries their own device-GUID and model signature instead of ours. -->
+    <div class="exp-section" id="expCustomTplSection">
+      <div class="exp-section-title">Eigenes Template (optional)</div>
+      <div class="modal-sub" style="margin-bottom:10px">
+        Lade eine leere <span id="expTplExt">.pvm</span>-Datei hoch, die Du in der PowerCommander-Software für Dein Fahrzeug gespeichert hast. Der Export verwendet dann die Modell-Signatur und Dongle-ID Deines eigenen Setups. Die Datei bleibt im Browser gespeichert, bis Du sie entfernst.
+      </div>
+      <div class="exp-tpl-row">
+        <label class="modal-btn" for="expTplFile" style="cursor:pointer">
+          <span id="expTplBtnLabel">📂 Template auswählen</span>
+        </label>
+        <input type="file" id="expTplFile" accept=".pvm,.djm" style="position:absolute;left:-9999px;width:1px;height:1px">
+        <span id="expTplStatus" class="modal-sub exp-tpl-status">Standard-Template wird verwendet.</span>
+        <button class="modal-btn" id="expTplClear" type="button" hidden>Entfernen</button>
+      </div>
     </div>
 
     <!-- Target lambda per TPS zone (inherited from the 2D app's tuning targets) -->
@@ -1834,11 +1868,51 @@ function cellPct(map, rpmIdx, tpsIdx) {
   return (c && c.pct != null) ? Math.round(c.pct) : 0;
 }
 
+// ============ TEMPLATE RESOLUTION ============
+// We ship built-in XT660R templates for both formats as a convenience, but the
+// user can upload their own empty .pvm / .djm (one they saved in the
+// PowerCommander software for their bike) and the export will inherit that
+// file's model signature + HID GUID instead of ours. Custom templates persist
+// per browser via localStorage.
+
+const CUSTOM_TPL_KEYS = { pcv: 'mdlv_tpl_pcv', pciii: 'mdlv_tpl_pciii' };
+const EXPECTED_TPL_SIZE = { pcv: 1010, pciii: 5328 };
+
+function loadCustomTemplate(target) {
+  try {
+    const b64 = localStorage.getItem(CUSTOM_TPL_KEYS[target]);
+    if (!b64) return null;
+    const u8 = b64ToU8(b64);
+    return u8.length === EXPECTED_TPL_SIZE[target] ? u8 : null;
+  } catch (e) { return null; }
+}
+
+function storeCustomTemplate(target, u8) {
+  // base64 encode by chunks (small files here, but keep the pattern safe)
+  let bin = '';
+  for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+  const b64 = btoa(bin);
+  try { localStorage.setItem(CUSTOM_TPL_KEYS[target], b64); return true; }
+  catch (e) { return false; }
+}
+
+function clearCustomTemplate(target) {
+  try { localStorage.removeItem(CUSTOM_TPL_KEYS[target]); } catch (e) {}
+}
+
+function resolveTemplate(target) {
+  // Returns {u8, source} where source is 'custom' or 'builtin'.
+  const custom = loadCustomTemplate(target);
+  if (custom) return { u8: new Uint8Array(custom), source: 'custom' };
+  const b64 = target === 'pcv' ? PCV_TEMPLATE_B64 : PCIII_TEMPLATE_B64;
+  return { u8: b64ToU8(b64), source: 'builtin' };
+}
+
 // Build a .pvm file (PowerCommander V/FC/VI). Base is a real XT660R file —
 // the HID-GUID, model-ID and all unknown header fields come straight from
 // the template, we only overwrite RPM axis + fuel matrix.
 function buildPvmBinary(map) {
-  const out = b64ToU8(PCV_TEMPLATE_B64);          // 1010 bytes
+  const out = resolveTemplate('pcv').u8;           // 1010 bytes
   // Overwrite the template's "2008 Yamaha XT660R Tenere ..." note at 0x2F2
   // with our own branding. 76-byte NUL-padded region.
   writeComment(out, 0x2F2, 76);
@@ -1861,7 +1935,7 @@ function buildPvmBinary(map) {
 // export; everything after matrix 1 (metadata, repeated RPM axis, cylinder-2
 // matrix = all zeros, trailing padding) is kept verbatim.
 function buildDjmBinary(map) {
-  const out = b64ToU8(PCIII_TEMPLATE_B64);        // 5328 bytes
+  const out = resolveTemplate('pciii').u8;        // 5328 bytes
   // Overwrite the template's "2005 Yamaha XT660R ..." note at 0x01C with our
   // own branding. 144-byte NUL-padded region (PCIII shows this as "Notiz").
   writeComment(out, 0x01C, 144);
@@ -2072,6 +2146,75 @@ function applyTargetSpec() {
   $('#expDownload').textContent = target === 'pcv'   ? '↓ .pvm herunterladen'
                                 : target === 'pciii' ? '↓ .djm herunterladen'
                                 :                      '↓ CSV herunterladen';
+  // Custom-template section is only meaningful for the two binary targets
+  $('#expCustomTplSection').hidden = (target === 'csv');
+  if (target !== 'csv') {
+    $('#expTplExt').textContent = target === 'pcv' ? '.pvm' : '.djm';
+    $('#expTplFile').setAttribute('accept', target === 'pcv' ? '.pvm' : '.djm');
+    refreshCustomTplStatus();
+  }
+}
+
+// Reflect the current (saved) custom-template state in the UI.
+function refreshCustomTplStatus() {
+  const target = $('#expTarget').value;
+  if (target === 'csv') return;
+  const custom = loadCustomTemplate(target);
+  const statusEl = $('#expTplStatus');
+  const clearBtn = $('#expTplClear');
+  const btnLabel = $('#expTplBtnLabel');
+  statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error');
+  if (custom) {
+    statusEl.textContent = `Eigenes Template aktiv (${custom.length} Bytes gespeichert).`;
+    statusEl.classList.add('exp-tpl-custom');
+    clearBtn.hidden = false;
+    btnLabel.textContent = '📂 Anderes Template...';
+  } else {
+    statusEl.textContent = 'Standard-Template wird verwendet.';
+    clearBtn.hidden = true;
+    btnLabel.textContent = '📂 Template auswählen';
+  }
+}
+
+// Handle the file input: read as ArrayBuffer, validate size, persist.
+function handleCustomTplFile(file) {
+  const target = $('#expTarget').value;
+  if (target === 'csv') return;
+  const statusEl = $('#expTplStatus');
+  const expected = EXPECTED_TPL_SIZE[target];
+  const extOk = target === 'pcv'
+    ? /\.pvm$/i.test(file.name)
+    : /\.djm$/i.test(file.name);
+  if (!extOk) {
+    statusEl.textContent = `Falsche Dateiendung — erwartet ${target === 'pcv' ? '.pvm' : '.djm'}.`;
+    statusEl.classList.remove('exp-tpl-custom');
+    statusEl.classList.add('exp-tpl-error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const u8 = new Uint8Array(e.target.result);
+    if (u8.length !== expected) {
+      statusEl.textContent = `Datei hat ${u8.length} Bytes, erwartet ${expected}.`;
+      statusEl.classList.remove('exp-tpl-custom');
+      statusEl.classList.add('exp-tpl-error');
+      return;
+    }
+    const ok = storeCustomTemplate(target, u8);
+    if (!ok) {
+      statusEl.textContent = 'Datei konnte nicht gespeichert werden (Browser-Speicher voll?).';
+      statusEl.classList.add('exp-tpl-error');
+      return;
+    }
+    refreshCustomTplStatus();
+    renderExportPreview();
+    toast('Eigenes Template gespeichert', 2000);
+  };
+  reader.onerror = () => {
+    statusEl.textContent = 'Datei konnte nicht gelesen werden.';
+    statusEl.classList.add('exp-tpl-error');
+  };
+  reader.readAsArrayBuffer(file);
 }
 
 function renderTargetsForExport() {
@@ -2236,6 +2379,21 @@ $('#btnExport').addEventListener('click', () => {
 $('#expClose').addEventListener('click', closeExportModal);
 $('#expBackdrop').addEventListener('click', closeExportModal);
 $('#expDownload').addEventListener('click', downloadExport);
+
+// Custom-template controls
+$('#expTplFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (f) handleCustomTplFile(f);
+  e.target.value = '';  // reset so the same file can be picked again
+});
+$('#expTplClear').addEventListener('click', () => {
+  const target = $('#expTarget').value;
+  if (target === 'csv') return;
+  clearCustomTemplate(target);
+  refreshCustomTplStatus();
+  renderExportPreview();
+  toast('Eigenes Template entfernt', 1800);
+});
 
 // ============ RENDER ============
 function render3D() {
