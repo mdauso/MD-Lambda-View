@@ -1257,9 +1257,17 @@ body.pseudo-full .plot-area {
       <div class="exp-field">
         <label>Export file format</label>
         <select id="expTarget">
-          <option value="pcv" selected>PowerCommander V · PCFC · PCVI (.pvm)</option>
-          <option value="pciii">PowerCommander III USB (.djm)</option>
-          <option value="csv">CSV (universal, for reference)</option>
+          <optgroup label="Add-on module (trim maps)">
+            <option value="pcv" selected>PowerCommander V · PCFC · PCVI (.pvm)</option>
+            <option value="pciii">PowerCommander III USB (.djm)</option>
+            <option value="rbe">Rapid Bike EVO (.rbs) — coming soon</option>
+          </optgroup>
+          <optgroup label="ECU reflash">
+            <option value="iaw16m">Magneti Marelli IAW16M (.bin) — coming soon</option>
+          </optgroup>
+          <optgroup label="Universal">
+            <option value="csv">CSV (for reference)</option>
+          </optgroup>
         </select>
       </div>
       <div class="modal-sub" id="expTargetHint" style="margin-top:8px"></div>
@@ -1679,21 +1687,43 @@ const TPS_SETS = {
 // Per-target grid constraints (what the PowerCommander software accepts).
 // When one of the binary targets is selected, the UI is forced onto this
 // grid; the CSV target leaves every control free.
+// Each target has a `kind` that groups systems with the same working principle:
+//   'trim'     — add-on module that trims the ECU signal in percent (PowerCommander, Rapid Bike)
+//   'flash'    — direct ECU reflash with absolute injection values (Magneti Marelli IAW16M)
+//   'readable' — human-readable table (CSV)
+// `status: 'ready' | 'coming-soon'` gates the download button. Coming-soon
+// entries are listed so the roadmap is visible, but the UI blocks export.
 const TARGET_SPEC = {
   pcv: {
     label: 'PowerCommander V (.pvm)',
+    kind: 'trim', status: 'ready',
     tpsSet: 'pcv',
     rpmMin: 500, rpmMax: 7500, rpmStep: 250,
     hint: 'PCV / PCFC / PCVI: 29 RPM steps (500–7500 /250), 10 TPS columns. The fields are fixed by the file format.'
   },
   pciii: {
     label: 'PowerCommander III USB (.djm)',
+    kind: 'trim', status: 'ready',
     tpsSet: 'pciii',
     rpmMin: 500, rpmMax: 12000, rpmStep: 250,
     hint: 'PCIII USB: 47 RPM steps (500–12000 /250), 9 TPS columns (no 15 %). The fields are fixed by the file format.'
   },
+  rbe: {
+    label: 'Rapid Bike EVO (.rbs)',
+    kind: 'trim', status: 'coming-soon',
+    tpsSet: 'pcv',   // placeholder grid until we have a reference file
+    rpmMin: 500, rpmMax: 12000, rpmStep: 250,
+    hint: 'Rapid Bike EVO: Trim map like the PowerCommander, but in Dimsport's format. In preparation — the format will be added as soon as a reference file is available.'
+  },
+  iaw16m: {
+    label: 'Magneti Marelli IAW16M (.bin)',
+    kind: 'flash', status: 'coming-soon',
+    tpsSet: null, rpmMin: null, rpmMax: null, rpmStep: null,
+    hint: 'IAW16M: Direct ECU reflash with absolute injection values. Always back up the original map before flashing. In preparation — integration from parallel development to follow.'
+  },
   csv: {
     label: 'CSV (universal)',
+    kind: 'readable', status: 'ready',
     tpsSet: null, rpmMin: null, rpmMax: null, rpmStep: null,
     hint: 'Human-readable table with headers – for checking the numbers or copying them by hand into any tuning tool.'
   },
@@ -2018,17 +2048,23 @@ function readExportOpts() {
   };
 }
 
-// Switch the grid controls between "format-locked" (PCV/PCIII) and "free"
-// (CSV). The locked state forces RPM range + TPS grid onto the binary layout
-// so the file always fits.
+// Switch the grid controls between "format-locked" (binary targets) and
+// "free" (CSV). Locked state forces RPM range + TPS grid onto the binary
+// layout. Coming-soon targets lock the grid as a preview but keep the
+// download button off.
 function applyTargetSpec() {
   const target = $('#expTarget').value;
   const spec = TARGET_SPEC[target] || TARGET_SPEC.csv;
+  const kind = spec.kind || 'readable';
+  const ready = spec.status !== 'coming-soon';
+
   $('#expTargetHint').textContent = spec.hint;
-  $('#expGridTitle').textContent = target === 'csv'
+  $('#expGridTitle').textContent = kind === 'readable'
     ? 'Grid (freely chosen)'
     : `Grid (${spec.label})`;
-  const lock = (target !== 'csv');
+
+  // Locked grid for everything with a fixed layout (trim + flash + preview)
+  const lock = (kind !== 'readable') && spec.tpsSet != null;
   if (lock) {
     $('#expRpmMin').value  = spec.rpmMin;
     $('#expRpmMax').value  = spec.rpmMax;
@@ -2036,31 +2072,54 @@ function applyTargetSpec() {
     $('#expTpsSet').value  = spec.tpsSet;
   }
   ['expRpmMin','expRpmMax','expRpmStep','expTpsSet'].forEach(id => {
-    $('#' + id).disabled = lock;
-    $('#' + id).style.opacity = lock ? '0.55' : '1';
+    $('#' + id).disabled = lock || !ready;
+    $('#' + id).style.opacity = (lock || !ready) ? '0.55' : '1';
   });
-  // Download button label follows the target
-  $('#expDownload').textContent = target === 'pcv'   ? '↓ Download .pvm'
-                                : target === 'pciii' ? '↓ Download .djm'
-                                :                      '↓ Download CSV';
-  // Custom-template section is only meaningful for the two binary targets
-  $('#expCustomTplSection').hidden = (target === 'csv');
-  if (target !== 'csv') {
-    $('#expTplExt').textContent = target === 'pcv' ? '.pvm' : '.djm';
-    $('#expTplFile').setAttribute('accept', target === 'pcv' ? '.pvm' : '.djm');
-    refreshCustomTplStatus();
+
+  // Download-button label and ext for the custom-template section
+  const ext = target === 'pcv' ? '.pvm'
+            : target === 'pciii' ? '.djm'
+            : target === 'rbe' ? '.rbs'
+            : target === 'iaw16m' ? '.bin'
+            : null;
+  $('#expDownload').textContent = ext
+    ? `↓ ${ext} herunterladen`
+    : '↓ Download CSV';
+
+  // Custom-template section: only shown for trim targets (and later for flash
+  // when a template-upload workflow is defined there too).
+  $('#expCustomTplSection').hidden = (kind !== 'trim');
+  if (kind === 'trim') {
+    $('#expTplExt').textContent = ext;
+    $('#expTplFile').setAttribute('accept', ext);
   }
+
+  refreshCustomTplStatus();
 }
 
 // Reflect the current (saved) custom-template state in the UI, and gate the
-// download button on it: a binary export without a template is impossible.
+// download button on it. Three cases for the button:
+//   1. coming-soon target → always disabled (format not implemented yet)
+//   2. trim target without a custom template → disabled (template required)
+//   3. ready target with template, or CSV → enabled
 function refreshCustomTplStatus() {
   const target = $('#expTarget').value;
-  const dlBtn = $('#expDownload');
-  if (target === 'csv') {
+  const spec   = TARGET_SPEC[target] || TARGET_SPEC.csv;
+  const dlBtn  = $('#expDownload');
+
+  // Coming-soon → hard-block the download regardless of template state
+  if (spec.status === 'coming-soon') {
+    dlBtn.disabled = true;
+    return;
+  }
+
+  // CSV needs no template at all
+  if (spec.kind === 'readable') {
     dlBtn.disabled = false;
     return;
   }
+
+  // Trim targets: template-upload status drives both labels and button state
   const custom = loadCustomTemplate(target);
   const statusEl = $('#expTplStatus');
   const clearBtn = $('#expTplClear');
@@ -2233,6 +2292,14 @@ function triggerDownload(blob, filename) {
 function downloadExport() {
   if (!STATE.hasData) { toast('No data loaded', 2500); return; }
   const opts = readExportOpts();
+  const spec = TARGET_SPEC[opts.target] || TARGET_SPEC.csv;
+
+  // Coming-soon targets: block even if someone cleared the button's disabled attr
+  if (spec.status === 'coming-soon') {
+    toast(`${spec.label}: Format ist in Vorbereitung`, 3000);
+    return;
+  }
+
   const map = buildExportMap(opts);
   const base = (STATE.fileName || 'md-lambda-view').replace(/\.[^.]+$/, '');
 
