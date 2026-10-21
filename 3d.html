@@ -1277,7 +1277,7 @@ body.pseudo-full .plot-area {
     </div>
 
     <!-- IAW16M: dedicated section with BIN upload (ZIP), editable targets,
-         TPS→Grad conversion, correction parameters and exceptions list.
+         TPS→Grad conversion and correction parameters.
          Only shown when target = iaw16m. -->
     <div class="exp-section" id="expIawSection" hidden>
       <div class="exp-section-title">IAW16M · Ausgangs-BIN</div>
@@ -1315,9 +1315,6 @@ body.pseudo-full .plot-area {
       </div>
       <div class="modal-sub" style="margin-top:4px">Glättung und Ausreißer-Filterung erfolgt bereits beim CSV-Einlesen über den Stabilitätsfilter — hier bleiben nur das Sicherheits-Cap (MAX) und die physikalische Monotonie-Durchsetzung.</div>
 
-      <div class="exp-section-title" style="margin-top:16px">Ausnahmen (nie ändern)</div>
-      <input type="text" id="expIawExc" style="width:100%;padding:8px;font-family:monospace;font-size:12px" placeholder="2.0@1500, 2.0@1800, *@1000">
-      <div class="modal-sub" style="margin-top:4px">Format: <code>Grad@RPM</code> (einzelne Zelle), <code>*@RPM</code> (ganze Drehzahl-Spalte) oder <code>Grad@*</code> (ganze Grad-Zeile), kommagetrennt.</div>
     </div>
 
     <!-- Custom template: user must upload an empty .pvm/.djm from their own
@@ -1791,7 +1788,6 @@ const TARGET_SPEC = {
       // offset at closed throttle (MD-039: 2°, idle sits above zero).
       minDeg:      0,
       maxDeg:      80,
-      exceptions:  '2.0@1500, 2.0@1800, 2.4@1500, *@1000, *@1200, *@1350',
     },
   },
   csv: {
@@ -2002,22 +1998,6 @@ function storeIawParams(p) {
   try { localStorage.setItem(IAW_PARAM_KEY, JSON.stringify(p)); } catch (e) {}
 }
 
-// Parse the exceptions string into a predicate (grad, rpm) → bool.
-function parseIawExceptions(str) {
-  const specs = [];
-  (str || '').split(',').forEach(part => {
-    const m = part.trim().match(/^(\*|[\d.,]+)\s*@\s*(\*|\d+)$/);
-    if (!m) return;
-    const grad = m[1] === '*' ? '*' : parseFloat(m[1].replace(',', '.'));
-    const rpm  = m[2] === '*' ? '*' : parseInt(m[2], 10);
-    specs.push({ grad, rpm });
-  });
-  return (grad, rpm) => specs.some(s =>
-    (s.grad === '*' || Math.abs(s.grad - grad) < 0.05) &&
-    (s.rpm  === '*' || s.rpm === rpm)
-  );
-}
-
 // Sample the user's logged lambda data onto the IAW grid. For each (RPM, Grad)
 // cell we take every logged point whose RPM and TPS fall into that cell's
 // window, weight by hit-count n, and return weighted mean + total n.
@@ -2061,7 +2041,6 @@ function buildIawBinary() {
   if (!bin) return null;
   const spec   = TARGET_SPEC.iaw16m;
   const params = loadIawParams();
-  const isException = parseIawExceptions(params.exceptions);
   const nCols = spec.mapCols, nRows = spec.mapRows;
   const addr  = spec.mapAddress, scale = spec.byteScale;
   const maxF  = params.maxChange / 100;
@@ -2082,7 +2061,6 @@ function buildIawBinary() {
     const rpm = spec.rpmAxis[col];
     for (let row = 0; row < nRows; row++) {
       const deg = spec.degAxis[row];
-      if (isException(deg, rpm)) continue;
       const sample = sampleIawCell(col, row, params, spec);
       if (sample.lam == null) continue;
       const target = targetLambdaForDeg(deg, params);
@@ -2387,7 +2365,6 @@ function renderIawParams() {
   $('#expIawMaxDeg').value = p.maxDeg;
   $('#expIawMax').value    = p.maxChange;
   $('#expIawMono').value   = p.monotonyUntilDeg;
-  $('#expIawExc').value    = p.exceptions;
 }
 
 function readIawParamsFromUi() {
@@ -2403,7 +2380,6 @@ function readIawParamsFromUi() {
   p.maxDeg           = num('expIawMaxDeg', p.maxDeg);
   p.maxChange        = num('expIawMax',    p.maxChange);
   p.monotonyUntilDeg = num('expIawMono',   p.monotonyUntilDeg);
-  p.exceptions       = $('#expIawExc').value;
   storeIawParams(p);
   return p;
 }
@@ -2859,7 +2835,7 @@ $('#expIawReset').addEventListener('click', () => {
 });
 // Persist IAW parameter edits on blur/change AND refresh the preview live
 ['expIawT80','expIawTMid','expIawTRest','expIawMinDeg','expIawMaxDeg',
- 'expIawMax','expIawMono','expIawExc']
+ 'expIawMax','expIawMono']
   .forEach(id => {
     $('#' + id).addEventListener('change', () => {
       readIawParamsFromUi();
