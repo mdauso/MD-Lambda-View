@@ -1065,7 +1065,7 @@ body.pseudo-full .plot-area {
       <div class="status-pill" id="status">Bereit</div>
       <button class="icon-btn" id="btnCam" title="Ansicht zurücksetzen" disabled style="opacity:.4">↺</button>
       <button class="icon-btn" id="btnFull" title="Vollbild">⛶</button>
-      <button class="icon-btn" id="btnExport" title="Map-Export (PowerCommander)" disabled style="opacity:.4">↓</button>
+      <button class="icon-btn" id="btnExport" title="Kennfeld-Export" disabled style="opacity:.4">↓</button>
       <button class="icon-btn primary" id="btnSheet" title="Einstellungen">☰</button>
     </div>
   </header>
@@ -1249,8 +1249,8 @@ body.pseudo-full .plot-area {
 <div class="modal-backdrop" id="expBackdrop"></div>
 <div class="modal export-modal" id="expModal" role="dialog" aria-modal="true" aria-labelledby="expTitle">
   <div class="modal-header">
-    <div class="modal-title" id="expTitle">Map-Export (PowerCommander) <span class="exp-warn-badge">⚠ Achtung, experimentell!</span></div>
-    <div class="modal-sub">Erzeugt aus den geladenen Lambda-Daten eine Trim-Map, die sich in die PowerCommander-Software importieren lässt.</div>
+    <div class="modal-title" id="expTitle">Kennfeld-Export <span class="exp-warn-badge">⚠ Achtung, experimentell!</span></div>
+    <div class="modal-sub">Erzeugt aus den geladenen Lambda-Daten eine Trim-Map, eine ECU-BIN oder eine universelle CSV-Datei — je nach gewähltem Zielsystem.</div>
   </div>
   <div class="modal-body">
 
@@ -1408,7 +1408,7 @@ body.pseudo-full .plot-area {
     </div>
 
     <div class="modal-sub" id="expFootnote">
-      Die erzeugte Datei kann in der jeweiligen PowerCommander-Software über „Map öffnen" eingelesen werden.
+      Die erzeugte Datei kann in der zum Zielsystem gehörenden Software (PowerCommander-Tool, ECU-Editor, Dimsport usw.) über „Datei öffnen" bzw. „Map öffnen" eingelesen werden.
     </div>
 
   </div>
@@ -2707,10 +2707,14 @@ function renderIawPreview() {
   const scale = spec.byteScale;
   const { oldBytes, newBytes, changes, warnings } = result;
 
-  // Build HTML table: header = RPM, rows = Grad (80° at top, 2.0° at bottom)
-  const headerCells = spec.rpmAxis.map(r => `<th>${r}</th>`).join('');
+  // Build HTML table: header = RPM (ascending left → right for easier reading),
+  // rows = Grad (80° at top, 2.0° at bottom). The underlying BIN layout stays
+  // untouched; only the display column order is reversed.
+  const colOrder = spec.rpmAxis.map((_, i) => i).reverse();  // 15, 14, ..., 0
+  const headerCells = colOrder.map(col => `<th>${spec.rpmAxis[col]}</th>`).join('');
   const bodyRows = spec.degAxis.map((deg, row) => {
-    const cells = spec.rpmAxis.map((rpm, col) => {
+    const cells = colOrder.map(col => {
+      const rpm = spec.rpmAxis[col];
       const o = oldBytes[col][row];
       const n = newBytes[col][row];
       const oldMs = o / scale;
