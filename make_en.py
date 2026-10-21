@@ -113,7 +113,7 @@ def process_markup(html, rep, fn):
         name, val = m.group(1), m.group(2)
         new = translate_exact(val, rep, fn)
         return f'{name}="{new if new is not None else val}"'
-    html = re.sub(r'\b(title|placeholder|alt|aria-label)="([^"]*)"', fix_attr, html)
+    html = re.sub(r'\b(title|placeholder|alt|aria-label|label)="([^"]*)"', fix_attr, html)
 
     # Restore blocks
     html = re.sub(r'\x00BLOCK(\d+)\x00', lambda m: blocks[int(m.group(1))], html)

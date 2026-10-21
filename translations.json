@@ -350,6 +350,18 @@
   "Zuerst eigenes .pvm-Template hochladen": "Upload your own .pvm template first",
   "Zuerst eigenes .djm-Template hochladen": "Upload your own .djm template first",
 
+  "_target_groups": "Export target groups (added when we started supporting Rapid Bike EVO and IAW16M)",
+  "Zwischenstecker (Trim-Maps)": "Add-on module (trim maps)",
+  "ECU-Reflash": "ECU reflash",
+  "Universell": "Universal",
+  "PowerCommander V · PCFC · PCVI (.pvm)": "PowerCommander V · PCFC · PCVI (.pvm)",
+  "PowerCommander III USB (.djm)": "PowerCommander III USB (.djm)",
+  "Rapid Bike EVO (.rbs) — demnächst": "Rapid Bike EVO (.rbs) — coming soon",
+  "Magneti Marelli IAW16M (.bin) — demnächst": "Magneti Marelli IAW16M (.bin) — coming soon",
+  "CSV (zum Nachlesen)": "CSV (for reference)",
+  "Rapid Bike EVO: Trim-Map wie beim PowerCommander, aber im Dimsport-Format. In Vorbereitung — sobald eine Referenzdatei vorliegt, wird das Format aufgenommen.": "Rapid Bike EVO: Trim map like the PowerCommander, but in Dimsport's format. In preparation — the format will be added as soon as a reference file is available.",
+  "IAW16M: Direktes ECU-Reflash mit absoluten Einspritzwerten. Vor dem Flash immer die Original-Map sichern. In Vorbereitung — Integration aus Parallelentwicklung folgt.": "IAW16M: Direct ECU reflash with absolute injection values. Always back up the original map before flashing. In preparation — integration from parallel development to follow.",
+
   "_idle_screw_distinction": "Idle screw distinction (pilot/fuel vs air screw)",
   "Leerlaufdüse / Gemisch- oder Luftschraube": "Pilot jet / pilot or air screw",
   "Zu fett: Leerlaufgemischschraube in kleinen Schritten (⅛ Umdrehung) reindrehen — oder Leerlaufluftschraube rausdrehen (umgekehrte Wirkrichtung). Reicht das nicht: Leerlaufdüse eine Nummer kleiner.": "Too rich: turn pilot/fuel screw in by small steps (⅛ turn) — or back the air screw out (opposite direction). If that is not enough: pilot jet one size smaller.",
