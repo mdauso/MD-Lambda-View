@@ -1310,13 +1310,11 @@ body.pseudo-full .plot-area {
       <div class="modal-sub" style="margin-top:4px">Formula: <code>Grad = Offset + Faktor × TPS%</code>. Default for MD-039: 2.0 + 0.78 × TPS%.</div>
 
       <div class="exp-section-title" style="margin-top:16px">Correction parameters</div>
-      <div class="exp-grid-4">
-        <div class="exp-field"><label>N_MIN (min. n)</label><input type="number" id="expIawNmin" step="1" min="1" inputmode="numeric"></div>
-        <div class="exp-field"><label>N_FULL (full above)</label><input type="number" id="expIawNfull" step="1" min="1" inputmode="numeric"></div>
+      <div class="exp-grid-2">
         <div class="exp-field"><label>MAX_CHANGE ±%</label><input type="number" id="expIawMax" step="0.5" min="1" max="30" inputmode="decimal"></div>
-        <div class="exp-field"><label>MIN_CHANGE %</label><input type="number" id="expIawMin" step="0.5" min="0" max="10" inputmode="decimal"></div>
         <div class="exp-field"><label>MONOTONY up to (degrees)</label><input type="number" id="expIawMono" step="0.1" min="0" max="80" inputmode="decimal"></div>
       </div>
+      <div class="modal-sub" style="margin-top:4px">Smoothing and outlier rejection already happen at CSV import via the stability filter — only the safety cap (MAX) and the physical monotony enforcement stay here.</div>
 
       <div class="exp-section-title" style="margin-top:16px">Exceptions (never change)</div>
       <input type="text" id="expIawExc" style="width:100%;padding:8px;font-family:monospace;font-size:12px" placeholder="2.0@1500, 2.0@1800, *@1000">
@@ -1778,15 +1776,16 @@ const TARGET_SPEC = {
     byteScale:  15.5,     // ms = byte / 15.5
     rpmAxis:    [9000, 8400, 7500, 6100, 5100, 4200, 3500, 3000, 2700, 2400, 2100, 1800, 1500, 1350, 1200, 1000],
     degAxis:    [80, 60, 48, 37, 28, 21, 17, 13, 9.7, 7.5, 5.1, 4.2, 3.5, 2.9, 2.4, 2.0],
-    // User-editable defaults (persisted via localStorage key mdlv_iaw_params):
+    // User-editable defaults (persisted via localStorage key mdlv_iaw_params).
+    // Note: smoothing / outlier rejection already happens at CSV import via
+    // the stability filter, so no N_MIN / N_VOLL / MIN_ÄNDERUNG here — the
+    // only remaining parameters are the safety cap (MAX) and the physical
+    // monotony enforcement (MONOTONIE).
     defaults: {
       target80:    0.87,   // target lambda for the 80° row
       targetMid:   0.88,   // target for 48° and 60° rows
       targetRest:  0.90,   // target for every other row
-      nMin:        15,     // min cell weight to touch a cell
-      nFull:       40,     // weight above which correction counts fully
-      maxChange:   6,      // max ± % per pass
-      minChange:   2,      // changes below this are not written
+      maxChange:   6,      // max ± % per pass (safety cap)
       monotonyUntilDeg: 13,// above (= smaller than) this angle, enforce column monotony
       tpsOffset:   2.0,    // Grad = tpsOffset + tpsFactor * TPS%
       tpsFactor:   0.78,
@@ -2061,7 +2060,6 @@ function buildIawBinary() {
   const nCols = spec.mapCols, nRows = spec.mapRows;
   const addr  = spec.mapAddress, scale = spec.byteScale;
   const maxF  = params.maxChange / 100;
-  const minF  = params.minChange / 100;
 
   // Read current map (column-major: col*rows + row)
   const oldBytes = Array(nCols).fill(0).map(() => Array(nRows).fill(0));
@@ -2081,15 +2079,14 @@ function buildIawBinary() {
       const deg = spec.degAxis[row];
       if (isException(deg, rpm)) continue;
       const sample = sampleIawCell(col, row, params, spec);
-      if (sample.lam == null || sample.n < params.nMin) continue;
+      if (sample.lam == null) continue;
       const target = targetLambdaForDeg(deg, params);
+      // Smoothing / outlier rejection was already done at CSV import by the
+      // stability filter — here we just use the lambda as it stands.
       const rawFactor = sample.lam / target;
-      const weight = Math.min(1, sample.n / params.nFull);
-      let factor = 1 + (rawFactor - 1) * weight;
-      // Clamp to ± maxChange
-      factor = Math.max(1 - maxF, Math.min(1 + maxF, factor));
-      // Below minChange, do nothing
-      if (Math.abs(factor - 1) < minF) continue;
+      // Clamp to ± maxChange (safety cap, not smoothing)
+      const factor = Math.max(1 - maxF, Math.min(1 + maxF, rawFactor));
+      if (factor === 1) continue;
       const oldMs = oldBytes[col][row] / scale;
       const newMs = Math.round(oldMs * factor * scale) / scale;
       const newByte = Math.max(0, Math.min(255, Math.round(newMs * scale)));
@@ -2383,10 +2380,7 @@ function renderIawParams() {
   $('#expIawTRest').value  = p.targetRest.toFixed(2);
   $('#expIawOffset').value = p.tpsOffset;
   $('#expIawFactor').value = p.tpsFactor;
-  $('#expIawNmin').value   = p.nMin;
-  $('#expIawNfull').value  = p.nFull;
   $('#expIawMax').value    = p.maxChange;
-  $('#expIawMin').value    = p.minChange;
   $('#expIawMono').value   = p.monotonyUntilDeg;
   $('#expIawExc').value    = p.exceptions;
 }
@@ -2402,10 +2396,7 @@ function readIawParamsFromUi() {
   p.targetRest       = num('expIawTRest',  p.targetRest);
   p.tpsOffset        = num('expIawOffset', p.tpsOffset);
   p.tpsFactor        = num('expIawFactor', p.tpsFactor);
-  p.nMin             = Math.max(1, num('expIawNmin',  p.nMin) | 0);
-  p.nFull            = Math.max(1, num('expIawNfull', p.nFull) | 0);
   p.maxChange        = num('expIawMax',    p.maxChange);
-  p.minChange        = num('expIawMin',    p.minChange);
   p.monotonyUntilDeg = num('expIawMono',   p.monotonyUntilDeg);
   p.exceptions       = $('#expIawExc').value;
   storeIawParams(p);
@@ -2863,7 +2854,7 @@ $('#expIawReset').addEventListener('click', () => {
 });
 // Persist IAW parameter edits on blur/change AND refresh the preview live
 ['expIawT80','expIawTMid','expIawTRest','expIawOffset','expIawFactor',
- 'expIawNmin','expIawNfull','expIawMax','expIawMin','expIawMono','expIawExc']
+ 'expIawMax','expIawMono','expIawExc']
   .forEach(id => {
     $('#' + id).addEventListener('change', () => {
       readIawParamsFromUi();
