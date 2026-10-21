@@ -1298,14 +1298,6 @@ body.pseudo-full .plot-area {
         <button class="modal-btn" id="expIawClear" type="button" hidden>Entfernen</button>
       </div>
 
-      <div class="exp-section-title" style="margin-top:16px">Ziel-λ pro Grad-Zeile</div>
-      <div class="exp-grid-4" id="expIawTargets">
-        <div class="exp-field"><label>80° (Vollgas)</label><input type="number" id="expIawT80" step="0.01" min="0.70" max="1.20" inputmode="decimal"></div>
-        <div class="exp-field"><label>48° &amp; 60°</label><input type="number" id="expIawTMid" step="0.01" min="0.70" max="1.20" inputmode="decimal"></div>
-        <div class="exp-field"><label>Alle anderen</label><input type="number" id="expIawTRest" step="0.01" min="0.70" max="1.20" inputmode="decimal"></div>
-        <div class="exp-field"><label>&nbsp;</label><button class="modal-btn" id="expIawReset" type="button" style="width:100%">↺ Standard</button></div>
-      </div>
-
       <div class="exp-section-title" style="margin-top:16px">TPS → Grad-Umrechnung</div>
       <div class="exp-grid-2">
         <div class="exp-field"><label>Min. Winkel bei 0 % TPS</label><input type="number" id="expIawMinDeg" step="0.1" min="0" max="30" inputmode="decimal"></div>
@@ -1314,11 +1306,12 @@ body.pseudo-full .plot-area {
       <div class="modal-sub" style="margin-top:4px">0 % und 100 % TPS in der MD-Lambda-View-CSV entsprechen Min.- und Max.-Winkel des Einspritzkennfelds. Dazwischen linear: <code>Grad = Min + TPS% × (Max − Min) / 100</code>. Default für MD-039: 0° / 80°.</div>
 
       <div class="exp-section-title" style="margin-top:16px">Korrekturparameter</div>
-      <div class="exp-grid-2">
+      <div class="exp-grid-4">
         <div class="exp-field"><label>MAX_ÄNDERUNG ±%</label><input type="number" id="expIawMax" step="0.5" min="1" max="30" inputmode="decimal"></div>
         <div class="exp-field"><label>MONOTONIE bis (Grad)</label><input type="number" id="expIawMono" step="0.1" min="0" max="80" inputmode="decimal"></div>
+        <div class="exp-field" style="grid-column:span 2"><label>&nbsp;</label><button class="modal-btn" id="expIawReset" type="button" style="width:100%">↺ Standard</button></div>
       </div>
-      <div class="modal-sub" style="margin-top:4px">Glättung und Ausreißer-Filterung erfolgt bereits beim CSV-Einlesen über den Stabilitätsfilter — hier bleiben nur das Sicherheits-Cap (MAX) und die physikalische Monotonie-Durchsetzung.</div>
+      <div class="modal-sub" style="margin-top:4px">Glättung und Ausreißer-Filterung erfolgt bereits beim CSV-Einlesen über den Stabilitätsfilter — hier bleiben nur das Sicherheits-Cap (MAX) und die physikalische Monotonie-Durchsetzung. Die Ziel-λ-Werte kommen aus der 2D-App-Vorgabe (siehe oben: „Ziel-λ pro TPS-Zone").</div>
 
     </div>
 
@@ -1340,11 +1333,17 @@ body.pseudo-full .plot-area {
       </div>
     </div>
 
-    <!-- Target lambda per TPS zone (inherited from the 2D app's tuning targets) -->
+    <!-- Target lambda per TPS zone — independent from the 2D app's tuning targets.
+         Edited and persisted here (localStorage: mdlv_exp_zones_v1). -->
     <div class="exp-section">
       <div class="exp-section-title">Ziel-λ pro TPS-Zone</div>
       <div class="exp-grid-4" id="expTargetsGrid"><!-- filled dynamically --></div>
-      <div class="modal-sub" style="margin-top:8px">Für Zwischen-TPS-Werte wird linear interpoliert. Die Werte werden aus den Tuning-Zielen der 2D-App übernommen (localStorage).</div>
+      <div class="exp-section-title" style="margin-top:12px">TPS-Grenzen zwischen den Zonen</div>
+      <div class="exp-grid-4" id="expBoundsGrid"><!-- filled dynamically --></div>
+      <div class="exp-grid-4" style="margin-top:8px">
+        <div class="exp-field" style="grid-column:span 4"><button class="modal-btn" id="expZonesReset" type="button" style="width:100%">↺ Standard für den Export</button></div>
+      </div>
+      <div class="modal-sub" style="margin-top:8px">Für Zwischen-TPS-Werte wird linear interpoliert. Diese Werte gelten nur für den Export (2D-, 3D- und IAW16M-Flash); die 2D-App hat eigene Zielwerte, die unberührt bleiben.</div>
     </div>
 
     <!-- Grid: RPM and TPS axes (hidden for IAW16M, which uses fixed irregular axes) -->
@@ -1681,8 +1680,14 @@ $('#prepCancel').addEventListener('click', closePrepModal);
 $('#prepBackdrop').addEventListener('click', closePrepModal);
 
 // ============ EXPORT: POWERCOMMANDER-COMPATIBLE MAP ============
-// Default zone targets — mirror the 2D app's TUNE defaults. If the 2D app
-// has saved overrides to localStorage (key 'mdlv_tune_targets_v1'), load those.
+// The 3D export has its OWN zone targets and TPS boundaries, persisted
+// separately from the 2D app's tuning targets. The 2D app and the 3D export
+// may legitimately differ (e.g. 2D for carb troubleshooting with a conservative
+// idle target, 3D export aiming for a specific power band). Each is edited and
+// saved on its own screen.
+//   2D app:         localStorage key 'mdlv_tune_targets_v1'  (TUNE_* in 2d.html)
+//   3D export:      localStorage key 'mdlv_exp_zones_v1'     (EXP_*  in 3d.html)
+const EXP_LS_KEY = 'mdlv_exp_zones_v1';
 const EXP_ZONES_DEFAULT = [
   { key: 'idle',       name: 'Leerlauf', tpsHi:   5, target: 0.98 },
   { key: 'transition', name: 'Übergang', tpsHi:  20, target: 0.92 },
@@ -1693,35 +1698,71 @@ const EXP_ZONES = EXP_ZONES_DEFAULT.map(z => ({ ...z }));
 const EXP_BOUNDS_DEFAULT = [5, 20, 60];
 const EXP_BOUNDS = EXP_BOUNDS_DEFAULT.slice();
 
-// Load targets + bounds persisted by the 2D app (if present)
-(function loadExpTargets() {
+// Load targets + bounds persisted by the 3D export panel itself.
+// First-time users have no saved values; we fall back to the 2D app's
+// targets ONCE as a sensible initial seed (if the 2D app has customised them),
+// but any further change in the 3D panel is written to EXP_LS_KEY and never
+// back-propagated to the 2D app.
+(function loadExpZones() {
   try {
-    const saved = JSON.parse(localStorage.getItem('mdlv_tune_targets_v1') || '{}');
-    if (saved && saved.targets) {
-      Object.keys(saved.targets).forEach(k => {
+    // 1) Try the 3D-specific store first
+    const own = JSON.parse(localStorage.getItem(EXP_LS_KEY) || 'null');
+    if (own && typeof own === 'object' && own.targets && Array.isArray(own.bounds)) {
+      Object.keys(own.targets).forEach(k => {
         const z = EXP_ZONES.find(x => x.key === k);
-        const v = parseFloat(saved.targets[k]);
+        const v = parseFloat(own.targets[k]);
         if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) z.target = v;
       });
-    } else if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-      // v1 flat shape
-      Object.keys(saved).forEach(k => {
-        const z = EXP_ZONES.find(x => x.key === k);
-        const v = parseFloat(saved[k]);
-        if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) z.target = v;
-      });
+      if (own.bounds.length === 3) {
+        const b = own.bounds.map(x => parseFloat(x));
+        if (b.every(Number.isFinite) && b[0] >= 0 && b[0] < b[1] && b[1] < b[2] && b[2] <= 100) {
+          EXP_BOUNDS[0] = b[0]; EXP_BOUNDS[1] = b[1]; EXP_BOUNDS[2] = b[2];
+          EXP_ZONES[0].tpsHi = b[0];
+          EXP_ZONES[1].tpsHi = b[1];
+          EXP_ZONES[2].tpsHi = b[2];
+        }
+      }
+      return;  // 3D store wins — do NOT read 2D
     }
-    if (saved && Array.isArray(saved.bounds) && saved.bounds.length === 3) {
-      const b = saved.bounds.map(x => parseFloat(x));
-      if (b.every(Number.isFinite) && b[0] < b[1] && b[1] < b[2]) {
-        EXP_BOUNDS[0] = b[0]; EXP_BOUNDS[1] = b[1]; EXP_BOUNDS[2] = b[2];
-        EXP_ZONES[0].tpsHi = b[0];
-        EXP_ZONES[1].tpsHi = b[1];
-        EXP_ZONES[2].tpsHi = b[2];
+    // 2) First-time seed from the 2D app, if customised
+    const seed = JSON.parse(localStorage.getItem('mdlv_tune_targets_v1') || 'null');
+    if (seed && seed.targets) {
+      Object.keys(seed.targets).forEach(k => {
+        const z = EXP_ZONES.find(x => x.key === k);
+        const v = parseFloat(seed.targets[k]);
+        if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) z.target = v;
+      });
+      if (Array.isArray(seed.bounds) && seed.bounds.length === 3) {
+        const b = seed.bounds.map(x => parseFloat(x));
+        if (b.every(Number.isFinite) && b[0] >= 0 && b[0] < b[1] && b[1] < b[2] && b[2] <= 100) {
+          EXP_BOUNDS[0] = b[0]; EXP_BOUNDS[1] = b[1]; EXP_BOUNDS[2] = b[2];
+          EXP_ZONES[0].tpsHi = b[0];
+          EXP_ZONES[1].tpsHi = b[1];
+          EXP_ZONES[2].tpsHi = b[2];
+        }
       }
     }
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* ignore corrupt storage */ }
 })();
+
+function saveExpZones() {
+  try {
+    const payload = {
+      targets: Object.fromEntries(EXP_ZONES.map(z => [z.key, z.target])),
+      bounds:  [EXP_BOUNDS[0], EXP_BOUNDS[1], EXP_BOUNDS[2]],
+    };
+    localStorage.setItem(EXP_LS_KEY, JSON.stringify(payload));
+  } catch (e) { /* storage full / disabled */ }
+}
+
+function resetExpZonesToDefaults() {
+  EXP_ZONES_DEFAULT.forEach((z, i) => {
+    EXP_ZONES[i].target = z.target;
+    EXP_ZONES[i].tpsHi  = z.tpsHi;
+  });
+  EXP_BOUNDS_DEFAULT.forEach((v, i) => { EXP_BOUNDS[i] = v; });
+  saveExpZones();
+}
 
 // TPS grids. The two PC entries are the real axes used by the PowerCommander
 // software: PCV has an extra 15 % column (10 bins), PCIII skips it (9 bins).
@@ -1787,9 +1828,9 @@ const TARGET_SPEC = {
     // only remaining parameters are the safety cap (MAX) and the physical
     // monotony enforcement (MONOTONIE).
     defaults: {
-      target80:    0.87,   // target lambda for the 80° row
-      targetMid:   0.88,   // target for 48° and 60° rows
-      targetRest:  0.90,   // target for every other row
+      // Target lambdas come from the 2D app's zone targets (EXP_ZONES) —
+      // nothing stored here. Grad values are converted back to TPS% via the
+      // user's calibration and then run through targetLambdaAt().
       maxChange:   6,      // max ± % per pass (safety cap)
       monotonyUntilDeg: 13,// above (= smaller than) this angle, enforce column monotony
       // Throttle-angle calibration: 0 % TPS ≡ minDeg, 100 % TPS ≡ maxDeg,
@@ -2043,10 +2084,14 @@ function sampleIawCell(rpmIdx, degIdx, params, spec) {
   return n > 0 ? { lam: sum / n, n } : { lam: null, n: 0 };
 }
 
+// Target lambda per degree row — comes directly from the 2D app's four
+// tuning zones (idle / transition / partial / full). We convert the IAW
+// grid's degree value back to TPS% using the user's calibration and let
+// targetLambdaAt() interpolate linearly between the zones.
 function targetLambdaForDeg(deg, params) {
-  if (Math.abs(deg - 80) < 0.5) return params.target80;
-  if (Math.abs(deg - 60) < 0.5 || Math.abs(deg - 48) < 0.5) return params.targetMid;
-  return params.targetRest;
+  const span = params.maxDeg - params.minDeg;
+  const tps = (deg - params.minDeg) * 100 / span;
+  return targetLambdaAt(Math.max(0, Math.min(100, tps)));
 }
 
 // Core builder: returns {binOut, changes, warnings} or null if no BIN loaded.
@@ -2378,9 +2423,6 @@ function applyTargetSpec() {
 // --- IAW16M UI wiring -----------------------------------------------------
 function renderIawParams() {
   const p = loadIawParams();
-  $('#expIawT80').value    = p.target80.toFixed(2);
-  $('#expIawTMid').value   = p.targetMid.toFixed(2);
-  $('#expIawTRest').value  = p.targetRest.toFixed(2);
   $('#expIawMinDeg').value = p.minDeg;
   $('#expIawMaxDeg').value = p.maxDeg;
   $('#expIawMax').value    = p.maxChange;
@@ -2393,9 +2435,6 @@ function readIawParamsFromUi() {
     const v = parseFloat(String($('#' + id).value).replace(',', '.'));
     return Number.isFinite(v) ? v : def;
   };
-  p.target80         = num('expIawT80',    p.target80);
-  p.targetMid        = num('expIawTMid',   p.targetMid);
-  p.targetRest       = num('expIawTRest',  p.targetRest);
   p.minDeg           = num('expIawMinDeg', p.minDeg);
   p.maxDeg           = num('expIawMaxDeg', p.maxDeg);
   p.maxChange        = num('expIawMax',    p.maxChange);
@@ -2528,13 +2567,22 @@ function handleCustomTplFile(file) {
   reader.readAsArrayBuffer(file);
 }
 
+function zoneRangeLabel(i) {
+  const lo = (i === 0) ? 0 : EXP_BOUNDS[i - 1];
+  const hi = (i === EXP_ZONES.length - 1) ? 100 : EXP_BOUNDS[i];
+  // compact numbers (no trailing .0)
+  const fmt = n => (Math.abs(n - Math.round(n)) < 1e-9) ? Math.round(n) : n.toFixed(1);
+  return `${fmt(lo)}–${fmt(hi)} %`;
+}
+
 function renderTargetsForExport() {
-  const html = EXP_ZONES.map(z => `
+  // --- Target λ per zone ---
+  const targetsHtml = EXP_ZONES.map((z, i) => `
     <div class="exp-field">
-      <label>${z.name}</label>
+      <label>${z.name} <span style="opacity:.65;font-weight:normal" data-range="${z.key}">${zoneRangeLabel(i)}</span></label>
       <input type="number" value="${z.target.toFixed(2)}" step="0.01" min="0.5" max="2.0" inputmode="decimal" data-key="${z.key}">
     </div>`).join('');
-  $('#expTargetsGrid').innerHTML = html;
+  $('#expTargetsGrid').innerHTML = targetsHtml;
   $$('#expTargetsGrid input').forEach(input => {
     input.addEventListener('change', () => {
       const key = input.dataset.key;
@@ -2543,10 +2591,45 @@ function renderTargetsForExport() {
       if (z && Number.isFinite(v) && v >= 0.5 && v <= 2.0) {
         z.target = v;
         input.value = v.toFixed(2);
+        saveExpZones();
         renderExportPreview();
       } else {
         input.value = z.target.toFixed(2);
       }
+    });
+  });
+
+  // --- TPS boundaries between zones (3 inner cuts) ---
+  // zone 0 ends at EXP_BOUNDS[0], zone 1 ends at EXP_BOUNDS[1], zone 2 ends at EXP_BOUNDS[2],
+  // zone 3 always ends at 100%. Each input shows the upper bound of its zone.
+  const boundLabels = ['Leerlauf → Übergang', 'Übergang → Teillast', 'Teillast → Volllast'];
+  const fullEndLabel = 'Volllast → Ende';
+  const boundsHtml = EXP_BOUNDS.map((v, i) => `
+    <div class="exp-field">
+      <label>${boundLabels[i]}</label>
+      <input type="number" value="${(Math.abs(v - Math.round(v)) < 1e-9) ? Math.round(v) : v.toFixed(1)}" step="1" min="1" max="99" inputmode="decimal" data-bound="${i}">
+    </div>`).join('') +
+    `<div class="exp-field"><label>${fullEndLabel}</label><input type="number" value="100" step="1" disabled style="opacity:.55"></div>`;
+  $('#expBoundsGrid').innerHTML = boundsHtml;
+  $$('#expBoundsGrid input[data-bound]').forEach(input => {
+    input.addEventListener('change', () => {
+      const i = parseInt(input.dataset.bound, 10);
+      let v = parseFloat(String(input.value).replace(',', '.'));
+      if (!Number.isFinite(v)) { input.value = EXP_BOUNDS[i]; return; }
+      // Clamp against neighbours so bounds stay strictly ascending inside [0, 100]
+      const lo = (i === 0) ? 0 : EXP_BOUNDS[i - 1];
+      const hi = (i === EXP_BOUNDS.length - 1) ? 100 : EXP_BOUNDS[i + 1];
+      v = Math.max(lo + 0.1, Math.min(hi - 0.1, v));
+      EXP_BOUNDS[i] = v;
+      EXP_ZONES[i].tpsHi = v;      // keep zone upper edge in sync
+      input.value = (Math.abs(v - Math.round(v)) < 1e-9) ? Math.round(v) : v.toFixed(1);
+      // Refresh the range labels under the target-λ inputs
+      EXP_ZONES.forEach((_, idx) => {
+        const span = $(`#expTargetsGrid [data-range="${EXP_ZONES[idx].key}"]`);
+        if (span) span.textContent = zoneRangeLabel(idx);
+      });
+      saveExpZones();
+      renderExportPreview();
     });
   });
 }
@@ -2853,9 +2936,14 @@ $('#expIawReset').addEventListener('click', () => {
   renderExportPreview();
   toast('IAW-Parameter zurückgesetzt', 1800);
 });
+$('#expZonesReset').addEventListener('click', () => {
+  resetExpZonesToDefaults();
+  renderTargetsForExport();
+  renderExportPreview();
+  toast('Export-Zonen zurückgesetzt', 1800);
+});
 // Persist IAW parameter edits on blur/change AND refresh the preview live
-['expIawT80','expIawTMid','expIawTRest','expIawMinDeg','expIawMaxDeg',
- 'expIawMax','expIawMono']
+['expIawMinDeg','expIawMaxDeg','expIawMax','expIawMono']
   .forEach(id => {
     $('#' + id).addEventListener('change', () => {
       readIawParamsFromUi();
