@@ -18,6 +18,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- JSZip for IAW16M .bin → .zip packaging. Lazy-loaded on demand from the
+     export modal; a failure to load disables only the IAW16M download, nothing else. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
 <!-- Plotly with multi-CDN fallback (cdn.plot.ly is blocked by some content blockers) -->
 <script>
 (function() {
@@ -949,6 +952,7 @@ input[type="file"] { display: none; }
 }
 
 .exp-cell { font-weight: 600; }
+.iaw-preview td.exp-cell { padding: 3px 4px; font-size: 11px; }
 .exp-cell.exp-pos   { color: #c9302c; }  /* needs more fuel (lean) */
 .exp-cell.exp-neg   { color: #2c6fb3; }  /* needs less fuel (rich) */
 .exp-cell.exp-zero  { color: var(--ink-2); font-weight: 400; }
@@ -1263,7 +1267,7 @@ body.pseudo-full .plot-area {
             <option value="rbe">Rapid Bike EVO (.rbs) — coming soon</option>
           </optgroup>
           <optgroup label="ECU reflash">
-            <option value="iaw16m">Magneti Marelli IAW16M (.bin) — coming soon</option>
+            <option value="iaw16m">Magneti Marelli IAW16M (.bin)</option>
           </optgroup>
           <optgroup label="Universal">
             <option value="csv">CSV (for reference)</option>
@@ -1271,6 +1275,52 @@ body.pseudo-full .plot-area {
         </select>
       </div>
       <div class="modal-sub" id="expTargetHint" style="margin-top:8px"></div>
+    </div>
+
+    <!-- IAW16M: dedicated section with BIN upload (ZIP), editable targets,
+         TPS→Grad conversion, correction parameters and exceptions list.
+         Only shown when target = iaw16m. -->
+    <div class="exp-section" id="expIawSection" hidden>
+      <div class="exp-section-title">IAW16M · Source BIN</div>
+      <div class="modal-sub" style="margin-bottom:10px">
+        Upload the BIN currently flashed to the ECU as a <strong>ZIP file</strong> (65,536 bytes). This file is read, the map at <code>0xF161</code> is recomputed, the rest stays untouched. Return again as ZIP.
+      </div>
+      <div class="exp-tpl-row">
+        <label class="modal-btn" for="expIawFile" style="cursor:pointer">
+          <span id="expIawBtnLabel">📂 Choose source BIN (ZIP)</span>
+        </label>
+        <input type="file" id="expIawFile" accept=".zip" style="position:absolute;left:-9999px;width:1px;height:1px">
+        <span id="expIawStatus" class="modal-sub exp-tpl-status exp-tpl-missing">No BIN loaded yet.</span>
+        <button class="modal-btn" id="expIawClear" type="button" hidden>Remove</button>
+      </div>
+
+      <div class="exp-section-title" style="margin-top:16px">Target λ per degree row</div>
+      <div class="exp-grid-4" id="expIawTargets">
+        <div class="exp-field"><label>80° (WOT)</label><input type="number" id="expIawT80" step="0.01" min="0.70" max="1.20" inputmode="decimal"></div>
+        <div class="exp-field"><label>48° &amp; 60°</label><input type="number" id="expIawTMid" step="0.01" min="0.70" max="1.20" inputmode="decimal"></div>
+        <div class="exp-field"><label>All others</label><input type="number" id="expIawTRest" step="0.01" min="0.70" max="1.20" inputmode="decimal"></div>
+        <div class="exp-field"><label>&nbsp;</label><button class="modal-btn" id="expIawReset" type="button" style="width:100%">↺ Default</button></div>
+      </div>
+
+      <div class="exp-section-title" style="margin-top:16px">TPS → degrees conversion</div>
+      <div class="exp-grid-2">
+        <div class="exp-field"><label>Offset (degrees at 0 % TPS)</label><input type="number" id="expIawOffset" step="0.01" inputmode="decimal"></div>
+        <div class="exp-field"><label>Factor (degrees per % TPS)</label><input type="number" id="expIawFactor" step="0.01" inputmode="decimal"></div>
+      </div>
+      <div class="modal-sub" style="margin-top:4px">Formula: <code>Grad = Offset + Faktor × TPS%</code>. Default for MD-039: 2.0 + 0.78 × TPS%.</div>
+
+      <div class="exp-section-title" style="margin-top:16px">Correction parameters</div>
+      <div class="exp-grid-4">
+        <div class="exp-field"><label>N_MIN (min. n)</label><input type="number" id="expIawNmin" step="1" min="1" inputmode="numeric"></div>
+        <div class="exp-field"><label>N_FULL (full above)</label><input type="number" id="expIawNfull" step="1" min="1" inputmode="numeric"></div>
+        <div class="exp-field"><label>MAX_CHANGE ±%</label><input type="number" id="expIawMax" step="0.5" min="1" max="30" inputmode="decimal"></div>
+        <div class="exp-field"><label>MIN_CHANGE %</label><input type="number" id="expIawMin" step="0.5" min="0" max="10" inputmode="decimal"></div>
+        <div class="exp-field"><label>MONOTONY up to (degrees)</label><input type="number" id="expIawMono" step="0.1" min="0" max="80" inputmode="decimal"></div>
+      </div>
+
+      <div class="exp-section-title" style="margin-top:16px">Exceptions (never change)</div>
+      <input type="text" id="expIawExc" style="width:100%;padding:8px;font-family:monospace;font-size:12px" placeholder="2.0@1500, 2.0@1800, *@1000">
+      <div class="modal-sub" style="margin-top:4px">Format: <code>Grad@RPM</code> (single cell), <code>*@RPM</code> (whole RPM column) or <code>Grad@*</code> (whole degree row), comma-separated.</div>
     </div>
 
     <!-- Custom template: user must upload an empty .pvm/.djm from their own
@@ -1717,9 +1767,31 @@ const TARGET_SPEC = {
   },
   iaw16m: {
     label: 'Magneti Marelli IAW16M (.bin)',
-    kind: 'flash', status: 'coming-soon',
+    kind: 'flash', status: 'ready',
     tpsSet: null, rpmMin: null, rpmMax: null, rpmStep: null,
-    hint: 'IAW16M: Direct ECU reflash with absolute injection values. Always back up the original map before flashing. In preparation — integration from parallel development to follow.'
+    hint: 'IAW16M: Direct ECU reflash. Loads the currently flashed BIN as a ZIP, computes new map values and returns the new BIN again as a ZIP. Always back up the original BIN before flashing and spot-check a few values in an editor.',
+    // IAW16M MD-039 BIN layout and axes (fixed by the ECU firmware):
+    binSize:    65536,
+    mapAddress: 0xF161,
+    mapCols:    16,  // RPM columns
+    mapRows:    16,  // Grad rows
+    byteScale:  15.5,     // ms = byte / 15.5
+    rpmAxis:    [9000, 8400, 7500, 6100, 5100, 4200, 3500, 3000, 2700, 2400, 2100, 1800, 1500, 1350, 1200, 1000],
+    degAxis:    [80, 60, 48, 37, 28, 21, 17, 13, 9.7, 7.5, 5.1, 4.2, 3.5, 2.9, 2.4, 2.0],
+    // User-editable defaults (persisted via localStorage key mdlv_iaw_params):
+    defaults: {
+      target80:    0.87,   // target lambda for the 80° row
+      targetMid:   0.88,   // target for 48° and 60° rows
+      targetRest:  0.90,   // target for every other row
+      nMin:        15,     // min cell weight to touch a cell
+      nFull:       40,     // weight above which correction counts fully
+      maxChange:   6,      // max ± % per pass
+      minChange:   2,      // changes below this are not written
+      monotonyUntilDeg: 13,// above (= smaller than) this angle, enforce column monotony
+      tpsOffset:   2.0,    // Grad = tpsOffset + tpsFactor * TPS%
+      tpsFactor:   0.78,
+      exceptions:  '2.0@1500, 2.0@1800, 2.4@1500, *@1000, *@1200, *@1350',
+    },
   },
   csv: {
     label: 'CSV (universal)',
@@ -1889,6 +1961,207 @@ function buildDjmBinary(map) {
     writeI32LE(out, 0x0850 + i * 4, map.rpmAxis[i] | 0);
   }
   return out;
+}
+
+// ============ IAW16M (MAGNETI MARELLI) ECU-REFLASH ============
+// Direct ECU reflash: load an existing .bin (as .zip), recompute the 16×16
+// fuel map at 0xF161 from logged lambda data, repack as .zip. Specification
+// matches Mario's parallel chatbot workflow for MD-039 BINs.
+
+const IAW_PARAM_KEY = 'mdlv_iaw_params';
+const IAW_BIN_KEY   = 'mdlv_iaw_bin';   // base64 of the uploaded BIN
+
+function loadIawBin() {
+  try {
+    const b64 = localStorage.getItem(IAW_BIN_KEY);
+    if (!b64) return null;
+    const u8 = b64ToU8(b64);
+    return u8.length === 65536 ? u8 : null;
+  } catch (e) { return null; }
+}
+function storeIawBin(u8) {
+  let bin = '';
+  for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
+  try { localStorage.setItem(IAW_BIN_KEY, btoa(bin)); return true; }
+  catch (e) { return false; }
+}
+function clearIawBin() {
+  try { localStorage.removeItem(IAW_BIN_KEY); } catch (e) {}
+}
+
+function loadIawParams() {
+  const defaults = TARGET_SPEC.iaw16m.defaults;
+  try {
+    const raw = localStorage.getItem(IAW_PARAM_KEY);
+    if (!raw) return { ...defaults };
+    return { ...defaults, ...JSON.parse(raw) };
+  } catch (e) { return { ...defaults }; }
+}
+function storeIawParams(p) {
+  try { localStorage.setItem(IAW_PARAM_KEY, JSON.stringify(p)); } catch (e) {}
+}
+
+// Parse the exceptions string into a predicate (grad, rpm) → bool.
+function parseIawExceptions(str) {
+  const specs = [];
+  (str || '').split(',').forEach(part => {
+    const m = part.trim().match(/^(\*|[\d.,]+)\s*@\s*(\*|\d+)$/);
+    if (!m) return;
+    const grad = m[1] === '*' ? '*' : parseFloat(m[1].replace(',', '.'));
+    const rpm  = m[2] === '*' ? '*' : parseInt(m[2], 10);
+    specs.push({ grad, rpm });
+  });
+  return (grad, rpm) => specs.some(s =>
+    (s.grad === '*' || Math.abs(s.grad - grad) < 0.05) &&
+    (s.rpm  === '*' || s.rpm === rpm)
+  );
+}
+
+// Sample the user's logged lambda data onto the IAW grid. For each (RPM, Grad)
+// cell we take every logged point whose RPM and TPS fall into that cell's
+// window, weight by hit-count n, and return weighted mean + total n.
+// If STATE.cells does not carry n, we count 1 per cell.
+function sampleIawCell(rpmIdx, degIdx, params, spec) {
+  if (!STATE.cells || STATE.cells.length === 0) return { lam: null, n: 0 };
+  const rpmAx = spec.rpmAxis;
+  const degAx = spec.degAxis;
+  // RPM window: midpoints to neighbours (axis is descending, so mind the signs)
+  const rpmHi = rpmIdx > 0                 ? (rpmAx[rpmIdx-1] + rpmAx[rpmIdx]) / 2 : 20000;
+  const rpmLo = rpmIdx < rpmAx.length - 1  ? (rpmAx[rpmIdx] + rpmAx[rpmIdx+1]) / 2 :     0;
+  // Grad window (axis descending too)
+  const degHi = degIdx > 0                 ? (degAx[degIdx-1] + degAx[degIdx]) / 2 : 100;
+  const degLo = degIdx < degAx.length - 1  ? (degAx[degIdx] + degAx[degIdx+1]) / 2 :   0;
+  // Translate the Grad window back to TPS: TPS = (Grad − offset) / factor
+  const tpsHi = (degHi - params.tpsOffset) / params.tpsFactor;
+  const tpsLo = (degLo - params.tpsOffset) / params.tpsFactor;
+  let sum = 0, totalN = 0;
+  STATE.cells.forEach(c => {
+    if (c.rpm < rpmLo || c.rpm > rpmHi) return;
+    if (c.thr < tpsLo || c.thr > tpsHi) return;
+    const n = c.n || 1;
+    sum    += c.lam * n;
+    totalN += n;
+  });
+  return totalN > 0 ? { lam: sum / totalN, n: totalN } : { lam: null, n: 0 };
+}
+
+function targetLambdaForDeg(deg, params) {
+  if (Math.abs(deg - 80) < 0.5) return params.target80;
+  if (Math.abs(deg - 60) < 0.5 || Math.abs(deg - 48) < 0.5) return params.targetMid;
+  return params.targetRest;
+}
+
+// Core builder: returns {binOut, changes, warnings} or null if no BIN loaded.
+function buildIawBinary() {
+  const bin = loadIawBin();
+  if (!bin) return null;
+  const spec   = TARGET_SPEC.iaw16m;
+  const params = loadIawParams();
+  const isException = parseIawExceptions(params.exceptions);
+  const nCols = spec.mapCols, nRows = spec.mapRows;
+  const addr  = spec.mapAddress, scale = spec.byteScale;
+  const maxF  = params.maxChange / 100;
+  const minF  = params.minChange / 100;
+
+  // Read current map (column-major: col*rows + row)
+  const oldBytes = Array(nCols).fill(0).map(() => Array(nRows).fill(0));
+  const newBytes = Array(nCols).fill(0).map(() => Array(nRows).fill(0));
+  for (let col = 0; col < nCols; col++) {
+    for (let row = 0; row < nRows; row++) {
+      oldBytes[col][row] = bin[addr + col * nRows + row];
+      newBytes[col][row] = oldBytes[col][row];
+    }
+  }
+
+  // Compute per-cell factor and new byte
+  const changes = [];
+  for (let col = 0; col < nCols; col++) {
+    const rpm = spec.rpmAxis[col];
+    for (let row = 0; row < nRows; row++) {
+      const deg = spec.degAxis[row];
+      if (isException(deg, rpm)) continue;
+      const sample = sampleIawCell(col, row, params, spec);
+      if (sample.lam == null || sample.n < params.nMin) continue;
+      const target = targetLambdaForDeg(deg, params);
+      const rawFactor = sample.lam / target;
+      const weight = Math.min(1, sample.n / params.nFull);
+      let factor = 1 + (rawFactor - 1) * weight;
+      // Clamp to ± maxChange
+      factor = Math.max(1 - maxF, Math.min(1 + maxF, factor));
+      // Below minChange, do nothing
+      if (Math.abs(factor - 1) < minF) continue;
+      const oldMs = oldBytes[col][row] / scale;
+      const newMs = Math.round(oldMs * factor * scale) / scale;
+      const newByte = Math.max(0, Math.min(255, Math.round(newMs * scale)));
+      if (newByte !== oldBytes[col][row]) {
+        newBytes[col][row] = newByte;
+        changes.push({
+          deg, rpm, n: sample.n,
+          lamMeas: sample.lam, lamTarget: target,
+          oldByte: oldBytes[col][row], newByte,
+          deltaPct: (newByte / oldBytes[col][row] - 1) * 100,
+        });
+      }
+    }
+  }
+
+  // Monotony: per column, from the smallest-Grad row (bottom of table)
+  // upward until monotonyUntilDeg: no row may be smaller than the row below it.
+  for (let col = 0; col < nCols; col++) {
+    // degAxis is descending (80..2.0), so the "row below" (smaller Grad) has HIGHER index
+    for (let row = nRows - 2; row >= 0; row--) {
+      if (spec.degAxis[row] > params.monotonyUntilDeg) break;
+      if (newBytes[col][row] < newBytes[col][row + 1]) {
+        newBytes[col][row] = newBytes[col][row + 1];
+      }
+    }
+  }
+
+  // Write back into a fresh copy of the BIN
+  const out = new Uint8Array(bin);
+  for (let col = 0; col < nCols; col++) {
+    for (let row = 0; row < nRows; row++) {
+      out[addr + col * nRows + row] = newBytes[col][row];
+    }
+  }
+
+  // Byte-exact safety check: no change may land outside the map region
+  const warnings = [];
+  for (let i = 0; i < bin.length; i++) {
+    if (bin[i] !== out[i]) {
+      if (i < addr || i >= addr + nCols * nRows) {
+        warnings.push(`Byte 0x${i.toString(16)} wurde außerhalb des Kennfelds geändert!`);
+      }
+    }
+  }
+
+  return { binOut: out, changes, warnings, oldBytes, newBytes };
+}
+
+// Pack a .bin into a .zip and return a Blob. Uses JSZip (lazy-loaded).
+async function iawBinToZip(binU8, binName) {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('JSZip is not loaded — check your internet connection or reload the page.');
+  }
+  const zip = new JSZip();
+  zip.file(binName, binU8);
+  return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+}
+
+// Read a .zip file, extract the first .bin inside it, validate the size.
+async function iawZipToBin(file, expectedSize) {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('JSZip is not loaded — check your internet connection or reload the page.');
+  }
+  const buf = await file.arrayBuffer();
+  const zip = await JSZip.loadAsync(buf);
+  const binEntry = Object.values(zip.files).find(f => !f.dir && /\.bin$/i.test(f.name));
+  if (!binEntry) throw new Error('No .bin file found in the ZIP.');
+  const u8 = new Uint8Array(await binEntry.async('arraybuffer'));
+  if (u8.length !== expectedSize) {
+    throw new Error(`BIN hat ${u8.length} Bytes, erwartet ${expectedSize}.`);
+  }
+  return { bin: u8, name: binEntry.name };
 }
 
 // Interpolated target-lambda at a given TPS (linear between zone centers)
@@ -2089,12 +2362,94 @@ function applyTargetSpec() {
   // Custom-template section: only shown for trim targets (and later for flash
   // when a template-upload workflow is defined there too).
   $('#expCustomTplSection').hidden = (kind !== 'trim');
+  $('#expIawSection').hidden        = (target !== 'iaw16m');
   if (kind === 'trim') {
     $('#expTplExt').textContent = ext;
     $('#expTplFile').setAttribute('accept', ext);
   }
+  if (target === 'iaw16m') {
+    renderIawParams();
+    refreshIawStatus();
+  }
 
   refreshCustomTplStatus();
+}
+
+// --- IAW16M UI wiring -----------------------------------------------------
+function renderIawParams() {
+  const p = loadIawParams();
+  $('#expIawT80').value    = p.target80.toFixed(2);
+  $('#expIawTMid').value   = p.targetMid.toFixed(2);
+  $('#expIawTRest').value  = p.targetRest.toFixed(2);
+  $('#expIawOffset').value = p.tpsOffset;
+  $('#expIawFactor').value = p.tpsFactor;
+  $('#expIawNmin').value   = p.nMin;
+  $('#expIawNfull').value  = p.nFull;
+  $('#expIawMax').value    = p.maxChange;
+  $('#expIawMin').value    = p.minChange;
+  $('#expIawMono').value   = p.monotonyUntilDeg;
+  $('#expIawExc').value    = p.exceptions;
+}
+
+function readIawParamsFromUi() {
+  const p = loadIawParams();
+  const num = (id, def) => {
+    const v = parseFloat(String($('#' + id).value).replace(',', '.'));
+    return Number.isFinite(v) ? v : def;
+  };
+  p.target80         = num('expIawT80',    p.target80);
+  p.targetMid        = num('expIawTMid',   p.targetMid);
+  p.targetRest       = num('expIawTRest',  p.targetRest);
+  p.tpsOffset        = num('expIawOffset', p.tpsOffset);
+  p.tpsFactor        = num('expIawFactor', p.tpsFactor);
+  p.nMin             = Math.max(1, num('expIawNmin',  p.nMin) | 0);
+  p.nFull            = Math.max(1, num('expIawNfull', p.nFull) | 0);
+  p.maxChange        = num('expIawMax',    p.maxChange);
+  p.minChange        = num('expIawMin',    p.minChange);
+  p.monotonyUntilDeg = num('expIawMono',   p.monotonyUntilDeg);
+  p.exceptions       = $('#expIawExc').value;
+  storeIawParams(p);
+  return p;
+}
+
+function refreshIawStatus() {
+  const bin = loadIawBin();
+  const dlBtn = $('#expDownload');
+  const statusEl = $('#expIawStatus');
+  const clearBtn = $('#expIawClear');
+  const btnLabel = $('#expIawBtnLabel');
+  statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
+  if (bin) {
+    statusEl.textContent = `Ausgangs-BIN geladen (${bin.length.toLocaleString('en-US')} Byte).`;
+    statusEl.classList.add('exp-tpl-custom');
+    clearBtn.hidden = false;
+    btnLabel.textContent = '📂 Other BIN...';
+    dlBtn.disabled = false;
+  } else {
+    statusEl.textContent = 'No BIN loaded yet.';
+    statusEl.classList.add('exp-tpl-missing');
+    clearBtn.hidden = true;
+    btnLabel.textContent = '📂 Choose source BIN (ZIP)';
+    dlBtn.disabled = true;
+  }
+}
+
+async function handleIawBinUpload(file) {
+  const statusEl = $('#expIawStatus');
+  statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-missing');
+  statusEl.textContent = 'Lese ZIP…';
+  try {
+    const { bin, name } = await iawZipToBin(file, TARGET_SPEC.iaw16m.binSize);
+    if (!storeIawBin(bin)) {
+      throw new Error('Speicherung im Browser fehlgeschlagen (Speicher voll?).');
+    }
+    toast(`BIN „${name}" geladen`, 2500);
+    refreshIawStatus();
+    renderExportPreview();
+  } catch (e) {
+    statusEl.textContent = e.message || String(e);
+    statusEl.classList.add('exp-tpl-error');
+  }
 }
 
 // Reflect the current (saved) custom-template state in the UI, and gate the
@@ -2210,6 +2565,11 @@ function renderExportPreview() {
     $('#expSummary').innerHTML = '';
     return;
   }
+  // IAW16M has its own layout (16×16 Grad × RPM, ms values, alt→neu per cell)
+  if ($('#expTarget').value === 'iaw16m') {
+    renderIawPreview();
+    return;
+  }
   const opts = readExportOpts();
   const { rpmAxis, tpsAxis, rows } = buildExportMap(opts);
   // Build table — TPS as rows (high at top, like PC software), RPM as columns
@@ -2250,6 +2610,100 @@ function renderExportPreview() {
     ${countFilled ? `<span><strong>${countFilled}</strong> set to 0 % (no data)</span>` : ''}
     ${countEmpty ? `<span><strong>${countEmpty}</strong> empty</span>` : ''}
     ${countClamp ? `<span><strong>${countClamp}</strong> clamped<span class="exp-badge-warn">±${opts.clamp}%</span></span>` : ''}
+  `;
+}
+
+// IAW16M preview: 16×16 grid of ms values (Grad rows × RPM cols), with
+// alt→neu per cell. Unchanged cells show just the current value in muted
+// grey; changed cells show "alt / neu" with red (richer) / blue (leaner).
+function renderIawPreview() {
+  // Make sure parameter edits in the UI are picked up before computing
+  readIawParamsFromUi();
+  const result = buildIawBinary();
+  if (!result) {
+    $('#expPreviewWrap').innerHTML = `
+      <div class="modal-sub" style="padding:14px 0">
+        Noch keine Ausgangs-BIN hochgeladen. Lade erst eine ZIP mit der aktuell gefahrenen MD-039/MD-040-BIN hoch, dann erscheint hier die Vorschau mit allen Änderungen.
+      </div>`;
+    $('#expSummary').innerHTML = '';
+    return;
+  }
+  const spec = TARGET_SPEC.iaw16m;
+  const scale = spec.byteScale;
+  const { oldBytes, newBytes, changes, warnings } = result;
+
+  // Build HTML table: header = RPM, rows = Grad (80° at top, 2.0° at bottom)
+  const headerCells = spec.rpmAxis.map(r => `<th>${r}</th>`).join('');
+  const bodyRows = spec.degAxis.map((deg, row) => {
+    const cells = spec.rpmAxis.map((rpm, col) => {
+      const o = oldBytes[col][row];
+      const n = newBytes[col][row];
+      const oldMs = o / scale;
+      if (n === o) {
+        return `<td class="exp-cell exp-zero" title="${deg}° @ ${rpm} U/min · unverändert">${oldMs.toFixed(2)}</td>`;
+      }
+      const newMs = n / scale;
+      const deltaPct = (n / o - 1) * 100;
+      const cls = n > o ? 'exp-pos' : 'exp-neg';
+      const title = `${deg}° @ ${rpm} U/min · ${o} → ${n} (${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)} %)`;
+      return `<td class="exp-cell ${cls}" title="${title}">
+        <span style="display:block;font-size:9px;opacity:.55;line-height:1;font-weight:400">${oldMs.toFixed(2)}</span>
+        <span style="display:block;font-weight:700;line-height:1.1">${newMs.toFixed(2)}</span>
+      </td>`;
+    }).join('');
+    return `<tr><th>${Number.isInteger(deg) ? deg : deg.toFixed(1)}°</th>${cells}</tr>`;
+  }).join('');
+
+  $('#expPreviewWrap').innerHTML = `
+    <table class="exp-preview iaw-preview">
+      <thead><tr><th>Grad \\ RPM</th>${headerCells}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+    ${renderIawChangeList(changes)}
+  `;
+
+  // Summary line + optional warning banner
+  let posN = 0, negN = 0;
+  changes.forEach(c => { if (c.newByte > c.oldByte) posN++; else negN++; });
+  const total = 16 * 16;
+  const unchanged = total - changes.length;
+  $('#expSummary').innerHTML = `
+    <span><strong>${changes.length}</strong>/${total} Zellen geändert</span>
+    ${posN ? `<span style="color:var(--rich)"><strong>${posN}</strong> fetter</span>` : ''}
+    ${negN ? `<span style="color:var(--lean)"><strong>${negN}</strong> magerer</span>` : ''}
+    <span><strong>${unchanged}</strong> unverändert</span>
+    ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} Warnung(en)</span>` : ''}
+  `;
+}
+
+// Compact table of the biggest changes, below the main grid
+function renderIawChangeList(changes) {
+  if (!changes.length) {
+    return `<div class="modal-sub" style="margin-top:12px">No cells changed — lambda data are within the target or do not cover the map yet.</div>`;
+  }
+  const sorted = changes.slice().sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct));
+  const show = sorted.slice(0, 20);
+  const rows = show.map(c => {
+    const sign = c.deltaPct > 0 ? '+' : '';
+    const cls = c.newByte > c.oldByte ? 'exp-pos' : 'exp-neg';
+    return `<tr>
+      <td>${Number.isInteger(c.deg) ? c.deg : c.deg.toFixed(1)}°</td>
+      <td>${c.rpm}</td>
+      <td>${c.oldByte}</td>
+      <td class="${cls}" style="font-weight:700">${c.newByte}</td>
+      <td class="${cls}">${sign}${c.deltaPct.toFixed(1)} %</td>
+      <td>${c.lamMeas.toFixed(3)}</td>
+      <td>${c.n}</td>
+    </tr>`;
+  }).join('');
+  const more = changes.length > show.length ? `<div class="modal-sub" style="margin-top:6px;text-align:right">… ${changes.length - show.length} weitere Änderungen</div>` : '';
+  return `
+    <div class="exp-section-title" style="margin:16px 0 8px">Größte Änderungen (${show.length} von ${changes.length})</div>
+    <table class="exp-preview">
+      <thead><tr><th>Grad</th><th>RPM</th><th>alt</th><th>neu</th><th>Δ%</th><th>λ gem.</th><th>n</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${more}
   `;
 }
 
@@ -2315,6 +2769,25 @@ function downloadExport() {
     triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
                     `${base}_MD-Lambda-View.djm`);
     toast('.djm downloaded', 2000);
+  } else if (opts.target === 'iaw16m') {
+    // Flush any pending edits in the IAW parameter fields into storage first
+    readIawParamsFromUi();
+    const result = buildIawBinary();
+    if (!result) { toast('Upload the source BIN (ZIP) first', 3000); return; }
+    if (result.warnings.length) {
+      toast(`Warnung: ${result.warnings[0]}`, 4000);
+      return;
+    }
+    (async () => {
+      try {
+        const outName = `${base}_MD-Lambda-View.bin`;
+        const blob = await iawBinToZip(result.binOut, outName);
+        triggerDownload(blob, `${base}_MD-Lambda-View.zip`);
+        toast(`BIN exportiert (${result.changes.length} Zellen geändert)`, 3500);
+      } catch (e) {
+        toast('Error: ' + (e.message || e), 4000);
+      }
+    })();
   } else {
     const csv = buildExportCsv(opts, map);
     triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
@@ -2368,6 +2841,35 @@ $('#expTplClear').addEventListener('click', () => {
   renderExportPreview();
   toast('Custom template removed', 1800);
 });
+
+// --- IAW16M controls -----------------------------------------------------
+$('#expIawFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (f) handleIawBinUpload(f);
+  e.target.value = '';
+});
+$('#expIawClear').addEventListener('click', () => {
+  clearIawBin();
+  refreshIawStatus();
+  renderExportPreview();
+  toast('BIN removed', 1800);
+});
+$('#expIawReset').addEventListener('click', () => {
+  const d = TARGET_SPEC.iaw16m.defaults;
+  storeIawParams({ ...d });
+  renderIawParams();
+  renderExportPreview();
+  toast('IAW parameters reset', 1800);
+});
+// Persist IAW parameter edits on blur/change AND refresh the preview live
+['expIawT80','expIawTMid','expIawTRest','expIawOffset','expIawFactor',
+ 'expIawNmin','expIawNfull','expIawMax','expIawMin','expIawMono','expIawExc']
+  .forEach(id => {
+    $('#' + id).addEventListener('change', () => {
+      readIawParamsFromUi();
+      renderExportPreview();
+    });
+  });
 
 // ============ RENDER ============
 function render3D() {
