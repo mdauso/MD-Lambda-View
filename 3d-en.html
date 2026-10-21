@@ -1285,6 +1285,11 @@ body.pseudo-full .plot-area {
       <div class="modal-sub" style="margin-bottom:10px">
         Upload the BIN currently flashed to the ECU as a <strong>ZIP file</strong> (65,536 bytes). This file is read, the map at <code>0xF161</code> is recomputed, the rest stays untouched. Return again as ZIP.
       </div>
+      <div class="modal-sub" style="margin-bottom:10px;padding:8px 10px;background:var(--paper-2);border-left:3px solid var(--ink-3);border-radius:4px;font-size:11.5px">
+        <strong>Fixed grid from the fuel map:</strong><br>
+        16 RPM columns: <code>1000 · 1200 · 1350 · 1500 · 1800 · 2100 · 2400 · 2700 · 3000 · 3500 · 4200 · 5100 · 6100 · 7500 · 8400 · 9000</code> rpm<br>
+        16 degree rows: <code>2.0 · 2.4 · 2.9 · 3.5 · 4.2 · 5.1 · 7.5 · 9.7 · 13 · 17 · 21 · 28 · 37 · 48 · 60 · 80</code>°
+      </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expIawFile" style="cursor:pointer">
           <span id="expIawBtnLabel">📂 Choose source BIN (ZIP)</span>
@@ -1343,8 +1348,8 @@ body.pseudo-full .plot-area {
       <div class="modal-sub" style="margin-top:8px">Intermediate TPS values are interpolated linearly. The values are taken from the tuning targets of the 2D app (localStorage).</div>
     </div>
 
-    <!-- Grid: RPM and TPS axes -->
-    <div class="exp-section">
+    <!-- Grid: RPM and TPS axes (hidden for IAW16M, which uses fixed irregular axes) -->
+    <div class="exp-section" id="expGridSection">
       <div class="exp-section-title" id="expGridTitle">Grid</div>
       <div class="exp-grid-2">
         <div class="exp-field">
@@ -1375,8 +1380,8 @@ body.pseudo-full .plot-area {
       </div>
     </div>
 
-    <!-- Clamping + fill strategy -->
-    <div class="exp-section">
+    <!-- Clamping + fill strategy (hidden for IAW16M) -->
+    <div class="exp-section" id="expClampSection">
       <div class="exp-section-title">Limits &amp; gaps</div>
       <div class="exp-grid-2">
         <div class="exp-field">
@@ -1763,7 +1768,11 @@ const TARGET_SPEC = {
   iaw16m: {
     label: 'Magneti Marelli IAW16M (.bin)',
     kind: 'flash', status: 'ready',
-    tpsSet: null, rpmMin: null, rpmMax: null, rpmStep: null,
+    // tpsSet left null (IAW uses degree rows, not a %TPS grid). The RPM
+    // range is set so the 3D-app preview covers the full MD-039 fuel map
+    // from 1000 to 9000 U/min; the IAW builder itself uses the fixed
+    // 16-entry rpmAxis below regardless of these numbers.
+    tpsSet: null, rpmMin: 1000, rpmMax: 9000, rpmStep: 250,
     hint: 'IAW16M: Direct ECU reflash. Loads the currently flashed BIN as a ZIP, computes new map values and returns the new BIN again as a ZIP. Always back up the original BIN before flashing and spot-check a few values in an editor.',
     // IAW16M MD-039 BIN layout and axes (fixed by the ECU firmware):
     binSize:    65536,
@@ -1999,35 +2008,40 @@ function storeIawParams(p) {
   try { localStorage.setItem(IAW_PARAM_KEY, JSON.stringify(p)); } catch (e) {}
 }
 
-// Sample the user's logged lambda data onto the IAW grid. For each (RPM, Grad)
-// cell we take every logged point whose RPM and TPS fall into that cell's
-// window, weight by hit-count n, and return weighted mean + total n.
-// If STATE.cells does not carry n, we count 1 per cell.
+// Sample the user's logged lambda data directly from STATE.rawData onto the
+// IAW grid. We go to the raw log instead of the already-aggregated
+// STATE.cells, because the latter uses the 3D app's linear RPM/TPS binning
+// (typically 250 U/min steps) — that smears away the unevenly spaced IAW
+// grid points like 1200, 1350, 4200, 6100, 8400. Working from raw ensures
+// each IAW cell gets exactly the samples that belong in it.
 function sampleIawCell(rpmIdx, degIdx, params, spec) {
-  if (!STATE.cells || STATE.cells.length === 0) return { lam: null, n: 0 };
+  const raw = STATE.rawData;
+  if (!raw || !raw.rpm || raw.rpm.length === 0) return { lam: null, n: 0 };
   const rpmAx = spec.rpmAxis;
   const degAx = spec.degAxis;
-  // RPM window: midpoints to neighbours (axis is descending, so mind the signs)
+  // RPM window: midpoints to the neighbouring IAW grid points. Axis is
+  // descending (9000..1000), so index-1 is the LARGER value — upper bound;
+  // index+1 is smaller — lower bound.
   const rpmHi = rpmIdx > 0                 ? (rpmAx[rpmIdx-1] + rpmAx[rpmIdx]) / 2 : 20000;
   const rpmLo = rpmIdx < rpmAx.length - 1  ? (rpmAx[rpmIdx] + rpmAx[rpmIdx+1]) / 2 :     0;
-  // Grad window (axis descending too)
   const degHi = degIdx > 0                 ? (degAx[degIdx-1] + degAx[degIdx]) / 2 : 100;
   const degLo = degIdx < degAx.length - 1  ? (degAx[degIdx] + degAx[degIdx+1]) / 2 :   0;
-  // Translate the Grad window back to TPS: TPS = (Grad − offset) / factor
-  // Linear TPS ↔ degree conversion: 0 % TPS = minDeg, 100 % TPS = maxDeg.
-  // → TPS% = (Grad − minDeg) × 100 / (maxDeg − minDeg)
+  // Translate the Grad window to TPS% using the user's calibration:
+  // Grad = minDeg + TPS% × (maxDeg − minDeg) / 100   →
+  // TPS% = (Grad − minDeg) × 100 / (maxDeg − minDeg)
   const span = params.maxDeg - params.minDeg;
   const tpsHi = (degHi - params.minDeg) * 100 / span;
   const tpsLo = (degLo - params.minDeg) * 100 / span;
-  let sum = 0, totalN = 0;
-  STATE.cells.forEach(c => {
-    if (c.rpm < rpmLo || c.rpm > rpmHi) return;
-    if (c.thr < tpsLo || c.thr > tpsHi) return;
-    const n = c.n || 1;
-    sum    += c.lam * n;
-    totalN += n;
-  });
-  return totalN > 0 ? { lam: sum / totalN, n: totalN } : { lam: null, n: 0 };
+  let sum = 0, n = 0;
+  for (let i = 0; i < raw.rpm.length; i++) {
+    const r = raw.rpm[i];
+    if (r < rpmLo || r > rpmHi) continue;
+    const t = raw.throttle[i];
+    if (t < tpsLo || t > tpsHi) continue;
+    sum += raw.lambda[i];
+    n++;
+  }
+  return n > 0 ? { lam: sum / n, n } : { lam: null, n: 0 };
 }
 
 function targetLambdaForDeg(deg, params) {
@@ -2318,12 +2332,14 @@ function applyTargetSpec() {
     : `Grid (${spec.label})`;
 
   // Locked grid for everything with a fixed layout (trim + flash + preview)
-  const lock = (kind !== 'readable') && spec.tpsSet != null;
+  // Lock the grid for every fixed-format target. tpsSet is null for IAW
+  // (uses degree rows, not a %TPS grid), so check rpmMin as the discriminator.
+  const lock = (kind !== 'readable') && spec.rpmMin != null;
   if (lock) {
     $('#expRpmMin').value  = spec.rpmMin;
     $('#expRpmMax').value  = spec.rpmMax;
     $('#expRpmStep').value = String(spec.rpmStep);
-    $('#expTpsSet').value  = spec.tpsSet;
+    if (spec.tpsSet) $('#expTpsSet').value = spec.tpsSet;
   }
   ['expRpmMin','expRpmMax','expRpmStep','expTpsSet'].forEach(id => {
     $('#' + id).disabled = lock || !ready;
@@ -2344,6 +2360,10 @@ function applyTargetSpec() {
   // when a template-upload workflow is defined there too).
   $('#expCustomTplSection').hidden = (kind !== 'trim');
   $('#expIawSection').hidden        = (target !== 'iaw16m');
+  // IAW16M uses its own fixed irregular axes — the generic grid and the
+  // trim-style gap-fill settings don't apply there.
+  $('#expGridSection').hidden   = (target === 'iaw16m');
+  $('#expClampSection').hidden  = (target === 'iaw16m');
   if (kind === 'trim') {
     $('#expTplExt').textContent = ext;
     $('#expTplFile').setAttribute('accept', ext);
