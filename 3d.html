@@ -92,6 +92,10 @@ html, body {
   touch-action: manipulation;
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
+  /* iOS: stop the OS from scaling fonts up when the device rotates to landscape,
+     which previously enlarged labels and prose but left input fields unchanged. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 button { font-family: inherit; }
@@ -674,9 +678,9 @@ input[type="file"] { display: none; }
   left: 50%;
   top: 50%;
   transform: translate(-50%, calc(-50% + 20px));
-  width: calc(100vw - 32px);
+  width: calc(100vw - 24px);
   max-width: 440px;
-  max-height: 86vh;
+  max-height: 92vh;
   background: var(--cream-3);
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -695,32 +699,53 @@ input[type="file"] { display: none; }
   transform: translate(-50%, -50%);
 }
 .modal-header {
-  padding: 18px 20px 10px;
+  padding: 18px 18px 12px;
   border-bottom: 1px solid var(--line);
 }
 .modal-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--ink-0);
   letter-spacing: -0.2px;
+  line-height: 1.25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 .modal-sub {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--ink-2);
-  margin-top: 4px;
-  line-height: 1.4;
+  margin-top: 6px;
+  line-height: 1.45;
 }
 .modal-body {
-  padding: 14px 16px 18px;
+  padding: 16px 18px 20px;
   overflow-y: auto;
   min-width: 0;   /* keep wide children (preview table) from stretching the modal */
 }
 .modal-footer {
-  padding: 10px 16px calc(var(--safe-bot) + 14px);
+  padding: 12px 18px calc(var(--safe-bot) + 14px);
   border-top: 1px solid var(--line);
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  align-items: center;
+}
+/* Phones: inputs reach 16 px so iOS does not auto-zoom on focus, buttons stretch
+   full-width so three-button footers stop clipping. */
+@media (max-width: 480px) {
+  .modal-body { padding: 14px 14px 18px; }
+  .modal-footer {
+    padding: 12px 14px calc(var(--safe-bot) + 12px);
+    flex-direction: column;       /* buttons stack top → bottom */
+    align-items: stretch;
+    gap: 8px;
+  }
+  .modal-footer .modal-btn { width: 100%; }
+  /* HTML order is Schließen → Adopt → Download, so the primary Download sits
+     at the bottom — within thumb reach, which is what we want. */
 }
 .prep-option {
   display: block;
@@ -799,15 +824,21 @@ input[type="file"] { display: none; }
   outline: none; border-color: var(--accent-2);
 }
 .modal-btn {
-  padding: 9px 16px;
+  padding: 10px 16px;
+  min-height: 40px;
   border-radius: 10px;
-  font: 500 13px/1 inherit;
+  font: 500 14px/1.15 inherit;
   cursor: pointer;
   border: 1px solid var(--line);
   background: var(--paper);
   color: var(--ink-0);
   white-space: nowrap;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background .12s, border-color .12s;
 }
 .modal-btn:hover { background: #fff; }
 .modal-btn.primary {
@@ -816,34 +847,61 @@ input[type="file"] { display: none; }
   border-color: var(--accent-2);
 }
 .modal-btn.primary:hover { background: #c75f36; }
+.modal-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+@media (max-width: 480px) {
+  .modal-btn { font-size: 15px; min-height: 44px; } /* comfortable tap target */
+}
 
-/* === Export modal (PowerCommander) === */
+/* === Export modal === */
 .modal.export-modal { max-width: 680px; }
 .exp-section {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   margin-bottom: 12px;
   min-width: 0;
+  /* Horizontal overflow of a wide preview table is confined to the preview-wrap
+     (which scrolls); the section itself stays visible vertically so native
+     widgets like select dropdown arrows paint correctly. */
   overflow: hidden;
 }
+/* Uniform vertical rhythm inside every section: 10 px gap between any two
+   direct children (title, hint prose, grid, info box, button row, …). This
+   replaces a mix of per-element margin-top: 4/8/12 px inline styles. */
+.exp-section > * + * { margin-top: 10px; }
 .exp-section-title {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   color: var(--ink-1);
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-bottom: 10px;
+  letter-spacing: 0.5px;
 }
+.exp-section > .exp-section-title + * { margin-top: 12px; }   /* a touch more air under the heading */
+.exp-section-title.sub { margin-top: 18px !important; }       /* second heading inside the same card */
+/* Modal-sub inside an exp-section is a hint paragraph — no stray margin-top
+   from the global rule, the section's own flow handles spacing. */
+.exp-section .modal-sub { margin-top: 0; }
+.exp-section > .modal-sub + * { margin-top: 10px; }
 .exp-tpl-row {
-  display: flex; flex-wrap: wrap; align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
 }
+.exp-tpl-row .modal-btn { flex: 0 0 auto; }  /* don't stretch upload buttons */
 .exp-tpl-status {
   margin: 0;
-  flex: 1 1 180px;
+  flex: 1 1 100%;
   min-width: 0;
+  word-break: break-word;
+}
+@media (min-width: 480px) {
+  .exp-tpl-status { flex: 1 1 200px; }
 }
 .exp-tpl-status.exp-tpl-custom {
   color: var(--accent-2);
@@ -858,20 +916,11 @@ input[type="file"] { display: none; }
   color: #c9302c;
   font-weight: 600;
 }
-.modal-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-.exp-grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 12px;
-}
+.exp-grid-2,
 .exp-grid-4 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 8px 12px;
+  gap: 10px 12px;
 }
 @media (min-width: 480px) {
   .exp-grid-4 { grid-template-columns: repeat(4, 1fr); }
@@ -879,51 +928,81 @@ input[type="file"] { display: none; }
 .exp-field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  min-width: 0;
 }
 .exp-field label {
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink-2);
   font-weight: 500;
+  line-height: 1.25;
+  min-height: 15px;    /* consistent label line even when text wraps or is &nbsp; */
 }
 .exp-field input[type="number"],
 .exp-field select {
   width: 100%;
-  padding: 7px 9px;
+  padding: 9px 10px;
   border: 1px solid var(--line);
-  border-radius: 7px;
-  font: 500 13px/1.2 inherit;
+  border-radius: 8px;
+  font: 500 14px/1.2 inherit;
   background: var(--paper);
   color: var(--ink-0);
   text-align: right;
   font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+  height: 38px;
+  -webkit-appearance: none;
+          appearance: none;
 }
-.exp-field select { text-align: left; }
+.exp-field select {
+  text-align: left;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-2) 50%),
+                    linear-gradient(135deg, var(--ink-2) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 24px;
+}
 .exp-field input[type="number"]:focus,
 .exp-field select:focus {
   outline: none; border-color: var(--accent-2);
 }
+.exp-field input[type="number"]:disabled,
+.exp-field select:disabled { background-color: var(--paper-2); }
+/* Phones: bump font to 16 px so iOS doesn't auto-zoom when the user taps a
+   field. The field height grows a touch to keep the proportions right. */
+@media (max-width: 480px) {
+  .exp-field input[type="number"],
+  .exp-field select { font-size: 16px; height: 42px; padding: 10px 12px; }
+  .exp-field select { padding-right: 26px; }
+}
 
-/* Heatmap preview — same cream colour scheme, with rich/lean per cell */
+/* Heatmap preview — same cream colour scheme, with rich/lean per cell.
+   The wrap bleeds out to the section edge so very wide tables (16-col IAW map)
+   can scroll horizontally without squeezing the section padding away. */
 .exp-preview-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  margin: 4px -4px -4px;
-  padding: 0 4px 4px;
-  max-width: 100%;
+  margin: 4px -16px 0;
+  padding: 0 16px 4px;
+  max-width: calc(100% + 32px);
 }
 .exp-preview {
   border-collapse: collapse;
-  font-size: 10px;
+  font-size: 10.5px;
   font-variant-numeric: tabular-nums;
   margin: 0 auto;
 }
+.exp-preview-empty {
+  padding: 14px 0;
+  text-align: center;
+}
 .exp-preview th,
 .exp-preview td {
-  padding: 3px 5px;
+  padding: 4px 6px;
   text-align: center;
   border: 1px solid var(--line-2);
-  min-width: 32px;
+  min-width: 34px;
   white-space: nowrap;
 }
 .exp-preview thead th,
@@ -937,7 +1016,6 @@ input[type="file"] { display: none; }
 .exp-preview tbody th { position: sticky; left: 0; top: auto; }
 .exp-warn-badge {
   display: inline-block;
-  margin-left: 8px;
   padding: 2px 8px;
   background: #fff2cc;
   color: #a06500;
@@ -951,7 +1029,7 @@ input[type="file"] { display: none; }
 }
 
 .exp-cell { font-weight: 600; }
-.iaw-preview td.exp-cell { padding: 3px 4px; font-size: 11px; }
+.iaw-preview td.exp-cell { padding: 4px 5px; font-size: 11px; }
 .exp-cell.exp-pos   { color: #c9302c; }  /* needs more fuel (lean) */
 .exp-cell.exp-neg   { color: #2c6fb3; }  /* needs less fuel (rich) */
 .exp-cell.exp-zero  { color: var(--ink-2); font-weight: 400; }
@@ -961,19 +1039,20 @@ input[type="file"] { display: none; }
 .iaw-source-banner {
   background: rgba(226, 115, 74, .10);
   border-left: 3px solid #e2734a;
-  padding: 8px 10px;
-  margin-bottom: 10px;
-  border-radius: 4px;
-  font-size: 11.5px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.45;
 }
 .iaw-source-banner strong { color: var(--ink-0); font-weight: 600; }
 
 .exp-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  padding: 8px 2px 0;
-  font-size: 11px;
+  gap: 10px 14px;
+  padding: 10px 2px 0;
+  font-size: 11.5px;
   color: var(--ink-2);
 }
 .exp-summary strong { color: var(--ink-0); font-weight: 600; }
@@ -984,10 +1063,36 @@ input[type="file"] { display: none; }
   color: #a84a1a;
   padding: 1px 7px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 10.5px;
   font-weight: 600;
   margin-left: 4px;
 }
+
+/* Reusable: subtle info panel inside a section (grid hints, format notes). */
+.exp-info-box {
+  padding: 8px 10px;
+  background: var(--paper-2);
+  border-left: 3px solid var(--ink-3);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+.exp-info-box code { font-size: 11px; }
+
+/* Reusable: a visually hidden file input that still accepts clicks (via label). */
+.visually-hidden {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+}
+
+/* Reusable: full-width action button inside a grid cell (spans the full row). */
+.exp-grid-4 .exp-field.span-full {
+  grid-column: 1 / -1;
+}
+.exp-field.span-full .modal-btn { width: 100%; }
 
 /* ===== PSEUDO-FULLSCREEN (iOS fallback) ===== */
 body.pseudo-full header {
@@ -1283,7 +1388,7 @@ body.pseudo-full .plot-area {
           </optgroup>
         </select>
       </div>
-      <div class="modal-sub" id="expTargetHint" style="margin-top:8px"></div>
+      <div class="modal-sub" id="expTargetHint"></div>
     </div>
 
     <!-- IAW16M: dedicated section with BIN upload (ZIP), editable targets,
@@ -1294,34 +1399,34 @@ body.pseudo-full .plot-area {
       <div class="modal-sub" style="margin-bottom:10px">
         Lade die aktuell im Steuergerät gefahrene BIN als <strong>ZIP-Datei</strong> hoch (65.536 Byte). Diese Datei wird gelesen, das Kennfeld bei <code>0xF161</code> neu berechnet, der Rest bleibt unverändert. Rückgabe wieder als ZIP.
       </div>
-      <div class="modal-sub" style="margin-bottom:10px;padding:8px 10px;background:var(--paper-2);border-left:3px solid var(--ink-3);border-radius:4px;font-size:11.5px">
+      <div class="exp-info-box">
         <strong>Fester Grid aus dem Kennfeld:</strong><br>
         16 RPM-Spalten: <code>1000 · 1200 · 1350 · 1500 · 1800 · 2100 · 2400 · 2700 · 3000 · 3500 · 4200 · 5100 · 6100 · 7500 · 8400 · 9000</code> U/min<br>
         16 Grad-Zeilen: <code>2.0 · 2.4 · 2.9 · 3.5 · 4.2 · 5.1 · 7.5 · 9.7 · 13 · 17 · 21 · 28 · 37 · 48 · 60 · 80</code>°
       </div>
       <div class="exp-tpl-row">
-        <label class="modal-btn" for="expIawFile" style="cursor:pointer">
+        <label class="modal-btn" for="expIawFile">
           <span id="expIawBtnLabel">📂 Ausgangs-BIN (ZIP) wählen</span>
         </label>
-        <input type="file" id="expIawFile" accept=".zip" style="position:absolute;left:-9999px;width:1px;height:1px">
+        <input type="file" id="expIawFile" accept=".zip" class="visually-hidden">
         <span id="expIawStatus" class="modal-sub exp-tpl-status exp-tpl-missing">Noch keine BIN geladen.</span>
         <button class="modal-btn" id="expIawClear" type="button" hidden>Entfernen</button>
       </div>
 
-      <div class="exp-section-title" style="margin-top:16px">TPS → Grad-Umrechnung</div>
+      <div class="exp-section-title sub">TPS → Grad-Umrechnung</div>
       <div class="exp-grid-2">
         <div class="exp-field"><label>Min. Winkel bei 0 % TPS</label><input type="number" id="expIawMinDeg" step="0.1" min="0" max="30" inputmode="decimal"></div>
         <div class="exp-field"><label>Max. Winkel bei 100 % TPS</label><input type="number" id="expIawMaxDeg" step="0.1" min="10" max="120" inputmode="decimal"></div>
       </div>
-      <div class="modal-sub" style="margin-top:4px">0 % und 100 % TPS in der MD-Lambda-View-CSV entsprechen Min.- und Max.-Winkel des Einspritzkennfelds. Dazwischen linear: <code>Grad = Min + TPS% × (Max − Min) / 100</code>. Default für MD-039: 0° / 80°.</div>
+      <div class="modal-sub">0 % und 100 % TPS in der MD-Lambda-View-CSV entsprechen Min.- und Max.-Winkel des Einspritzkennfelds. Dazwischen linear: <code>Grad = Min + TPS% × (Max − Min) / 100</code>. Default für MD-039: 0° / 80°.</div>
 
-      <div class="exp-section-title" style="margin-top:16px">Korrekturparameter</div>
+      <div class="exp-section-title sub">Korrekturparameter</div>
       <div class="exp-grid-4">
         <div class="exp-field"><label>MAX_ÄNDERUNG ±%</label><input type="number" id="expIawMax" step="0.5" min="1" max="30" inputmode="decimal"></div>
         <div class="exp-field"><label>MONOTONIE bis (Grad)</label><input type="number" id="expIawMono" step="0.1" min="0" max="80" inputmode="decimal"></div>
-        <div class="exp-field" style="grid-column:span 2"><label>&nbsp;</label><button class="modal-btn" id="expIawReset" type="button" style="width:100%">↺ Standard</button></div>
+        <div class="exp-field span-full"><button class="modal-btn" id="expIawReset" type="button">↺ Standard</button></div>
       </div>
-      <div class="modal-sub" style="margin-top:4px">Glättung und Ausreißer-Filterung erfolgt bereits beim CSV-Einlesen über den Stabilitätsfilter — hier bleiben nur das Sicherheits-Cap (MAX) und die physikalische Monotonie-Durchsetzung. Die Ziel-λ-Werte kommen aus der 2D-App-Vorgabe (siehe oben: „Ziel-λ pro TPS-Zone").</div>
+      <div class="modal-sub">Glättung und Ausreißer-Filterung erfolgt bereits beim CSV-Einlesen über den Stabilitätsfilter — hier bleiben nur das Sicherheits-Cap (MAX) und die physikalische Monotonie-Durchsetzung. Die Ziel-λ-Werte kommen aus der 2D-App-Vorgabe (siehe oben: „Ziel-λ pro TPS-Zone").</div>
 
     </div>
 
@@ -1330,14 +1435,14 @@ body.pseudo-full .plot-area {
          signature and dongle GUID. No built-in template is shipped. -->
     <div class="exp-section" id="expCustomTplSection">
       <div class="exp-section-title">Eigenes Template</div>
-      <div class="modal-sub" style="margin-bottom:10px">
+      <div class="modal-sub">
         Lade eine leere <span id="expTplExt">.pvm</span>-Datei hoch, die Du in der PowerCommander-Software für Dein Fahrzeug gespeichert hast. Der Export verwendet die Modell-Signatur und Dongle-ID aus dieser Datei. Ohne eigenes Template ist kein Export möglich. Die Datei bleibt im Browser gespeichert, bis Du sie entfernst.
       </div>
       <div class="exp-tpl-row">
-        <label class="modal-btn" for="expTplFile" style="cursor:pointer">
+        <label class="modal-btn" for="expTplFile">
           <span id="expTplBtnLabel">📂 Template auswählen</span>
         </label>
-        <input type="file" id="expTplFile" accept=".pvm,.djm" style="position:absolute;left:-9999px;width:1px;height:1px">
+        <input type="file" id="expTplFile" accept=".pvm,.djm" class="visually-hidden">
         <span id="expTplStatus" class="modal-sub exp-tpl-status exp-tpl-missing">Noch kein Template geladen.</span>
         <button class="modal-btn" id="expTplClear" type="button" hidden>Entfernen</button>
       </div>
@@ -1348,12 +1453,12 @@ body.pseudo-full .plot-area {
     <div class="exp-section">
       <div class="exp-section-title">Ziel-λ pro TPS-Zone</div>
       <div class="exp-grid-4" id="expTargetsGrid"><!-- filled dynamically --></div>
-      <div class="exp-section-title" style="margin-top:12px">TPS-Grenzen zwischen den Zonen</div>
+      <div class="exp-section-title sub">TPS-Grenzen zwischen den Zonen</div>
       <div class="exp-grid-4" id="expBoundsGrid"><!-- filled dynamically --></div>
-      <div class="exp-grid-4" style="margin-top:8px">
-        <div class="exp-field" style="grid-column:span 4"><button class="modal-btn" id="expZonesReset" type="button" style="width:100%">↺ Standard für den Export</button></div>
+      <div class="exp-grid-4" style="margin-top:4px">
+        <div class="exp-field span-full"><button class="modal-btn" id="expZonesReset" type="button">↺ Standard für den Export</button></div>
       </div>
-      <div class="modal-sub" style="margin-top:8px">Für Zwischen-TPS-Werte wird linear interpoliert. Diese Werte gelten nur für den Export (2D-, 3D- und IAW16M-Flash); die 2D-App hat eigene Zielwerte, die unberührt bleiben.</div>
+      <div class="modal-sub">Für Zwischen-TPS-Werte wird linear interpoliert. Diese Werte gelten nur für den Export (2D-, 3D- und IAW16M-Flash); die 2D-App hat eigene Zielwerte, die unberührt bleiben.</div>
     </div>
 
     <!-- Grid: RPM and TPS axes (hidden for IAW16M, which uses fixed irregular axes) -->
@@ -1412,7 +1517,7 @@ body.pseudo-full .plot-area {
     <div class="exp-section">
       <div class="exp-section-title">Vorschau</div>
       <div class="exp-preview-wrap" id="expPreviewWrap">
-        <div class="modal-sub" style="padding:14px 0">—</div>
+        <div class="modal-sub exp-preview-empty">—</div>
       </div>
       <div class="exp-summary" id="expSummary"></div>
     </div>
@@ -2729,7 +2834,7 @@ function buildExportSourceBanner(opts) {
 
 function renderExportPreview() {
   if (!STATE.hasData) {
-    $('#expPreviewWrap').innerHTML = `<div class="modal-sub" style="padding:14px 0">Keine Daten geladen.</div>`;
+    $('#expPreviewWrap').innerHTML = `<div class="modal-sub exp-preview-empty">Keine Daten geladen.</div>`;
     $('#expSummary').innerHTML = '';
     return;
   }
@@ -2808,7 +2913,7 @@ function renderIawPreview() {
   const result = buildIawBinary();
   if (!result) {
     $('#expPreviewWrap').innerHTML = `
-      <div class="modal-sub" style="padding:14px 0">
+      <div class="modal-sub exp-preview-empty">
         Noch keine Ausgangs-BIN hochgeladen. Lade erst eine ZIP mit der aktuell gefahrenen MD-039/MD-040-BIN hoch, dann erscheint hier die Vorschau mit allen Änderungen.
       </div>`;
     $('#expSummary').innerHTML = '';
