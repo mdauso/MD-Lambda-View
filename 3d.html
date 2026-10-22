@@ -958,6 +958,16 @@ input[type="file"] { display: none; }
 .exp-cell.exp-empty { color: var(--ink-3); font-style: italic; }
 .exp-cell.exp-clamp { outline: 1.5px solid #e2734a; outline-offset: -2px; }
 
+.iaw-source-banner {
+  background: rgba(226, 115, 74, .10);
+  border-left: 3px solid #e2734a;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  font-size: 11.5px;
+}
+.iaw-source-banner strong { color: var(--ink-0); font-weight: 600; }
+
 .exp-summary {
   display: flex;
   flex-wrap: wrap;
@@ -1414,6 +1424,7 @@ body.pseudo-full .plot-area {
   </div>
   <div class="modal-footer">
     <button class="modal-btn" id="expClose" type="button">Schließen</button>
+    <button class="modal-btn" id="expIawAdopt" type="button" hidden title="Nur IAW16M: Überschreibt die bisherige Ausgangs-BIN im Browser mit der jetzt berechneten BIN — ideal für den nächsten Durchgang nach dem Flash.">↻ Berechnete BIN als neue Ausgangs-BIN</button>
     <button class="modal-btn primary" id="expDownload" type="button">↓ Datei herunterladen</button>
   </div>
 </div>
@@ -1919,8 +1930,9 @@ function cellPct(map, rpmIdx, tpsIdx) {
 // file's model signature + HID GUID instead of ours. Custom templates persist
 // per browser via localStorage.
 
-const CUSTOM_TPL_KEYS = { pcv: 'mdlv_tpl_pcv', pciii: 'mdlv_tpl_pciii' };
-const EXPECTED_TPL_SIZE = { pcv: 1010, pciii: 5328 };
+const CUSTOM_TPL_KEYS      = { pcv: 'mdlv_tpl_pcv',      pciii: 'mdlv_tpl_pciii' };
+const CUSTOM_TPL_META_KEYS = { pcv: 'mdlv_tpl_pcv_meta', pciii: 'mdlv_tpl_pciii_meta' };
+const EXPECTED_TPL_SIZE    = { pcv: 1010, pciii: 5328 };
 
 function loadCustomTemplate(target) {
   try {
@@ -1931,17 +1943,35 @@ function loadCustomTemplate(target) {
   } catch (e) { return null; }
 }
 
-function storeCustomTemplate(target, u8) {
+function loadCustomTemplateMeta(target) {
+  try {
+    const raw = localStorage.getItem(CUSTOM_TPL_META_KEYS[target]);
+    if (!raw) return null;
+    const m = JSON.parse(raw);
+    if (m && typeof m.name === 'string' && typeof m.uploadedAt === 'string') return m;
+    return null;
+  } catch (e) { return null; }
+}
+
+function storeCustomTemplate(target, u8, name) {
   // base64 encode by chunks (small files here, but keep the pattern safe)
   let bin = '';
   for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
   const b64 = btoa(bin);
-  try { localStorage.setItem(CUSTOM_TPL_KEYS[target], b64); return true; }
+  try {
+    localStorage.setItem(CUSTOM_TPL_KEYS[target], b64);
+    try {
+      const meta = { name: name || 'unbekannt', uploadedAt: new Date().toISOString() };
+      localStorage.setItem(CUSTOM_TPL_META_KEYS[target], JSON.stringify(meta));
+    } catch (e) { /* meta is nice-to-have */ }
+    return true;
+  }
   catch (e) { return false; }
 }
 
 function clearCustomTemplate(target) {
   try { localStorage.removeItem(CUSTOM_TPL_KEYS[target]); } catch (e) {}
+  try { localStorage.removeItem(CUSTOM_TPL_META_KEYS[target]); } catch (e) {}
 }
 
 function requireCustomTemplate(target) {
@@ -2016,7 +2046,8 @@ function buildDjmBinary(map) {
 // matches Mario's parallel chatbot workflow for MD-039 BINs.
 
 const IAW_PARAM_KEY = 'mdlv_iaw_params';
-const IAW_BIN_KEY   = 'mdlv_iaw_bin';   // base64 of the uploaded BIN
+const IAW_BIN_KEY   = 'mdlv_iaw_bin';         // base64 of the uploaded BIN
+const IAW_META_KEY  = 'mdlv_iaw_bin_meta';    // JSON: { name, uploadedAt (ISO) }
 
 function loadIawBin() {
   try {
@@ -2026,14 +2057,40 @@ function loadIawBin() {
     return u8.length === 65536 ? u8 : null;
   } catch (e) { return null; }
 }
-function storeIawBin(u8) {
+function loadIawBinMeta() {
+  try {
+    const raw = localStorage.getItem(IAW_META_KEY);
+    if (!raw) return null;
+    const m = JSON.parse(raw);
+    if (m && typeof m.name === 'string' && typeof m.uploadedAt === 'string') return m;
+    return null;
+  } catch (e) { return null; }
+}
+function storeIawBin(u8, name) {
   let bin = '';
   for (let i = 0; i < u8.length; i++) bin += String.fromCharCode(u8[i]);
-  try { localStorage.setItem(IAW_BIN_KEY, btoa(bin)); return true; }
-  catch (e) { return false; }
+  try {
+    localStorage.setItem(IAW_BIN_KEY, btoa(bin));
+    try {
+      const meta = { name: name || 'unbekannt', uploadedAt: new Date().toISOString() };
+      localStorage.setItem(IAW_META_KEY, JSON.stringify(meta));
+    } catch (e) { /* meta is nice-to-have, not required */ }
+    return true;
+  } catch (e) { return false; }
 }
 function clearIawBin() {
   try { localStorage.removeItem(IAW_BIN_KEY); } catch (e) {}
+  try { localStorage.removeItem(IAW_META_KEY); } catch (e) {}
+}
+
+// Format an ISO timestamp as "2026-10-22, 10:17" (local time, 24 h) for the UI.
+function formatBinUploadTime(iso) {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch (e) { return iso; }
 }
 
 function loadIawParams() {
@@ -2408,6 +2465,8 @@ function applyTargetSpec() {
   // trim-style gap-fill settings don't apply there.
   $('#expGridSection').hidden   = (target === 'iaw16m');
   $('#expClampSection').hidden  = (target === 'iaw16m');
+  // The "adopt computed BIN as new source" button is only meaningful on IAW16M.
+  $('#expIawAdopt').hidden      = (target !== 'iaw16m');
   if (kind === 'trim') {
     $('#expTplExt').textContent = ext;
     $('#expTplFile').setAttribute('accept', ext);
@@ -2445,23 +2504,32 @@ function readIawParamsFromUi() {
 
 function refreshIawStatus() {
   const bin = loadIawBin();
+  const meta = loadIawBinMeta();
   const dlBtn = $('#expDownload');
+  const adoptBtn = $('#expIawAdopt');
   const statusEl = $('#expIawStatus');
   const clearBtn = $('#expIawClear');
   const btnLabel = $('#expIawBtnLabel');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
   if (bin) {
-    statusEl.textContent = `Ausgangs-BIN geladen (${bin.length.toLocaleString('de-DE')} Byte).`;
+    const parts = [`${bin.length.toLocaleString('de-DE')} Byte`];
+    if (meta && meta.name) parts.push(`„${meta.name}"`);
+    if (meta && meta.uploadedAt) parts.push(`hochgeladen ${formatBinUploadTime(meta.uploadedAt)}`);
+    statusEl.textContent = parts.join(' · ');
     statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Andere BIN...';
     dlBtn.disabled = false;
+    adoptBtn.disabled = false;
+    adoptBtn.style.opacity = '1';
   } else {
     statusEl.textContent = 'Noch keine BIN geladen.';
     statusEl.classList.add('exp-tpl-missing');
     clearBtn.hidden = true;
     btnLabel.textContent = '📂 Ausgangs-BIN (ZIP) wählen';
     dlBtn.disabled = true;
+    adoptBtn.disabled = true;
+    adoptBtn.style.opacity = '0.55';
   }
 }
 
@@ -2471,7 +2539,7 @@ async function handleIawBinUpload(file) {
   statusEl.textContent = 'Lese ZIP…';
   try {
     const { bin, name } = await iawZipToBin(file, TARGET_SPEC.iaw16m.binSize);
-    if (!storeIawBin(bin)) {
+    if (!storeIawBin(bin, name)) {
       throw new Error('Speicherung im Browser fehlgeschlagen (Speicher voll?).');
     }
     toast(`BIN „${name}" geladen`, 2500);
@@ -2506,13 +2574,17 @@ function refreshCustomTplStatus() {
   }
 
   // Trim targets: template-upload status drives both labels and button state
-  const custom = loadCustomTemplate(target);
+  const custom   = loadCustomTemplate(target);
+  const meta     = loadCustomTemplateMeta(target);
   const statusEl = $('#expTplStatus');
   const clearBtn = $('#expTplClear');
   const btnLabel = $('#expTplBtnLabel');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
   if (custom) {
-    statusEl.textContent = `Eigenes Template aktiv (${custom.length} Bytes gespeichert).`;
+    const parts = [`${custom.length} Byte`];
+    if (meta && meta.name) parts.push(`„${meta.name}"`);
+    if (meta && meta.uploadedAt) parts.push(`hochgeladen ${formatBinUploadTime(meta.uploadedAt)}`);
+    statusEl.textContent = parts.join(' · ');
     statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Anderes Template...';
@@ -2550,7 +2622,7 @@ function handleCustomTplFile(file) {
       statusEl.classList.add('exp-tpl-error');
       return;
     }
-    const ok = storeCustomTemplate(target, u8);
+    const ok = storeCustomTemplate(target, u8, file.name);
     if (!ok) {
       statusEl.textContent = 'Datei konnte nicht gespeichert werden (Browser-Speicher voll?).';
       statusEl.classList.add('exp-tpl-error');
@@ -2634,6 +2706,27 @@ function renderTargetsForExport() {
   });
 }
 
+// Build the orange "which source + which log am I rendering" banner, parametrised
+// so IAW16M and the PowerCommander trim exports share it with slightly different
+// wording.
+function buildExportSourceBanner(opts) {
+  // opts: { headline, sourceLabel, sourceName, sourceTime, logName, note }
+  const srcLine = opts.sourceName
+    ? `<strong>„${opts.sourceName}"</strong>${opts.sourceTime ? ` · hochgeladen ${opts.sourceTime}` : ''}`
+    : `<strong>unbekannt</strong> (ohne Metadaten geladen)`;
+  const logLine = opts.logName
+    ? `Lambda-Log: <strong>„${opts.logName}"</strong>`
+    : `kein Lambda-Log geladen`;
+  return `
+    <div class="iaw-source-banner">
+      <div style="font-weight:600;margin-bottom:4px">⚠ ${opts.headline}</div>
+      <div class="modal-sub">${opts.sourceLabel}: ${srcLine}</div>
+      <div class="modal-sub">${logLine}</div>
+      ${opts.note ? `<div class="modal-sub" style="margin-top:6px;opacity:.85">${opts.note}</div>` : ''}
+    </div>
+  `;
+}
+
 function renderExportPreview() {
   if (!STATE.hasData) {
     $('#expPreviewWrap').innerHTML = `<div class="modal-sub" style="padding:14px 0">Keine Daten geladen.</div>`;
@@ -2645,6 +2738,7 @@ function renderExportPreview() {
     renderIawPreview();
     return;
   }
+  const target = $('#expTarget').value;
   const opts = readExportOpts();
   const { rpmAxis, tpsAxis, rows } = buildExportMap(opts);
   // Build table — TPS as rows (high at top, like PC software), RPM as columns
@@ -2663,7 +2757,24 @@ function renderExportPreview() {
     }).join('');
     return `<tr><th>${tps}%</th>${cells}</tr>`;
   }).join('');
+
+  // Trim-target banner: show which template is active + which log we rendered against
+  let banner = '';
+  if (target === 'pcv' || target === 'pciii') {
+    const tplMeta = loadCustomTemplateMeta(target);
+    const specLabel = TARGET_SPEC[target] ? TARGET_SPEC[target].label : target.toUpperCase();
+    banner = buildExportSourceBanner({
+      headline: 'Prüfe, dass Template und Lambda-Log zum selben Fahrzeug/Setup gehören',
+      sourceLabel: `Template (${specLabel})`,
+      sourceName: tplMeta && tplMeta.name,
+      sourceTime: tplMeta && tplMeta.uploadedAt ? formatBinUploadTime(tplMeta.uploadedAt) : null,
+      logName: STATE.fileName || null,
+      note: 'Trim-Map wird <em>on top</em> auf die aktuell gefahrene ECU-Map addiert — das Lambda-Log sollte mit genau jener Map gefahren worden sein, die derzeit im Steuergerät (bzw. PowerCommander) aktiv ist.',
+    });
+  }
+
   $('#expPreviewWrap').innerHTML = `
+    ${banner}
     <table class="exp-preview">
       <thead><tr><th>TPS \\ RPM</th>${headerCells}</tr></thead>
       <tbody>${bodyRows}</tbody>
@@ -2733,7 +2844,20 @@ function renderIawPreview() {
     return `<tr><th>${Number.isInteger(deg) ? deg : deg.toFixed(1)}°</th>${cells}</tr>`;
   }).join('');
 
+  // Banner: which BIN is loaded, with the explicit reminder that the BIN
+  // must match the lambda log — otherwise the correction is wrong.
+  const meta = loadIawBinMeta();
+  const banner = buildExportSourceBanner({
+    headline: 'Prüfe, dass die Ausgangs-BIN zu diesem Log passt',
+    sourceLabel: 'Rechen­grundlage',
+    sourceName: meta && meta.name,
+    sourceTime: meta && meta.uploadedAt ? formatBinUploadTime(meta.uploadedAt) : null,
+    logName: STATE.fileName || null,
+    note: 'Jeder Export rechnet den Korrekturfaktor erneut auf <em>diese</em> hochgeladene BIN. Nach einem Flash die neu gefahrene BIN wieder hochladen, bevor die nächste Lambda-Karte verrechnet wird — oder direkt den Button „↻ Berechnete BIN als neue Ausgangs-BIN" nutzen.',
+  });
+
   $('#expPreviewWrap').innerHTML = `
+    ${banner}
     <table class="exp-preview iaw-preview">
       <thead><tr><th>Grad \\ RPM</th>${headerCells}</tr></thead>
       <tbody>${bodyRows}</tbody>
@@ -2753,6 +2877,11 @@ function renderIawPreview() {
     <span><strong>${unchanged}</strong> unverändert</span>
     ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} Warnung(en)</span>` : ''}
   `;
+
+  // "Übernehmen"-Button: only useful when at least one cell actually changed
+  const adoptBtn = $('#expIawAdopt');
+  adoptBtn.disabled = (changes.length === 0);
+  adoptBtn.style.opacity = (changes.length === 0) ? '0.55' : '1';
 }
 
 // Compact table of the biggest changes, below the main grid
@@ -2945,6 +3074,43 @@ $('#expZonesReset').addEventListener('click', () => {
   renderTargetsForExport();
   renderExportPreview();
   toast('Export-Zonen zurückgesetzt', 1800);
+});
+
+// Adopt the currently computed BIN as the new source BIN — streamlines
+// iterative tuning (flash → fahren → neue Lambda-Karte → Export).
+// The old source BIN is overwritten in localStorage.
+$('#expIawAdopt').addEventListener('click', () => {
+  readIawParamsFromUi();
+  const result = buildIawBinary();
+  if (!result) {
+    toast('Keine berechnete BIN — zuerst Ausgangs-BIN hochladen', 3000);
+    return;
+  }
+  if (!result.changes.length) {
+    toast('Nichts zu übernehmen — keine Zelle wurde geändert', 2500);
+    return;
+  }
+  // Generate a new name by appending _revN (or incrementing an existing _revN).
+  const oldMeta = loadIawBinMeta();
+  const oldName = (oldMeta && oldMeta.name) || 'MD-039.bin';
+  const m = oldName.match(/^(.*?)(?:_rev(\d+))?(\.bin)$/i);
+  const stem = m ? m[1] : oldName.replace(/\.bin$/i, '');
+  const nextRev = (m && m[2]) ? (parseInt(m[2], 10) + 1) : 1;
+  const ext = (m && m[3]) || '.bin';
+  const newName = `${stem}_rev${nextRev}${ext}`;
+  const ok = confirm(
+    `Berechnete BIN („${newName}") als neue Ausgangs-BIN übernehmen?\n\n` +
+    `Die bisher gespeicherte BIN („${oldName}") wird dadurch im Browser überschrieben.\n` +
+    `Tipp: Lade die neue Datei vorher einmal mit „↓ .bin herunterladen" herunter, damit Du eine Sicherungskopie hast.`
+  );
+  if (!ok) return;
+  if (!storeIawBin(result.binOut, newName)) {
+    toast('Übernahme fehlgeschlagen (Speicherung im Browser)', 3500);
+    return;
+  }
+  refreshIawStatus();
+  renderExportPreview();
+  toast(`„${newName}" ist jetzt die Ausgangs-BIN`, 3500);
 });
 // Persist IAW parameter edits on blur/change AND refresh the preview live
 ['expIawMinDeg','expIawMaxDeg','expIawMax','expIawMono']
