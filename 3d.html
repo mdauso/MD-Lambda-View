@@ -718,9 +718,6 @@ input[type="file"] { display: none; }
   font-weight: 400;
   margin: 0 -2px;
 }
-.modal-title .exp-title-variant {
-  color: var(--accent-2);
-}
 .modal-sub {
   font-size: 13px;
   color: var(--ink-2);
@@ -877,62 +874,51 @@ input[type="file"] { display: none; }
 /* === Export modal === */
 .modal.export-modal { max-width: 680px; }
 
-/* Target-system pills, sticky at the top of the modal body so the active
-   target stays visible while the user scrolls through the sections below.
-   Negative horizontal margins bleed the row into the modal-body padding and
-   match it on both edges, so the sticky bar reaches wall-to-wall. */
-.exp-tabs {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  position: sticky;
-  top: 0;
-  margin: -16px -18px 14px;
-  padding: 10px 18px;
-  background: var(--cream-3);
-  z-index: 2;
-  border-bottom: 1px solid var(--line);
-}
-@media (max-width: 480px) {
-  .exp-tabs { margin: -14px -14px 14px; padding: 10px 14px; }
-}
-.exp-tab {
-  padding: 7px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink-1);
-  font: 500 13px/1.15 inherit;
-  cursor: pointer;
+/* The variant picker lives inside the modal title: the native <select> is
+   restyled to look like text in the title (orange, same weight), with a small
+   chevron pointing at it so it is clearly interactive. Clicking anywhere on
+   the wrapper opens the native dropdown including the optgroups. */
+.exp-title-select-wrap {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--accent-2);
+  padding: 2px 6px;
+  margin: -2px -2px;
+  border-radius: 6px;
+  transition: background .12s;
+}
+.exp-title-select-wrap:hover { background: rgba(226,115,74,.10); }
+.exp-title-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;      /* inherit modal-title's 17 px bold */
+  padding: 0 2px 0 0;
+  margin: 0;
+  cursor: pointer;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  overflow: hidden;
   white-space: nowrap;
-  transition: background .12s, border-color .12s, color .12s;
 }
-.exp-tab:hover { background: #fff; border-color: var(--ink-3); }
-.exp-tab[aria-selected="true"] {
-  background: var(--accent-2);
-  border-color: var(--accent-2);
-  color: #fff;
-  font-weight: 600;
+.exp-title-select:focus { outline: none; }
+.exp-title-select-wrap:focus-within {
+  background: rgba(226,115,74,.14);
+  box-shadow: 0 0 0 2px rgba(226,115,74,.25);
 }
-.exp-tab[aria-selected="true"]:hover { background: #c75f36; }
-.exp-tab-soon {
-  display: inline-block;
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: rgba(60,50,20,.12);
-  color: var(--ink-2);
+.exp-title-chevron {
+  font-size: 12px;
+  line-height: 1;
+  color: var(--accent-2);
+  pointer-events: none;    /* clicks fall through to the select below */
 }
-.exp-tab[aria-selected="true"] .exp-tab-soon { background: rgba(255,255,255,.25); color: #fff; }
-@media (pointer: coarse) {
-  .exp-tab { font-size: 14px; padding: 9px 14px; min-height: 36px; }
-}
+/* The <select>'s own options are rendered by the OS popup and look OK by
+   default; we only style the closed state. */
 .exp-target-hint { margin-top: 0; margin-bottom: 14px; }
 .exp-target-hint:empty { display: none; }
 
@@ -1524,31 +1510,28 @@ body.pseudo-full .plot-area {
     <div class="modal-title" id="expTitle">
       <span>Kennfeld-Export</span>
       <span class="exp-title-divider">·</span>
-      <span class="exp-title-variant" id="expTitleVariant">PowerCommander V</span>
+      <span class="exp-title-select-wrap">
+        <select id="expTarget" class="exp-title-select" aria-label="Zielsystem">
+          <optgroup label="Zwischenstecker (Trim-Maps)">
+            <option value="pcv" selected>PowerCommander V · PCFC · PCVI (.pvm)</option>
+            <option value="pciii">PowerCommander III USB (.djm)</option>
+            <option value="rbe">Rapid Bike EVO (.rbs) — demnächst</option>
+          </optgroup>
+          <optgroup label="ECU-Reflash">
+            <option value="iaw16m">Magneti Marelli IAW16M (.bin)</option>
+          </optgroup>
+          <optgroup label="Universell">
+            <option value="csv">CSV (zum Nachlesen)</option>
+          </optgroup>
+        </select>
+        <span class="exp-title-chevron" aria-hidden="true">▾</span>
+      </span>
       <span class="exp-warn-badge">⚠ Achtung, experimentell!</span>
     </div>
     <div class="modal-sub">Erzeugt aus den geladenen Lambda-Daten eine Trim-Map, eine ECU-BIN oder eine universelle CSV-Datei — je nach gewähltem Zielsystem.</div>
   </div>
   <div class="modal-body">
 
-    <!-- Target picker: pill row at the top, sticky while scrolling.
-         The native <select> stays as the authoritative state holder
-         (and screen-reader fallback) but is visually hidden; the pills
-         drive it via click handler. -->
-    <div class="exp-tabs" role="tablist" aria-label="Zielsystem">
-      <button class="exp-tab" type="button" role="tab" data-target="pcv"     data-group="trim"  aria-selected="true"  title="PowerCommander V · PCFC · PCVI">PCV</button>
-      <button class="exp-tab" type="button" role="tab" data-target="pciii"   data-group="trim"  aria-selected="false" title="PowerCommander III USB">PCIII</button>
-      <button class="exp-tab" type="button" role="tab" data-target="rbe"     data-group="trim"  aria-selected="false" title="Rapid Bike EVO (demnächst)">Rapid Bike<span class="exp-tab-soon">soon</span></button>
-      <button class="exp-tab" type="button" role="tab" data-target="iaw16m"  data-group="flash" aria-selected="false" title="Magneti Marelli IAW16M (ECU-Flash)">IAW16M</button>
-      <button class="exp-tab" type="button" role="tab" data-target="csv"     data-group="misc"  aria-selected="false" title="Universelle CSV">CSV</button>
-    </div>
-    <select id="expTarget" class="visually-hidden" aria-hidden="true" tabindex="-1">
-      <option value="pcv" selected>PowerCommander V (.pvm)</option>
-      <option value="pciii">PowerCommander III (.djm)</option>
-      <option value="rbe">Rapid Bike EVO (.rbs)</option>
-      <option value="iaw16m">Magneti Marelli IAW16M (.bin)</option>
-      <option value="csv">CSV</option>
-    </select>
     <div class="modal-sub exp-target-hint" id="expTargetHint"></div>
 
     <!-- IAW16M: dedicated section with BIN upload (ZIP), editable targets,
@@ -2692,15 +2675,8 @@ function applyTargetSpec() {
   const kind = spec.kind || 'readable';
   const ready = spec.status !== 'coming-soon';
 
-  // Sync the sticky pill row to match the active target (both set its
-  // aria-selected and update the visually-hidden <select>).
-  $$('#expModal .exp-tab').forEach(btn => {
-    btn.setAttribute('aria-selected', btn.dataset.target === target ? 'true' : 'false');
-  });
-
-  // Modal title reflects the active variant so a glance at the top says it.
-  $('#expTitleVariant').textContent = spec.label;
-
+  // The variant picker IS the title's <select>; it already reflects the active
+  // target, nothing extra to sync.
   $('#expTargetHint').textContent = spec.hint;
   $('#expGridTitle').textContent = kind === 'readable'
     ? 'Raster (frei wählbar)'
@@ -3299,15 +3275,6 @@ function closeExportModal() {
 $('#expTarget').addEventListener('change', () => {
   applyTargetSpec();
   renderExportPreview();
-});
-// Pill row drives the hidden <select>; clicking a pill updates both state and UI.
-$$('#expModal .exp-tab').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const target = btn.dataset.target;
-    if (!target || $('#expTarget').value === target) return;
-    $('#expTarget').value = target;
-    $('#expTarget').dispatchEvent(new Event('change'));
-  });
 });
 
 $('#btnExport').addEventListener('click', () => {
