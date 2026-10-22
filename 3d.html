@@ -935,6 +935,37 @@ input[type="file"] { display: none; }
 @media (min-width: 480px) {
   .exp-grid-4 { grid-template-columns: repeat(4, 1fr); }
 }
+/* The λ-target and TPS-boundary panels stack their cells vertically (1×n)
+   so labels like "Teillast → Volllast" never need to wrap, regardless of
+   device width. Inside each cell the label sits on the left (free to take
+   the width it needs) and the input is a fixed-width column on the right.
+   The Korrekturparameter grid (2 fields + reset button) keeps its default
+   2-column / 4-column layout. */
+#expTargetsGrid,
+#expBoundsGrid {
+  grid-template-columns: 1fr;
+}
+#expTargetsGrid .exp-field,
+#expBoundsGrid .exp-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+#expTargetsGrid .exp-field label,
+#expBoundsGrid .exp-field label {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+#expTargetsGrid .exp-field input[type="number"],
+#expBoundsGrid .exp-field input[type="number"] {
+  flex: 0 0 auto;
+  width: 110px;
+}
+@media (pointer: coarse) {
+  #expTargetsGrid .exp-field input[type="number"],
+  #expBoundsGrid .exp-field input[type="number"] { width: 120px; }
+}
 .exp-field {
   display: flex;
   flex-direction: column;
