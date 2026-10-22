@@ -715,10 +715,10 @@ input[type="file"] { display: none; }
   gap: 8px;
 }
 .modal-sub {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--ink-2);
   margin-top: 6px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 .modal-body {
   padding: 16px 18px 20px;
@@ -734,8 +734,8 @@ input[type="file"] { display: none; }
   justify-content: flex-end;
   align-items: center;
 }
-/* Phones: inputs reach 16 px so iOS does not auto-zoom on focus, buttons stretch
-   full-width so three-button footers stop clipping. */
+/* Narrow phones (portrait): tighten body padding and stack footer buttons so
+   long labels like "↻ Berechnete BIN als neue Ausgangs-BIN" don't clip. */
 @media (max-width: 480px) {
   .modal-body { padding: 14px 14px 18px; }
   .modal-footer {
@@ -747,6 +747,16 @@ input[type="file"] { display: none; }
   .modal-footer .modal-btn { width: 100%; }
   /* HTML order is Schließen → Adopt → Download, so the primary Download sits
      at the bottom — within thumb reach, which is what we want. */
+}
+/* Phones in landscape are wider than 480 px but still cramped vertically and
+   their text buttons still don't always fit side-by-side. Keep them stacked. */
+@media (pointer: coarse) and (max-width: 820px) {
+  .modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .modal-footer .modal-btn { width: 100%; }
 }
 .prep-option {
   display: block;
@@ -853,7 +863,7 @@ input[type="file"] { display: none; }
   cursor: not-allowed;
   pointer-events: none;
 }
-@media (max-width: 480px) {
+@media (pointer: coarse) {
   .modal-btn { font-size: 15px; min-height: 44px; } /* comfortable tap target */
 }
 
@@ -929,15 +939,20 @@ input[type="file"] { display: none; }
 .exp-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
+/* Labels and inputs share the body's base font size (14 px), so landscape mode
+   on the phone doesn't shrink the cell contents relative to the rest of the UI,
+   and inputs don't trigger iOS auto-zoom on focus (we round the inputs up to
+   15 px, which stays under the zoom threshold on modern iOS with the
+   maximum-scale viewport). */
 .exp-field label {
-  font-size: 11.5px;
+  font-size: 14px;
   color: var(--ink-2);
   font-weight: 500;
-  line-height: 1.25;
-  min-height: 15px;    /* consistent label line even when text wraps or is &nbsp; */
+  line-height: 1.3;
+  min-height: 18px;
 }
 .exp-field input[type="number"],
 .exp-field select {
@@ -945,13 +960,13 @@ input[type="file"] { display: none; }
   padding: 9px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  font: 500 14px/1.2 inherit;
+  font: 500 15px/1.2 inherit;
   background: var(--paper);
   color: var(--ink-0);
   text-align: right;
   font-variant-numeric: tabular-nums;
   box-sizing: border-box;
-  height: 38px;
+  height: 40px;
   -webkit-appearance: none;
           appearance: none;
 }
@@ -970,12 +985,15 @@ input[type="file"] { display: none; }
 }
 .exp-field input[type="number"]:disabled,
 .exp-field select:disabled { background-color: var(--paper-2); }
-/* Phones: bump font to 16 px so iOS doesn't auto-zoom when the user taps a
-   field. The field height grows a touch to keep the proportions right. */
-@media (max-width: 480px) {
+/* Touch devices (phones in any orientation, tablets): bump the field font to
+   16 px — iOS otherwise auto-zooms when focusing anything under 16 px. We use
+   pointer: coarse instead of width breakpoints so landscape phones hit this
+   rule too. */
+@media (pointer: coarse) {
   .exp-field input[type="number"],
-  .exp-field select { font-size: 16px; height: 42px; padding: 10px 12px; }
+  .exp-field select { font-size: 16px; height: 44px; padding: 10px 12px; }
   .exp-field select { padding-right: 26px; }
+  .exp-field label  { font-size: 14px; }
 }
 
 /* Heatmap preview — same cream colour scheme, with rich/lean per cell.
@@ -1043,8 +1061,8 @@ input[type="file"] { display: none; }
   padding: 10px 12px;
   margin: 0 0 12px;
   border-radius: 6px;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.5;
 }
 .iaw-source-banner strong { color: var(--ink-0); font-weight: 600; }
 
@@ -1053,7 +1071,7 @@ input[type="file"] { display: none; }
   flex-wrap: wrap;
   gap: 10px 14px;
   padding: 10px 2px 0;
-  font-size: 11.5px;
+  font-size: 13px;
   color: var(--ink-2);
 }
 .exp-summary strong { color: var(--ink-0); font-weight: 600; }
@@ -1071,15 +1089,15 @@ input[type="file"] { display: none; }
 
 /* Reusable: subtle info panel inside a section (grid hints, format notes). */
 .exp-info-box {
-  padding: 8px 10px;
+  padding: 10px 12px;
   background: var(--paper-2);
   border-left: 3px solid var(--ink-3);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   margin-bottom: 10px;
 }
-.exp-info-box code { font-size: 11px; }
+.exp-info-box code { font-size: 12px; }
 
 /* Reusable: a visually hidden file input that still accepts clicks (via label). */
 .visually-hidden {
