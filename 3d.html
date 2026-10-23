@@ -1697,7 +1697,7 @@ body.pseudo-full .plot-area {
     <div class="exp-section" id="expCustomTplSection">
       <div class="exp-section-title">Eigenes Template</div>
       <div class="modal-sub">
-        Lade eine <span id="expTplExt">.pvm</span>-Datei aus Deiner PowerCommander-Software. Bei PVM dient sie als Exportvorlage. Bei DJM werden Fahrzeugkennung, Achsen und Blockstruktur ausgelesen und für die Vorschau verwendet; ein binärer DJM-Export ist aus Sicherheitsgründen noch gesperrt. Die Datei bleibt im Browser gespeichert, bis Du sie entfernst.
+        Lade eine <span id="expTplExt">.pvm</span>-Datei aus Deiner PowerCommander-Software. Bei PVM werden Achsen und Kraftstoffkennfeld dynamisch ausgelesen. Der Export addiert die berechneten Prozentwerte zum bereits vorhandenen primären Kraftstoffkennfeld und erhält die übrigen Datenbereiche. Sind mehrere getrennte primäre Kennfelder vorhanden, bleibt der Export gesperrt. Bei DJM werden Fahrzeugkennung, Achsen und Blockstruktur ausgelesen und für die Vorschau verwendet; ein binärer DJM-Export ist aus Sicherheitsgründen noch gesperrt. Die Datei bleibt im Browser gespeichert, bis Du sie entfernst.
       </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expTplFile">
@@ -1745,6 +1745,7 @@ body.pseudo-full .plot-area {
         <div class="exp-field">
           <label>TPS-Raster</label>
           <select id="expTpsSet">
+            <option value="from-file">Achsen aus der geladenen Datei</option>
             <option value="pcv" selected>0 · 2 · 5 · 10 · 15 · 20 · 40 · 60 · 80 · 100 (PCV)</option>
             <option value="pciii">0 · 2 · 5 · 10 · 20 · 40 · 60 · 80 · 100 (PCIII)</option>
             <option value="pc-fine">0 · 2 · 5 · 10 · 15 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100</option>
@@ -2170,7 +2171,7 @@ const TARGET_SPEC = {
     kind: 'trim', status: 'ready',
     tpsSet: 'pcv',
     rpmMin: 500, rpmMax: 7500, rpmStep: 250,
-    hint: 'PCV / PCFC / PCVI: 29 Drehzahlen (500–7500 /250), 10 TPS-Spalten. Die Felder sind durch das Dateiformat festgelegt.'
+    hint: 'PCV / PCFC / PCVI: Die Achsen, Kennfeldgröße und Datenblöcke werden aus der PVM-Datei gelesen. Änderungen werden zum bestehenden primären Kraftstoffkennfeld addiert. Getrennte primäre Zylinderkennfelder bleiben aus Sicherheitsgründen schreibgeschützt.'
   },
   pciii: {
     label: 'PowerCommander III USB (.djm)',
@@ -2322,6 +2323,91 @@ const CUSTOM_TPL_KEYS      = { pcv: 'mdlv_tpl_pcv',      pciii: 'mdlv_tpl_pciii'
 const CUSTOM_TPL_META_KEYS = { pcv: 'mdlv_tpl_pcv_meta', pciii: 'mdlv_tpl_pciii_meta' };
 const EXPECTED_TPL_SIZE    = { pcv: 1010 };
 
+/* MD-Lambda-View: dynamic PVM pointer-table parser.
+   Validated against 10 independently supplied PowerCommander PVM files.
+   The bytes at offsets 0x38.. encode descriptors (name, TPS ptr, RPM ptr,
+   fuel-map ptr). Bit 31 is an address flag, not part of the file offset.
+   Only the *primary* fuel map is eligible for rewriting and only when all
+   primary fuel channels alias the very same map byte range. */
+function inspectPvmLayout(input) {
+  const b = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (b.byteLength < 320 || b.byteLength > 10_000_000)
+    throw new Error('PVM: ungültige Dateigröße');
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const u16 = o => v.getUint16(o, true);
+  const u32 = o => v.getUint32(o, true);
+  const ptr = o => u32(o) & 0x7fffffff; // pointer tag: high bit not an address bit
+  if (u32(0) !== 2 || u32(8) !== 48 || u32(12) !== 256 || u32(16) !== b.length-256)
+    throw new Error('PVM: Header/Fußbereich nicht erkannt');
+  const modelId = u32(4);
+  const descriptorCount = u32(48);
+  const tableOffset = ptr(52);
+  const dataEnd = b.length - 256;
+  if (descriptorCount < 1 || descriptorCount > 32 || tableOffset < 56 ||
+      tableOffset + descriptorCount*16 > dataEnd)
+    throw new Error('PVM: ungültige Kennfeldtabelle');
+  const descriptors = [];
+  let rpmAxis = null, tpsAxis = null, rpmCount = 0, tpsCount = 0;
+  const uniqueAxes = new Map();
+  for (let i = 0; i < descriptorCount; i++) {
+    const d = tableOffset + i*16;
+    if (b[d] !== 0xc1 || b[d+2] !== 0x3f)
+      throw new Error(`PVM: Kennfeldkennung ${i+1} unbekannt`);
+    const id = Array.from(b.subarray(d,d+4)).map(x => x.toString(16).padStart(2,'0')).join('');
+    const tp = ptr(d+4), rp = ptr(d+8), mp = ptr(d+12);
+    if (tp < tableOffset + descriptorCount*16 || tp + 8 > dataEnd ||
+        rp < tp + 4 || rp + 8 > dataEnd || mp > dataEnd)
+      throw new Error(`PVM: Zeiger in Kennfeld ${i+1} ungültig`);
+    // The two-byte axis tags encode count in the low byte and a fixed type
+    // in the high byte: TPS = 0xC5, RPM = 0x1C. Values follow a 4-byte tag.
+    const tc = b[tp], rc = b[rp];
+    if (b[tp+1] !== 0xc5 || b[rp+1] !== 0x1c ||
+        u16(tp+2) !== 0 || u16(rp+2) !== 0 ||
+        tc < 2 || tc > 32 || rc < 2 || rc > 200 ||
+        tp + 4 + tc*2 > dataEnd || rp + 4 + rc*2 > dataEnd ||
+        mp < rp + 4 + rc*2 || mp + tc*rc > dataEnd)
+      throw new Error(`PVM: Achsen/Matrix in Kennfeld ${i+1} ungültig`);
+    const ta = Array.from({length:tc}, (_,k) => u16(tp+4+2*k)/10);
+    const ra = Array.from({length:rc}, (_,k) => u16(rp+4+2*k));
+    if (ta.some((x,k) => x < 0 || x > 100 || (k && x <= ta[k-1])) ||
+        ra.some((x,k) => x < 0 || x > 25000 || (k && x <= ra[k-1])))
+      throw new Error(`PVM: unplausible Achsen in Kennfeld ${i+1}`);
+    if (rpmAxis && (ra.length !== rpmAxis.length || ra.some((x,k) => x !== rpmAxis[k]) ||
+                    ta.length !== tpsAxis.length || ta.some((x,k) => x !== tpsAxis[k])))
+      throw new Error('PVM: unterschiedliche Achsen innerhalb einer Datei');
+    rpmAxis = ra; tpsAxis = ta; rpmCount = rc; tpsCount = tc;
+    uniqueAxes.set(`${tp}/${rp}`, true);
+    descriptors.push({index:i, id, tpsOffset:tp, rpmOffset:rp,
+      mapOffset:mp, mapLength:rc*tc, isPrimary: /^c1403fd[0-3]$/.test(id)});
+  }
+  const primary = descriptors.filter(d => d.isPrimary);
+  if (!primary.length || primary[0].id !== 'c1403fd0')
+    throw new Error('PVM: primäres Kraftstoffkennfeld nicht erkannt');
+  const uniqueMapOffsets = [...new Set(descriptors.map(d=>d.mapOffset))].sort((a,b)=>a-b);
+  const mapLength = rpmCount*tpsCount;
+  // All seen PVMs store non-overlapping map blocks, without padding, up to
+  // the 256-byte model/comment footer. Do not write unknown arrangements.
+  if (uniqueMapOffsets[0] < tableOffset + descriptorCount*16 ||
+      uniqueMapOffsets.some((o,i) => (i && o !== uniqueMapOffsets[i-1]+mapLength)) ||
+      uniqueMapOffsets[uniqueMapOffsets.length-1] + mapLength !== dataEnd)
+    throw new Error('PVM: Datenblöcke nicht lückenlos oder überlappend');
+  const primaryOffsets = [...new Set(primary.map(d => d.mapOffset))];
+  // A file with different primary (e.g. cylinder/bank) tables can be read,
+  // but needs a deliberate per-channel UI before we can write it safely.
+  const sharedPrimary = primaryOffsets.length === 1;
+  const primaryOffset = primary[0].mapOffset;
+  const values = b.subarray(primaryOffset, primaryOffset+mapLength);
+  const valuesPlausible = values.every(x => x >= 1 && x <= 199);
+  const writable = sharedPrimary && valuesPlausible;
+  return { fileSize:b.length, modelId, descriptorCount, dataEnd,
+    rpmCount, tpsCount, rpmAxis, tpsAxis, descriptors, uniqueMapOffsets,
+    distinctMaps:uniqueMapOffsets.length, primaryCount:primary.length,
+    primaryOffset, mapLength, sharedPrimary, writable, recognized:true,
+    reason: !sharedPrimary ? 'Mehrere getrennte primäre Kraftstoffkennfelder – Export gesperrt'
+          : !valuesPlausible ? 'Unbekannte Wertcodierung im primären Kennfeld – Export gesperrt'
+          : 'PVM-Struktur erkannt; primäres Kraftstoffkennfeld beschreibbar'};
+}
+
 /* MD-Lambda-View: read-only DJM structural parser (validated on 11 samples).
    The fuel-cell offset/encoding has NOT been verified; DJM writes are forbidden. */
 function inspectDjmLayout(input) {
@@ -2367,9 +2453,8 @@ function inspectDjmLayout(input) {
 // No existing DJM writer is safe for these variable-length structures.
 function inspectPowerCommanderTemplate(target, u8) {
   if (target === 'pcv') {
-    const writable = u8.length === EXPECTED_TPL_SIZE.pcv;
-    return { writable, recognized: writable,
-      reason: writable ? 'Bekanntes PCV-Layout' : `Unbekanntes PVM-Layout (${u8.length} Byte)` };
+    try { return inspectPvmLayout(u8); }
+    catch (e) { return {recognized:false, writable:false, reason:e.message || String(e)}; }
   }
   if (target === 'pciii') {
     try {
@@ -2431,26 +2516,29 @@ function requireCustomTemplate(target) {
   return custom ? new Uint8Array(custom) : null;
 }
 
-// Build a .pvm file (PowerCommander V/FC/VI). Base is the user's own empty
-// .pvm — the HID-GUID, model-ID and all other header fields come straight
-// from that file; we only overwrite RPM axis + fuel matrix + comment.
-// Returns null if the user has not uploaded a template yet.
+// PVM output: preserve the header, original axes, auxiliary maps and 256-byte
+// notes/footer verbatim. The preview contains DELTA corrections; apply those
+// on top of the currently stored correction values (byte 100 = 0%).
+// Write ONLY the shared primary fuel map. Separate multi-bank maps are gated.
 function buildPvmBinary(map) {
-  const out = requireCustomTemplate('pcv');       // 1010 bytes or null
+  const out = requireCustomTemplate('pcv');
   if (!out) return null;
-  // Overwrite the template's "2008 Yamaha XT660R Tenere ..." note at 0x2F2
-  // with our own branding. 76-byte NUL-padded region.
-  writeComment(out, 0x2F2, 76);
-  // RPM axis at 0x110: 29 × int16 LE
-  for (let i = 0; i < 29; i++) {
-    writeI16LE(out, 0x110 + i * 2, map.rpmAxis[i] | 0);
-  }
-  // Matrix at 0x1D0: 29 RPM rows × 10 TPS cols × int8, baseline 100 (= 0 %)
-  for (let r = 0; r < 29; r++) {
-    for (let c = 0; c < 10; c++) {
-      // int8 range would be ±127, but PCV UI tops out at ±99 so stay safe.
-      const pct = Math.max(-99, Math.min(99, cellPct(map, r, c)));
-      out[0x1D0 + r * 10 + c] = (100 + pct) & 0xff;
+  const layout = inspectPvmLayout(out);
+  if (!layout.writable) throw new Error(layout.reason);
+  if (map.rpmAxis.length !== layout.rpmCount ||
+      map.tpsAxis.length !== layout.tpsCount ||
+      map.rpmAxis.some((x,i) => x !== layout.rpmAxis[i]) ||
+      map.tpsAxis.some((x,i) => x !== layout.tpsAxis[i]))
+    throw new Error('PVM: Das berechnete Kennfeld passt nicht auf die Originalachsen');
+  for (let r = 0; r < layout.rpmCount; r++) {
+    for (let c = 0; c < layout.tpsCount; c++) {
+      const cell = map.rows[c] && map.rows[c][r];
+      if (!cell || cell.pct == null) continue; // empty cells preserve the original
+      const delta = Math.round(cell.pct);
+      if (!Number.isFinite(delta)) throw new Error('PVM: ungültige Korrektur');
+      const o = layout.primaryOffset + r*layout.tpsCount + c;
+      // Encoded trim: 100=0%, e.g. 110=+10%. ±99% is the representable UI range.
+      out[o] = Math.max(1, Math.min(199, out[o]+delta));
     }
   }
   return out;
@@ -3123,16 +3211,17 @@ function buildExportMap(opts) {
 }
 
 function readExportOpts() {
-  let djmLayout = null;
-  if ($('#expTarget').value === 'pciii') {
-    const template = loadCustomTemplate('pciii');
+  const target = $('#expTarget').value;
+  let templateLayout = null;
+  if (target === 'pcv' || target === 'pciii') {
+    const template = loadCustomTemplate(target);
     if (template) {
-      const inspect = inspectPowerCommanderTemplate('pciii', template);
-      if (inspect.recognized) djmLayout = inspect;
+      const inspect = inspectPowerCommanderTemplate(target, template);
+      if (inspect.recognized) templateLayout = inspect;
     }
   }
   return {
-    ...(djmLayout ? { rpmAxis: djmLayout.rpmAxis, tpsAxis: djmLayout.tpsAxis } : {}),
+    ...(templateLayout ? { rpmAxis: templateLayout.rpmAxis, tpsAxis: templateLayout.tpsAxis } : {}),
     target:  $('#expTarget').value,
     rpmMin:  parseInt($('#expRpmMin').value, 10) || 500,
     rpmMax:  parseInt($('#expRpmMax').value, 10) || 13000,
@@ -3156,16 +3245,17 @@ function applyTargetSpec() {
   // The variant picker IS the title's <select>; it already reflects the active
   // target, nothing extra to sync.
   // Match the grid to the file, not to a hard-coded motorcycle model.
-  let djmLayout = null;
-  if (target === 'pciii') {
-    const template = loadCustomTemplate('pciii');
+  let templateLayout = null;
+  if (target === 'pcv' || target === 'pciii') {
+    const template = loadCustomTemplate(target);
     if (template) {
-      const inspect = inspectPowerCommanderTemplate('pciii', template);
-      if (inspect.recognized) djmLayout = inspect;
+      const inspect = inspectPowerCommanderTemplate(target, template);
+      if (inspect.recognized) templateLayout = inspect;
     }
   }
-  $('#expTargetHint').textContent = spec.hint + (djmLayout
-    ? ` Erkannt: ${djmLayout.rpmCount} RPM-Stützstellen (${djmLayout.rpmAxis[0]}–${djmLayout.rpmAxis[djmLayout.rpmCount - 1]}), ${djmLayout.tpsCount} TPS-Stützstellen, ${djmLayout.blockCount} Blöcke.`
+  const blockCount = templateLayout && (templateLayout.blockCount ?? templateLayout.distinctMaps);
+  $('#expTargetHint').textContent = spec.hint + (templateLayout
+    ? ` Erkannt: ${templateLayout.rpmCount} RPM-Stützstellen (${templateLayout.rpmAxis[0]}–${templateLayout.rpmAxis[templateLayout.rpmCount - 1]}), ${templateLayout.tpsCount} TPS-Stützstellen, ${blockCount} Datenblöcke. ${target === 'pcv' ? templateLayout.reason : ''}`
     : '');
   $('#expGridTitle').textContent = kind === 'readable'
     ? 'Raster (frei wählbar)'
@@ -3180,10 +3270,11 @@ function applyTargetSpec() {
     $('#expRpmMax').value  = spec.rpmMax;
     $('#expRpmStep').value = String(spec.rpmStep);
     if (spec.tpsSet) $('#expTpsSet').value = spec.tpsSet;
-    if (djmLayout) {
-      $('#expRpmMin').value = djmLayout.rpmAxis[0];
-      $('#expRpmMax').value = djmLayout.rpmAxis[djmLayout.rpmCount - 1];
-      const step = djmLayout.rpmAxis[1] - djmLayout.rpmAxis[0];
+    if (templateLayout) {
+      $('#expTpsSet').value = 'from-file';
+      $('#expRpmMin').value = templateLayout.rpmAxis[0];
+      $('#expRpmMax').value = templateLayout.rpmAxis[templateLayout.rpmCount - 1];
+      const step = templateLayout.rpmAxis[1] - templateLayout.rpmAxis[0];
       if ([250, 500, 1000].includes(step)) $('#expRpmStep').value = String(step);
     }
   }
@@ -3341,13 +3432,17 @@ function refreshCustomTplStatus() {
     statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Anderes Template...';
-    if (target === 'pciii') {
+    let canWrite = true;
+    if (target === 'pciii' || target === 'pcv') {
       const layout = inspectPowerCommanderTemplate(target, custom);
-      parts.push(`${layout.rpmCount} RPM · ${layout.tpsCount} TPS · ${layout.blockCount} Blöcke`);
-      parts.push('Nur Analyse/Vorschau – DJM-Export gesperrt');
+      const blocks = layout.blockCount ?? layout.distinctMaps;
+      parts.push(`${layout.rpmCount} RPM · ${layout.tpsCount} TPS · ${blocks} Blöcke`);
+      if (!layout.writable) parts.push(layout.reason || 'Nur Vorschau');
+      if (target === 'pcv' && layout.writable) parts.push('Additiv: vorhandene PVM-Werte + berechnete Korrektur');
+      canWrite = !!layout.writable;
     }
     statusEl.textContent = parts.join(' · ');
-    dlBtn.disabled = target === 'pciii';
+    dlBtn.disabled = !canWrite;
   } else {
     statusEl.textContent = 'Noch kein Template geladen.';
     statusEl.classList.add('exp-tpl-missing');
@@ -3391,7 +3486,7 @@ function handleCustomTplFile(file) {
     renderExportPreview();
     toast(target === 'pciii'
       ? `DJM erkannt: ${inspection.rpmCount} RPM · ${inspection.blockCount} Blöcke (nur Vorschau)`
-      : 'Eigenes Template gespeichert', 3000);
+      : `PVM erkannt: ${inspection.rpmCount} RPM · ${inspection.tpsCount} TPS · ${inspection.distinctMaps} Blöcke${inspection.writable ? '' : ' (nur Vorschau)'}`, 3500);
   };
   reader.onerror = () => {
     statusEl.textContent = 'Datei konnte nicht gelesen werden.';
@@ -3535,7 +3630,9 @@ function renderExportPreview() {
       sourceName: tplMeta && tplMeta.name,
       sourceTime: tplMeta && tplMeta.uploadedAt ? formatBinUploadTime(tplMeta.uploadedAt) : null,
       logName: STATE.fileName || null,
-      note: 'Trim-Map wird <em>on top</em> auf die aktuell gefahrene ECU-Map addiert — das Lambda-Log sollte mit genau jener Map gefahren worden sein, die derzeit im Steuergerät (bzw. PowerCommander) aktiv ist.',
+      note: target === 'pcv'
+        ? 'PVM: Die Vorschau zeigt <em>zusätzliche Korrekturwerte</em>. Beim Export werden sie auf die bereits in der Vorlage gespeicherten Prozentwerte addiert. Nur das gemeinsame primäre Kraftstoffkennfeld wird verändert; andere Kennfelder und Kommentare bleiben erhalten. Bitte die Datei in der PowerCommander-Software prüfen.'
+        : 'Trim-Map wird <em>on top</em> auf die aktuell gefahrene ECU-Map addiert — das Lambda-Log sollte mit genau jener Map gefahren worden sein, die derzeit im Steuergerät (bzw. PowerCommander) aktiv ist.',
     });
   }
 
@@ -3853,11 +3950,15 @@ function downloadExport() {
   const base = (STATE.fileName || 'md-lambda-view').replace(/\.[^.]+$/, '');
 
   if (opts.target === 'pcv') {
-    const bin = buildPvmBinary(map);
-    if (!bin) { toast('Zuerst eigenes .pvm-Template hochladen', 3000); return; }
-    triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
-                    `${base}_MD-Lambda-View.pvm`);
-    toast('.pvm heruntergeladen', 2000);
+    try {
+      const bin = buildPvmBinary(map);
+      if (!bin) { toast('Zuerst eigenes .pvm-Template hochladen', 3000); return; }
+      triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
+                      `${base}_MD-Lambda-View.pvm`);
+      toast('PVM: primäres Kennfeld angepasst, übrige Daten erhalten', 3000);
+    } catch (e) {
+      toast('PVM-Export gesperrt: ' + (e.message || String(e)), 4500);
+    }
   } else if (opts.target === 'pciii') {
     toast('DJM-Export gesperrt: Zelloffset und Codierung noch nicht verifiziert', 4500);
     return;
@@ -3945,7 +4046,7 @@ $('#expTplClear').addEventListener('click', () => {
   const target = $('#expTarget').value;
   if (target === 'csv') return;
   clearCustomTemplate(target);
-  refreshCustomTplStatus();
+  applyTargetSpec();
   renderExportPreview();
   toast('Eigenes Template entfernt', 1800);
 });
