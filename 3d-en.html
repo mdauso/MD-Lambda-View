@@ -1052,13 +1052,17 @@ input[type="file"] { display: none; }
 #expTargetsGrid,
 #expBoundsGrid,
 #expIawSection .exp-grid-2,
-#expIawSection .exp-grid-4 {
+#expIawSection .exp-grid-4,
+#expRbSection .exp-grid-2,
+#expRbSection .exp-grid-4 {
   grid-template-columns: 1fr;
 }
 #expTargetsGrid .exp-field,
 #expBoundsGrid .exp-field,
 #expIawSection .exp-grid-2 .exp-field,
-#expIawSection .exp-grid-4 .exp-field {
+#expIawSection .exp-grid-4 .exp-field,
+#expRbSection .exp-grid-2 .exp-field,
+#expRbSection .exp-grid-4 .exp-field {
   flex-direction: row;
   align-items: center;
   gap: 12px;
@@ -1066,7 +1070,9 @@ input[type="file"] { display: none; }
 #expTargetsGrid .exp-field label,
 #expBoundsGrid .exp-field label,
 #expIawSection .exp-grid-2 .exp-field label,
-#expIawSection .exp-grid-4 .exp-field label {
+#expIawSection .exp-grid-4 .exp-field label,
+#expRbSection .exp-grid-2 .exp-field label,
+#expRbSection .exp-grid-4 .exp-field label {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -1074,7 +1080,9 @@ input[type="file"] { display: none; }
 #expTargetsGrid .exp-field input[type="number"],
 #expBoundsGrid .exp-field input[type="number"],
 #expIawSection .exp-grid-2 .exp-field input[type="number"],
-#expIawSection .exp-grid-4 .exp-field input[type="number"] {
+#expIawSection .exp-grid-4 .exp-field input[type="number"],
+#expRbSection .exp-grid-2 .exp-field input[type="number"],
+#expRbSection .exp-grid-4 .exp-field input[type="number"] {
   flex: 0 0 auto;
   width: 110px;
 }
@@ -1082,12 +1090,15 @@ input[type="file"] { display: none; }
   #expTargetsGrid .exp-field input[type="number"],
   #expBoundsGrid .exp-field input[type="number"],
   #expIawSection .exp-grid-2 .exp-field input[type="number"],
-  #expIawSection .exp-grid-4 .exp-field input[type="number"] { width: 120px; }
+  #expIawSection .exp-grid-4 .exp-field input[type="number"],
+  #expRbSection .exp-grid-2 .exp-field input[type="number"],
+  #expRbSection .exp-grid-4 .exp-field input[type="number"] { width: 120px; }
 }
 /* `.span-full` cells inside these grids host the reset button alone — no label
    on the left, just a full-width button. Switch the cell back to a block layout
    so the button stretches edge-to-edge. */
 #expIawSection .exp-grid-4 .exp-field.span-full,
+#expRbSection .exp-grid-4 .exp-field.span-full,
 .exp-grid-4 .exp-field.span-full {
   display: block;
 }
@@ -1548,7 +1559,7 @@ body.pseudo-full .plot-area {
           <optgroup label="Add-on module (trim maps)">
             <option value="pcv" selected>PowerCommander V (.pvm)</option>
             <option value="pciii">PowerCommander III (.djm)</option>
-            <option value="rbe">Rapid Bike EVO (.rbs)</option>
+            <option value="rbe">Rapid Bike EVO (.mpp)</option>
           </optgroup>
           <optgroup label="ECU reflash">
             <option value="iaw16m">IAW16M (.bin)</option>
@@ -1604,6 +1615,40 @@ body.pseudo-full .plot-area {
       </div>
       <div class="modal-sub">Smoothing and outlier rejection already happen at CSV import via the stability filter — only the safety cap (MAX) and the physical monotony enforcement stay here. The target λ values come from the 2D app preset (see above: “Target λ per TPS zone”).</div>
 
+    </div>
+
+    <!-- Rapid Bike EVO: upload the currently used .mpp, we overwrite its
+         first map with (base + per-cell correction) and give the user a new
+         .mpp back. Only shown when target = rbe. -->
+    <div class="exp-section" id="expRbSection" hidden>
+      <div class="exp-section-title">Rapid Bike EVO · current map</div>
+      <div class="modal-sub">
+        Load the currently active Rapid Bike <strong>.mpp</strong> file. The file is read, the first map is recomputed from the lambda measurement (as additive RB units on top of the base inside it), the rest of the file stays untouched. Returned as a new .mpp.
+      </div>
+      <div class="exp-info-box">
+        <strong>Fixed grid of the RB format (Ténéré 700):</strong><br>
+        40 RPM-Zeilen: <code>1400 – 11200</code> rpm (irregular)<br>
+        8 TPS-Spalten: <code>0 · 5 · 10 · 20 · 40 · 60 · 80 · 95</code> %
+      </div>
+      <div class="exp-tpl-row">
+        <label class="modal-btn" for="expRbFile">
+          <span id="expRbBtnLabel">📂 Choose current map (.mpp)</span>
+        </label>
+        <input type="file" id="expRbFile" accept=".mpp" class="visually-hidden">
+        <span id="expRbStatus" class="modal-sub exp-tpl-status exp-tpl-missing">No MPP loaded yet.</span>
+        <button class="modal-btn" id="expRbClear" type="button" hidden>Remove</button>
+      </div>
+
+      <div class="exp-section-title sub">Correction parameters</div>
+      <div class="exp-grid-4">
+        <div class="exp-field"><label>% fuel per RB unit</label><input type="number" id="expRbPctU" step="0.1" min="0.1" max="10" inputmode="decimal"></div>
+        <div class="exp-field"><label>Tolerance band ±%</label><input type="number" id="expRbDead" step="0.5" min="0" max="20" inputmode="decimal"></div>
+        <div class="exp-field"><label>Max. change ± units</label><input type="number" id="expRbMaxS" step="1" min="1" max="20" inputmode="decimal"></div>
+        <div class="exp-field"><label>Min. samples per cell</label><input type="number" id="expRbMinN" step="1" min="1" max="500" inputmode="decimal"></div>
+        <div class="exp-field"><label>Correct only above rpm</label><input type="number" id="expRbCMin" step="50" min="0" max="20000" inputmode="decimal"></div>
+        <div class="exp-field span-full"><button class="modal-btn" id="expRbReset" type="button">↺ Default</button></div>
+      </div>
+      <div class="modal-sub">Calculation: deviation to target λ in %, divided by “% fuel per RB unit”, clamped to ± the max change, written additively (as integer) onto the base map. Column 0 % is left untouched (overrun). The target λ values come from the 2D app preset (see below: “Target λ per TPS zone”).</div>
     </div>
 
     <!-- Custom template: user must upload an empty .pvm/.djm from their own
@@ -1706,6 +1751,7 @@ body.pseudo-full .plot-area {
   <div class="modal-footer">
     <button class="modal-btn" id="expClose" type="button">Close</button>
     <button class="modal-btn" id="expIawAdopt" type="button" hidden title="IAW16M only: overwrites the current source BIN in the browser with the newly computed BIN — ideal for the next pass after a flash.">↻ Adopt computed BIN as new source</button>
+    <button class="modal-btn" id="expRbAdopt" type="button" hidden title="Rapid Bike only: overwrites the current source MPP in the browser with the newly computed MPP — ideal for the next pass after flashing.">↻ Adopt computed MPP as new source</button>
     <button class="modal-btn primary" id="expDownload" type="button">↓ Download file</button>
   </div>
 </div>
@@ -2091,11 +2137,29 @@ const TARGET_SPEC = {
     hint: 'PCIII USB: 47 RPM steps (500–12000 /250), 9 TPS columns (no 15 %). The fields are fixed by the file format.'
   },
   rbe: {
-    label: 'Rapid Bike EVO (.rbs)',
-    kind: 'trim', status: 'coming-soon',
-    tpsSet: 'pcv',   // placeholder grid until we have a reference file
-    rpmMin: 500, rpmMax: 12000, rpmStep: 250,
-    hint: 'Rapid Bike EVO: trim map like the PowerCommander, but in the Dimsport format. In preparation — the format will be added as soon as a reference file is available.'
+    label: 'Rapid Bike EVO (.mpp)',
+    kind: 'flash', status: 'ready',   // user uploads current .mpp, we rebuild it
+    // tpsSet left null (RB uses its own fixed 8-column TPS grid). The RPM range
+    // just drives the 3D-app preview; the RB builder uses the fixed 40-entry
+    // rpmAxis below regardless.
+    tpsSet: null, rpmMin: 1400, rpmMax: 11200, rpmStep: 250,
+    hint: 'Rapid Bike EVO: loads the current mapping file (.mpp) from the Rapid Bike software, computes a new adjusted map from it (additive RB units) and returns a new .mpp. Format Yamaha Ténéré 700 (40 rpm × 8 throttle positions).',
+    // RB fixed grid (Yamaha Ténéré 700 / RB-Evo). Column-major in the .mpp:
+    //   value[j · 40 + i]   with i=rpm-index, j=tps-index.
+    rpmAxis: [1400,1700,1900,2200,2400,2700,2900,3200,3400,3700,3900,4200,4400,4700,4900,5200,5400,5700,5900,6200,6400,6700,6900,7200,7400,7700,7900,8200,8400,8700,8900,9200,9400,9700,9900,10200,10400,10700,10900,11200],
+    tpsAxis: [0, 5, 10, 20, 40, 60, 80, 95],
+    defaults: {
+      // Correction parameters mirror the reference RB-Lambda-Tuner project
+      // (Mario's existing workflow), with smoothing/filling/history removed —
+      // the stability filter at CSV import already handles the heavy lifting.
+      pctU:    1.0,   // % fuel per RB unit (calibration — bike-specific)
+      dead:    2,     // tolerance band ±% around target λ
+      maxS:    3,     // max ± units per pass (safety cap)
+      minN:    20,    // min samples per cell before it earns a correction
+      cMin:    1700,  // RPM below which correction is skipped (idle regulation)
+      rnd:     'trunc', // 'trunc' (= Excel ROUNDDOWN) or 'round' (kaufmännisch)
+      lock0:   true,  // 0 % TPS column stays untouched (overrun)
+    },
   },
   iaw16m: {
     label: 'Magneti Marelli IAW16M (.bin)',
@@ -2541,6 +2605,298 @@ async function iawZipToBin(file, expectedSize) {
   return { bin: u8, name: binEntry.name };
 }
 
+// ============ RAPID BIKE EVO (.mpp) ============
+// Builds a new RB Mapping file (.mpp) from an uploaded one plus the current
+// lambda log. The maths follow Mario's reference RB-Lambda-Tuner project:
+// per-cell deviation to the target, scaled by % fuel per RB unit, clamped to
+// ±maxS, rounded, applied additively to the base map. Smoothing / interpolation
+// are intentionally NOT included — the stability filter at CSV import already
+// deals with noise; everything else is a plain add.
+//
+// Grid is 40 RPM rows × 8 TPS columns, stored column-major in the .mpp.
+// Target lambdas come from the shared EXP_ZONES mechanism (same as PCV/IAW16M).
+
+const RB_PARAM_KEY  = 'mdlv_rb_params';
+const RB_MPP_KEY    = 'mdlv_rb_mpp';          // JSON: { text }
+const RB_META_KEY   = 'mdlv_rb_mpp_meta';     // JSON: { name, uploadedAt, nMaps }
+
+function loadRbMppRaw() {
+  try {
+    const raw = localStorage.getItem(RB_MPP_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    return (obj && typeof obj.text === 'string') ? obj.text : null;
+  } catch (e) { return null; }
+}
+function loadRbMppMeta() {
+  try {
+    const raw = localStorage.getItem(RB_META_KEY);
+    if (!raw) return null;
+    const m = JSON.parse(raw);
+    return (m && typeof m.name === 'string' && typeof m.uploadedAt === 'string') ? m : null;
+  } catch (e) { return null; }
+}
+function storeRbMpp(text, name, nMaps) {
+  try {
+    localStorage.setItem(RB_MPP_KEY, JSON.stringify({ text }));
+    try {
+      localStorage.setItem(RB_META_KEY, JSON.stringify({
+        name: name || 'unknown',
+        uploadedAt: new Date().toISOString(),
+        nMaps: nMaps || 1,
+      }));
+    } catch (e) {}
+    return true;
+  } catch (e) { return false; }
+}
+function clearRbMpp() {
+  try { localStorage.removeItem(RB_MPP_KEY); } catch (e) {}
+  try { localStorage.removeItem(RB_META_KEY); } catch (e) {}
+}
+
+function loadRbParams() {
+  const defaults = TARGET_SPEC.rbe.defaults;
+  try {
+    const raw = localStorage.getItem(RB_PARAM_KEY);
+    if (!raw) return { ...defaults };
+    return { ...defaults, ...JSON.parse(raw) };
+  } catch (e) { return { ...defaults }; }
+}
+function storeRbParams(p) {
+  try { localStorage.setItem(RB_PARAM_KEY, JSON.stringify(p)); } catch (e) {}
+}
+
+// --- MPP parser --------------------------------------------------------------
+// Format (ASCII, CRLF):
+//   <header lines ending in [FINE]>
+//   <rows>              — must be 40
+//   <cols>              — must be 8
+//   <nMaps>             — 1 or 2
+//   <cols lines: TPS axis>
+//   <rows lines: RPM axis>
+//   repeat nMaps times:
+//     "Injection"
+//     <rows*cols integer values, column-major: val[j*rows + i]>
+//   <extra lines until end>
+function parseRbMpp(text) {
+  const L = text.split(/\r?\n/);
+  const fIdx = L.indexOf('[FINE]');
+  if (fIdx < 0) throw new Error('No [FINE] block found — is this really a Rapid Bike .mpp?');
+  let q = fIdx + 1;
+  const rows = parseInt(L[q++], 10);
+  const cols = parseInt(L[q++], 10);
+  const n    = parseInt(L[q++], 10);
+  if (rows !== 40 || cols !== 8) {
+    throw new Error(`Format ${rows}×${cols} — expected 40×8 (Ténéré 700 / RB-Evo).`);
+  }
+  if (!(n >= 1 && n <= 2)) throw new Error(`Unexpected number of maps: ${n}.`);
+  const tps = L.slice(q, q + cols).map(Number); q += cols;
+  const rpm = L.slice(q, q + rows).map(Number); q += rows;
+  if (tps.some(x => !isFinite(x)) || rpm.some(x => !isFinite(x))) {
+    throw new Error('TPS or RPM axis contains invalid values.');
+  }
+  const maps = [];
+  for (let m = 0; m < n; m++) {
+    if (L[q] !== 'Injection') throw new Error(`Block „Injection" missing (map ${m + 1}).`);
+    q++;
+    const v = L.slice(q, q + rows * cols).map(Number);
+    q += rows * cols;
+    if (v.some(x => !isFinite(x))) throw new Error(`Invalid values in map ${m + 1}.`);
+    const grid = Array.from({ length: rows }, (_, i) =>
+      Array.from({ length: cols }, (_, j) => v[j * rows + i])
+    );
+    maps.push(grid);
+  }
+  let end = L.length;
+  let trail = 0;
+  while (end > q && L[end - 1] === '') { end--; trail++; }
+  return {
+    header: L.slice(0, fIdx + 1),
+    tps, rpm, maps,
+    extra: L.slice(q, end),
+    trail: Math.max(0, trail - 1),
+    nMaps: n,
+  };
+}
+
+// Rebuild the .mpp from parsed data, replacing the active map with newGrid.
+// If the original file carried two maps, the second one is kept untouched.
+function serializeRbMpp(mppData, newGrid) {
+  const nMaps = mppData.nMaps;
+  const rows = 40, cols = 8;
+  const out = mppData.header.slice();
+  out.push(String(rows), String(cols), String(nMaps));
+  mppData.tps.forEach(v => out.push(String(v)));
+  mppData.rpm.forEach(v => out.push(String(v)));
+  const writeGrid = g => {
+    out.push('Injection');
+    for (let j = 0; j < cols; j++) {
+      for (let i = 0; i < rows; i++) {
+        out.push(String(Math.round(g[i][j])));
+      }
+    }
+  };
+  writeGrid(newGrid);
+  if (nMaps === 2) {
+    // Preserve the untouched second map verbatim (we don't modify it).
+    writeGrid(mppData.maps[1]);
+  }
+  mppData.extra.forEach(l => out.push(l));
+  return out.join('\r\n') + '\r\n'.repeat(Math.max(1, mppData.trail));
+}
+
+// Sample the lambda log at a RB cell (rpmIdx, tpsIdx), using the "ab-Stützpunkt"
+// rule from the RB-Tuner project: a log point belongs to a cell if its RPM/TPS
+// is at or above that cell's grid value AND below the next grid value.
+function sampleRbCell(rpmIdx, tpsIdx) {
+  const raw = STATE.rawData;
+  if (!raw || !raw.rpm || raw.rpm.length === 0) return { lam: null, n: 0 };
+  const spec = TARGET_SPEC.rbe;
+  const rpmLo = spec.rpmAxis[rpmIdx];
+  const rpmHi = rpmIdx < spec.rpmAxis.length - 1 ? spec.rpmAxis[rpmIdx + 1] : Infinity;
+  const tpsLo = spec.tpsAxis[tpsIdx];
+  const tpsHi = tpsIdx < spec.tpsAxis.length - 1 ? spec.tpsAxis[tpsIdx + 1] : Infinity;
+  let sum = 0, n = 0;
+  const rpmArr = raw.rpm, tpsArr = raw.throttle, lamArr = raw.lambda;
+  for (let k = 0; k < rpmArr.length; k++) {
+    const r = rpmArr[k];
+    if (r < rpmLo || r >= rpmHi) continue;
+    const t = tpsArr[k];
+    if (t < tpsLo || t >= tpsHi) continue;
+    sum += lamArr[k];
+    n++;
+  }
+  return n > 0 ? { lam: sum / n, n } : { lam: null, n: 0 };
+}
+
+// Core builder: returns { oldBytes, newBytes, changes, warnings, mppData } or
+// null if no base .mpp has been uploaded.
+function buildRbMap() {
+  const text = loadRbMppRaw();
+  if (!text) return null;
+  let mppData;
+  try { mppData = parseRbMpp(text); }
+  catch (e) { return { oldBytes: null, newBytes: null, changes: [], warnings: [e.message] }; }
+  const spec = TARGET_SPEC.rbe;
+  const params = loadRbParams();
+  const nRows = spec.rpmAxis.length, nCols = spec.tpsAxis.length;
+  const oldBytes = mppData.maps[0].map(r => r.slice());
+  const newBytes = oldBytes.map(r => r.slice());
+  const changes = [];
+  const warnings = [];
+  const pctU = parseFloat(params.pctU) || 1;
+  const dead = parseFloat(params.dead) || 0;
+  const maxS = parseFloat(params.maxS);
+  const minN = parseFloat(params.minN) || 0;
+  const cMin = parseFloat(params.cMin) || 0;
+  const lock0 = params.lock0 !== false;
+  const roundFn = params.rnd === 'round' ? Math.round : Math.trunc;
+
+  for (let i = 0; i < nRows; i++) {
+    const rpm = spec.rpmAxis[i];
+    if (rpm < cMin) continue;
+    for (let j = 0; j < nCols; j++) {
+      if (lock0 && j === 0) continue;
+      const sample = sampleRbCell(i, j);
+      if (sample.lam == null || sample.n < minN) continue;
+      const target = targetLambdaAt(spec.tpsAxis[j]);
+      const dev = (sample.lam / target - 1) * 100;
+      if (Math.abs(dev) <= dead) continue;
+      let s = dev / pctU;      // RB units of correction
+      s = roundFn(s);
+      if (Number.isFinite(maxS)) s = Math.max(-maxS, Math.min(maxS, s));
+      if (s === 0) continue;
+      const newByte = oldBytes[i][j] + s;
+      newBytes[i][j] = newByte;
+      changes.push({
+        rpm, tps: spec.tpsAxis[j],
+        oldByte: oldBytes[i][j], newByte, deltaUnits: s,
+        lamMeas: sample.lam, lamTarget: target, n: sample.n,
+      });
+    }
+  }
+  return { oldBytes, newBytes, changes, warnings, mppData };
+}
+
+async function handleRbMppUpload(file) {
+  const statusEl = $('#expRbStatus');
+  statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-missing');
+  statusEl.textContent = 'Lese MPP…';
+  try {
+    const text = await file.text();
+    // Sanity-check by actually parsing — bad files should fail here, not later
+    const mpp = parseRbMpp(text);
+    if (!storeRbMpp(text, file.name, mpp.nMaps)) {
+      throw new Error('Speicherung im Browser fehlgeschlagen (Speicher voll?).');
+    }
+    toast(`MPP „${file.name}" loaded (${mpp.nMaps} map${mpp.nMaps === 2 ? 's' : ''})`, 2500);
+    refreshRbStatus();
+    renderExportPreview();
+  } catch (e) {
+    statusEl.textContent = e.message || String(e);
+    statusEl.classList.add('exp-tpl-error');
+  }
+}
+
+function refreshRbStatus() {
+  const text = loadRbMppRaw();
+  const meta = loadRbMppMeta();
+  const dlBtn    = $('#expDownload');
+  const adoptBtn = $('#expRbAdopt');
+  const statusEl = $('#expRbStatus');
+  const clearBtn = $('#expRbClear');
+  const btnLabel = $('#expRbBtnLabel');
+  statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
+  if (text) {
+    const parts = [];
+    if (meta && meta.name) parts.push(`„${meta.name}"`);
+    if (meta && meta.nMaps) parts.push(`${meta.nMaps} Map${meta.nMaps === 2 ? 's' : ''}`);
+    if (meta && meta.uploadedAt) parts.push(`uploaded ${formatBinUploadTime(meta.uploadedAt)}`);
+    statusEl.textContent = parts.join(' · ');
+    statusEl.classList.add('exp-tpl-custom');
+    clearBtn.hidden = false;
+    btnLabel.textContent = '📂 Other MPP...';
+    dlBtn.disabled = false;
+    adoptBtn.disabled = false;
+    adoptBtn.style.opacity = '1';
+  } else {
+    statusEl.textContent = 'No MPP loaded yet.';
+    statusEl.classList.add('exp-tpl-missing');
+    clearBtn.hidden = true;
+    btnLabel.textContent = '📂 Choose current map (.mpp)';
+    dlBtn.disabled = true;
+    adoptBtn.disabled = true;
+    adoptBtn.style.opacity = '0.55';
+  }
+}
+
+function renderRbParams() {
+  const p = loadRbParams();
+  $('#expRbPctU').value = p.pctU;
+  $('#expRbDead').value = p.dead;
+  $('#expRbMaxS').value = p.maxS;
+  $('#expRbMinN').value = p.minN;
+  $('#expRbCMin').value = p.cMin;
+  if ($('#expRbRnd'))   $('#expRbRnd').value   = p.rnd;
+  if ($('#expRbLock0')) $('#expRbLock0').checked = !!p.lock0;
+}
+function readRbParamsFromUi() {
+  const p = loadRbParams();
+  const num = (id, def) => {
+    const v = parseFloat(String($('#' + id).value).replace(',', '.'));
+    return Number.isFinite(v) ? v : def;
+  };
+  p.pctU = num('expRbPctU', p.pctU);
+  p.dead = num('expRbDead', p.dead);
+  p.maxS = num('expRbMaxS', p.maxS);
+  p.minN = num('expRbMinN', p.minN);
+  p.cMin = num('expRbCMin', p.cMin);
+  if ($('#expRbRnd'))   p.rnd   = $('#expRbRnd').value;
+  if ($('#expRbLock0')) p.lock0 = $('#expRbLock0').checked;
+  storeRbParams(p);
+  return p;
+}
+
 // Interpolated target-lambda at a given TPS (linear between zone centers)
 function targetLambdaAt(tps) {
   // Place a knot in the middle of each zone's TPS range
@@ -2733,23 +3089,27 @@ function applyTargetSpec() {
   // Download-button label and ext for the custom-template section
   const ext = target === 'pcv' ? '.pvm'
             : target === 'pciii' ? '.djm'
-            : target === 'rbe' ? '.rbs'
+            : target === 'rbe' ? '.mpp'
             : target === 'iaw16m' ? '.bin'
             : null;
   $('#expDownload').textContent = ext
     ? `↓ ${ext} herunterladen`
     : '↓ Download CSV';
 
-  // Custom-template section: only shown for trim targets (and later for flash
-  // when a template-upload workflow is defined there too).
+  // Variant-specific sections: show the one that belongs to the active target.
+  // "trim" here = PowerCommander V/III: template upload + generic RPM/TPS grid.
+  // "flash" targets (IAW16M, Rapid Bike EVO) each have their own panel instead.
   $('#expCustomTplSection').hidden = (kind !== 'trim');
   $('#expIawSection').hidden        = (target !== 'iaw16m');
-  // IAW16M uses its own fixed irregular axes — the generic grid and the
-  // trim-style gap-fill settings don't apply there.
-  $('#expGridSection').hidden   = (target === 'iaw16m');
-  $('#expClampSection').hidden  = (target === 'iaw16m');
-  // The "adopt computed BIN as new source" button is only meaningful on IAW16M.
+  $('#expRbSection').hidden         = (target !== 'rbe');
+  // Flash variants bring their own fixed irregular axes — the generic grid and
+  // the trim-style gap-fill settings don't apply there.
+  const isFlash = (kind === 'flash');
+  $('#expGridSection').hidden   = isFlash;
+  $('#expClampSection').hidden  = isFlash;
+  // Adopt buttons: each flash variant has its own, mutually exclusive.
   $('#expIawAdopt').hidden      = (target !== 'iaw16m');
+  $('#expRbAdopt').hidden       = (target !== 'rbe');
   if (kind === 'trim') {
     $('#expTplExt').textContent = ext;
     $('#expTplFile').setAttribute('accept', ext);
@@ -2757,6 +3117,10 @@ function applyTargetSpec() {
   if (target === 'iaw16m') {
     renderIawParams();
     refreshIawStatus();
+  }
+  if (target === 'rbe') {
+    renderRbParams();
+    refreshRbStatus();
   }
 
   refreshCustomTplStatus();
@@ -2795,7 +3159,7 @@ function refreshIawStatus() {
   const btnLabel = $('#expIawBtnLabel');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
   if (bin) {
-    const parts = [`${bin.length.toLocaleString('en-US')} Byte`];
+    const parts = [`${bin.length.toLocaleString('en-US')} bytes`];
     if (meta && meta.name) parts.push(`„${meta.name}"`);
     if (meta && meta.uploadedAt) parts.push(`uploaded ${formatBinUploadTime(meta.uploadedAt)}`);
     statusEl.textContent = parts.join(' · ');
@@ -2864,7 +3228,7 @@ function refreshCustomTplStatus() {
   const btnLabel = $('#expTplBtnLabel');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
   if (custom) {
-    const parts = [`${custom.length} Byte`];
+    const parts = [`${custom.length} bytes`];
     if (meta && meta.name) parts.push(`„${meta.name}"`);
     if (meta && meta.uploadedAt) parts.push(`uploaded ${formatBinUploadTime(meta.uploadedAt)}`);
     statusEl.textContent = parts.join(' · ');
@@ -3019,6 +3383,11 @@ function renderExportPreview() {
   // IAW16M has its own layout (16×16 Grad × RPM, ms values, alt→neu per cell)
   if ($('#expTarget').value === 'iaw16m') {
     renderIawPreview();
+    return;
+  }
+  // Rapid Bike EVO has its own layout too (40 RPM × 8 TPS, additive units)
+  if ($('#expTarget').value === 'rbe') {
+    renderRbPreview();
     return;
   }
   const target = $('#expTarget').value;
@@ -3198,6 +3567,121 @@ function renderIawChangeList(changes) {
   `;
 }
 
+// Rapid Bike EVO preview: 40×8 grid of integer RB units with alt/neu per changed
+// cell. Shows the same source-banner as IAW so the user always sees which .mpp
+// is the current basis.
+function renderRbPreview() {
+  readRbParamsFromUi();
+  const result = buildRbMap();
+  if (!result) {
+    $('#expPreviewWrap').innerHTML = `
+      <div class="modal-sub exp-preview-empty">
+        No Rapid Bike MPP uploaded yet. Load the currently active Rapid Bike <code>.mpp</code> file first; the preview with all changes will appear here.
+      </div>`;
+    $('#expSummary').innerHTML = '';
+    return;
+  }
+  if (!result.oldBytes) {
+    $('#expPreviewWrap').innerHTML = `
+      <div class="modal-sub exp-preview-empty">
+        MPP konnte nicht gelesen werden: ${result.warnings[0] || 'unbekannter Fehler'}
+      </div>`;
+    $('#expSummary').innerHTML = '';
+    return;
+  }
+  const spec = TARGET_SPEC.rbe;
+  const { oldBytes, newBytes, changes, warnings, mppData } = result;
+
+  const meta = loadRbMppMeta();
+  const banner = buildExportSourceBanner({
+    headline: 'Check that the MPP matches this log',
+    sourceLabel: 'Basis for calculation',
+    sourceName: meta && meta.name,
+    sourceTime: meta && meta.uploadedAt ? formatBinUploadTime(meta.uploadedAt) : null,
+    logName: STATE.fileName || null,
+    note: 'Every export recomputes the correction factor onto <em>this</em> uploaded MPP. After flashing, upload the new MPP again before computing the next lambda map — or use the „↻ Adopt computed MPP as new source" button right away.',
+  });
+
+  // Table: RPM descending top to bottom (highest RPM on top like the RB UI),
+  // TPS ascending left to right. Changed cells show "alt → neu", unchanged
+  // cells just the current value in muted grey.
+  const headerCells = spec.tpsAxis.map(t => `<th>${t}%</th>`).join('');
+  const bodyRows = spec.rpmAxis.slice().reverse().map((rpm, rowRev) => {
+    const i = spec.rpmAxis.length - 1 - rowRev;
+    const cells = spec.tpsAxis.map((tps, j) => {
+      const o = oldBytes[i][j];
+      const n = newBytes[i][j];
+      if (n === o) {
+        return `<td class="exp-cell exp-zero" title="${rpm} U/min · ${tps} % · unverändert">${o}</td>`;
+      }
+      const delta = n - o;
+      const cls = delta > 0 ? 'exp-pos' : 'exp-neg';
+      const sign = delta > 0 ? '+' : '';
+      const title = `${rpm} U/min · ${tps} % · ${o} → ${n} (${sign}${delta})`;
+      return `<td class="exp-cell ${cls}" title="${title}">
+        <span style="display:block;font-size:9px;opacity:.55;line-height:1;font-weight:400">${o}</span>
+        <span style="display:block;font-weight:700;line-height:1.1">${n}</span>
+      </td>`;
+    }).join('');
+    return `<tr><th>${rpm}</th>${cells}</tr>`;
+  }).join('');
+
+  $('#expPreviewWrap').innerHTML = `
+    ${banner}
+    <table class="exp-preview iaw-preview">
+      <thead><tr><th>U/min \\ TPS</th>${headerCells}</tr></thead>
+      <tbody>${bodyRows}</tbody>
+    </table>
+    ${renderRbChangeList(changes)}
+  `;
+
+  let posN = 0, negN = 0;
+  changes.forEach(c => { if (c.deltaUnits > 0) posN++; else negN++; });
+  const total = spec.rpmAxis.length * spec.tpsAxis.length;
+  const unchanged = total - changes.length;
+  $('#expSummary').innerHTML = `
+    <span><strong>${changes.length}</strong>/${total} Zellen geändert</span>
+    ${posN ? `<span style="color:var(--rich)"><strong>${posN}</strong> fetter</span>` : ''}
+    ${negN ? `<span style="color:var(--lean)"><strong>${negN}</strong> magerer</span>` : ''}
+    <span><strong>${unchanged}</strong> unverändert</span>
+    ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} Warnung(en)</span>` : ''}
+  `;
+
+  const adoptBtn = $('#expRbAdopt');
+  adoptBtn.disabled = (changes.length === 0);
+  adoptBtn.style.opacity = (changes.length === 0) ? '0.55' : '1';
+}
+
+function renderRbChangeList(changes) {
+  if (!changes.length) {
+    return `<div class="modal-sub" style="margin-top:12px">No cells changed — lambda data are within the target or do not cover the map yet.</div>`;
+  }
+  const sorted = changes.slice().sort((a, b) => Math.abs(b.deltaUnits) - Math.abs(a.deltaUnits));
+  const show = sorted.slice(0, 20);
+  const rows = show.map(c => {
+    const sign = c.deltaUnits > 0 ? '+' : '';
+    const cls = c.deltaUnits > 0 ? 'exp-pos' : 'exp-neg';
+    return `<tr>
+      <td>${c.rpm}</td>
+      <td>${c.tps} %</td>
+      <td>${c.oldByte}</td>
+      <td class="${cls}" style="font-weight:700">${c.newByte}</td>
+      <td class="${cls}">${sign}${c.deltaUnits}</td>
+      <td>${c.lamMeas.toFixed(3)}</td>
+      <td>${c.n}</td>
+    </tr>`;
+  }).join('');
+  const more = changes.length > show.length ? `<div class="modal-sub" style="margin-top:6px;text-align:right">… ${changes.length - show.length} weitere Änderungen</div>` : '';
+  return `
+    <div class="exp-section-title" style="margin:16px 0 8px">Größte Änderungen (${show.length} von ${changes.length})</div>
+    <table class="exp-preview">
+      <thead><tr><th>U/min</th><th>TPS</th><th>alt</th><th>neu</th><th>Δ Einh.</th><th>λ gem.</th><th>n</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${more}
+  `;
+}
+
 function buildExportCsv(opts, map) {
   const { rpmAxis, tpsAxis, rows } = map;
   const now = new Date().toISOString().replace('T', ' ').substring(0, 16);
@@ -3279,6 +3763,22 @@ function downloadExport() {
         toast('Error: ' + (e.message || e), 4000);
       }
     })();
+  } else if (opts.target === 'rbe') {
+    readRbParamsFromUi();
+    const result = buildRbMap();
+    if (!result) { toast('Upload a current MPP file first', 3000); return; }
+    if (!result.oldBytes) {
+      toast('MPP error: ' + (result.warnings[0] || 'unknown'), 4000);
+      return;
+    }
+    try {
+      const text = serializeRbMpp(result.mppData, result.newBytes);
+      triggerDownload(new Blob([text], { type: 'application/octet-stream' }),
+                      `${base}_MD-Lambda-View.mpp`);
+      toast(`MPP exported (${result.changes.length} cells changed)`, 3500);
+    } catch (e) {
+      toast('Error: ' + (e.message || e), 4000);
+    }
   } else {
     const csv = buildExportCsv(opts, map);
     triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8' }),
@@ -3400,6 +3900,67 @@ $('#expIawAdopt').addEventListener('click', () => {
   .forEach(id => {
     $('#' + id).addEventListener('change', () => {
       readIawParamsFromUi();
+      renderExportPreview();
+    });
+  });
+
+// --- Rapid Bike EVO controls --------------------------------------------
+$('#expRbFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (f) handleRbMppUpload(f);
+  e.target.value = '';
+});
+$('#expRbClear').addEventListener('click', () => {
+  clearRbMpp();
+  refreshRbStatus();
+  renderExportPreview();
+  toast('MPP removed', 1800);
+});
+$('#expRbReset').addEventListener('click', () => {
+  const d = TARGET_SPEC.rbe.defaults;
+  storeRbParams({ ...d });
+  renderRbParams();
+  renderExportPreview();
+  toast('RB parameters reset', 1800);
+});
+$('#expRbAdopt').addEventListener('click', () => {
+  readRbParamsFromUi();
+  const result = buildRbMap();
+  if (!result || !result.oldBytes) {
+    toast('No computed MPP — upload a source MPP first', 3000);
+    return;
+  }
+  if (!result.changes.length) {
+    toast('Nothing to adopt — no cell was changed', 2500);
+    return;
+  }
+  const oldMeta = loadRbMppMeta();
+  const oldName = (oldMeta && oldMeta.name) || 'map.mpp';
+  const m = oldName.match(/^(.*?)(?:_rev(\d+))?(\.mpp)$/i);
+  const stem = m ? m[1] : oldName.replace(/\.mpp$/i, '');
+  const nextRev = (m && m[2]) ? (parseInt(m[2], 10) + 1) : 1;
+  const ext = (m && m[3]) || '.mpp';
+  const newName = `${stem}_rev${nextRev}${ext}`;
+  const ok = confirm(
+    `Berechnete MPP („${newName}") als neue Ausgangs-MPP übernehmen?\n\n` +
+    `Die bisher gespeicherte MPP („${oldName}") wird dadurch im Browser überschrieben.\n` +
+    `Tip: download the new file once via „↓ .mpp download" first, so you have a backup.`
+  );
+  if (!ok) return;
+  const newText = serializeRbMpp(result.mppData, result.newBytes);
+  if (!storeRbMpp(newText, newName, result.mppData.nMaps)) {
+    toast('Adoption failed (browser storage)', 3500);
+    return;
+  }
+  refreshRbStatus();
+  renderExportPreview();
+  toast(`„${newName}" is now the source MPP`, 3500);
+});
+// Persist RB parameter edits on blur/change AND refresh the preview live
+['expRbPctU','expRbDead','expRbMaxS','expRbMinN','expRbCMin']
+  .forEach(id => {
+    $('#' + id).addEventListener('change', () => {
+      readRbParamsFromUi();
       renderExportPreview();
     });
   });
