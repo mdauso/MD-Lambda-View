@@ -764,6 +764,15 @@ input[type="file"] { display: none; }
   }
   .modal-footer .modal-btn { width: 100%; }
 }
+/* Export modal: the footer sits INSIDE the scrolling body (gives the sections
+   more vertical room) instead of being pinned to the bottom. Reset the outer
+   padding that applied when it was a direct child of .modal, and lose the
+   top border — the preceding footnote already provides enough visual break. */
+.modal-footer.exp-footer-inline {
+  padding: 14px 0 4px;
+  margin-top: 4px;
+  border-top: none;
+}
 .prep-option {
   display: block;
   width: 100%;
@@ -869,6 +878,9 @@ input[type="file"] { display: none; }
   cursor: not-allowed;
   pointer-events: none;
 }
+/* `display: inline-flex` above would otherwise override the browser's default
+   `[hidden] { display: none }`. Make hidden actually hide. */
+.modal-btn[hidden] { display: none !important; }
 @media (pointer: coarse) {
   .modal-btn { font-size: 15px; min-height: 44px; } /* comfortable tap target */
 }
@@ -1747,12 +1759,15 @@ body.pseudo-full .plot-area {
       The generated file can be opened in the target system’s software (PowerCommander tool, ECU editor, Dimsport, etc.) via “Open file” or “Open map”.
     </div>
 
-  </div>
-  <div class="modal-footer">
-    <button class="modal-btn" id="expClose" type="button">Close</button>
-    <button class="modal-btn" id="expIawAdopt" type="button" hidden title="IAW16M only: overwrites the current source BIN in the browser with the newly computed BIN — ideal for the next pass after a flash.">↻ Adopt computed BIN as new source</button>
-    <button class="modal-btn" id="expRbAdopt" type="button" hidden title="Rapid Bike only: overwrites the current source MPP in the browser with the newly computed MPP — ideal for the next pass after flashing.">↻ Adopt computed MPP as new source</button>
-    <button class="modal-btn primary" id="expDownload" type="button">↓ Download file</button>
+    <!-- Footer sits inside modal-body so it scrolls along with the sections —
+         gives the preview and parameter grids more vertical room. -->
+    <div class="modal-footer exp-footer-inline">
+      <button class="modal-btn" id="expClose" type="button">Close</button>
+      <button class="modal-btn" id="expIawAdopt" type="button" hidden title="IAW16M only: overwrites the current source BIN in the browser with the newly computed BIN — ideal for the next pass after a flash.">↻ Adopt computed BIN as new source</button>
+      <button class="modal-btn" id="expRbAdopt" type="button" hidden title="Rapid Bike only: overwrites the current source MPP in the browser with the newly computed MPP — ideal for the next pass after flashing.">↻ Adopt computed MPP as new source</button>
+      <button class="modal-btn primary" id="expDownload" type="button">↓ Download file</button>
+    </div>
+
   </div>
 </div>
 
