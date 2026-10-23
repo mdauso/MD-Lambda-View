@@ -892,6 +892,11 @@ input[type="file"] { display: none; }
   border-radius: 10px;
   background: rgba(226,115,74,.09);
   transition: background .12s, border-color .12s, box-shadow .12s;
+  /* Never grow past the modal title; wrap to a new line instead so the right
+     border stays visible on narrow phones. */
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .exp-title-select-wrap::after {
   /* hairline divider between the variant name and the chevron */
@@ -1540,15 +1545,15 @@ body.pseudo-full .plot-area {
       <span class="exp-title-select-wrap">
         <select id="expTarget" class="exp-title-select" aria-label="Zielsystem">
           <optgroup label="Zwischenstecker (Trim-Maps)">
-            <option value="pcv" selected>PowerCommander V · PCFC · PCVI (.pvm)</option>
-            <option value="pciii">PowerCommander III USB (.djm)</option>
-            <option value="rbe">Rapid Bike EVO (.rbs) — demnächst</option>
+            <option value="pcv" selected>PowerCommander V (.pvm)</option>
+            <option value="pciii">PowerCommander III (.djm)</option>
+            <option value="rbe">Rapid Bike EVO (.rbs)</option>
           </optgroup>
           <optgroup label="ECU-Reflash">
-            <option value="iaw16m">Magneti Marelli IAW16M (.bin)</option>
+            <option value="iaw16m">IAW16M (.bin)</option>
           </optgroup>
           <optgroup label="Universell">
-            <option value="csv">CSV (zum Nachlesen)</option>
+            <option value="csv">CSV</option>
           </optgroup>
         </select>
         <span class="exp-title-chevron" aria-hidden="true">▾</span>
