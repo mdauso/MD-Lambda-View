@@ -1178,13 +1178,42 @@ input[type="file"] { display: none; }
 /* Heatmap preview — same cream colour scheme, with rich/lean per cell.
    The wrap bleeds out to the section edge so very wide tables (16-col IAW map)
    can scroll horizontally without squeezing the section padding away. */
+/* Outer preview container: no scrolling of its own, children decide. The map
+   table is wrapped in `.exp-scroll-map` which carries a prominent horizontal
+   scrollbar sitting directly between the map and the change list below. */
 .exp-preview-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
   margin: 4px -16px 0;
   padding: 0 16px 4px;
   max-width: calc(100% + 32px);
 }
+/* The horizontal scrollbar for the wide map table sits HERE, right under the
+   map and right above the "Größte Änderungen"-list — orange thumb, cream track,
+   always visible on every platform (no iOS auto-hide). */
+.exp-scroll-map {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  margin-bottom: 10px;
+  scrollbar-width: auto;
+  scrollbar-color: var(--accent-2) var(--paper-2);
+}
+.exp-scroll-map::-webkit-scrollbar {
+  height: 12px;
+  -webkit-appearance: none;
+}
+.exp-scroll-map::-webkit-scrollbar-track {
+  background: var(--paper-2);
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.exp-scroll-map::-webkit-scrollbar-thumb {
+  background: var(--accent-2);
+  border-radius: 6px;
+  border: 2px solid var(--paper-2);
+  min-width: 40px;
+}
+.exp-scroll-map::-webkit-scrollbar-thumb:hover { background: #c75f36; }
 .exp-preview {
   border-collapse: collapse;
   font-size: 10.5px;
@@ -3442,10 +3471,12 @@ function renderExportPreview() {
 
   $('#expPreviewWrap').innerHTML = `
     ${banner}
-    <table class="exp-preview">
-      <thead><tr><th>TPS \\ RPM</th>${headerCells}</tr></thead>
-      <tbody>${bodyRows}</tbody>
-    </table>
+    <div class="exp-scroll-map">
+      <table class="exp-preview">
+        <thead><tr><th>TPS \\ RPM</th>${headerCells}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
   `;
   // Summary line
   let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0;
@@ -3525,10 +3556,12 @@ function renderIawPreview() {
 
   $('#expPreviewWrap').innerHTML = `
     ${banner}
-    <table class="exp-preview iaw-preview">
-      <thead><tr><th>Grad \\ RPM</th>${headerCells}</tr></thead>
-      <tbody>${bodyRows}</tbody>
-    </table>
+    <div class="exp-scroll-map">
+      <table class="exp-preview iaw-preview">
+        <thead><tr><th>Grad \\ RPM</th>${headerCells}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
     ${renderIawChangeList(changes)}
   `;
 
@@ -3643,10 +3676,12 @@ function renderRbPreview() {
 
   $('#expPreviewWrap').innerHTML = `
     ${banner}
-    <table class="exp-preview iaw-preview">
-      <thead><tr><th>U/min \\ TPS</th>${headerCells}</tr></thead>
-      <tbody>${bodyRows}</tbody>
-    </table>
+    <div class="exp-scroll-map">
+      <table class="exp-preview iaw-preview">
+        <thead><tr><th>U/min \\ TPS</th>${headerCells}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
     ${renderRbChangeList(changes)}
   `;
 
