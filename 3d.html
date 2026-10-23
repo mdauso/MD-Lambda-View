@@ -714,8 +714,9 @@ input[type="file"] { display: none; }
   gap: 8px;
 }
 .modal-title .exp-title-divider {
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-weight: 400;
+  font-size: 14px;        /* slightly smaller than the title text */
   margin: 0 -2px;
 }
 .modal-sub {
@@ -874,30 +875,52 @@ input[type="file"] { display: none; }
 /* === Export modal === */
 .modal.export-modal { max-width: 680px; }
 
-/* The variant picker lives inside the modal title: the native <select> is
-   restyled to look like text in the title (orange, same weight), with a small
-   chevron pointing at it so it is clearly interactive. Clicking anywhere on
-   the wrapper opens the native dropdown including the optgroups. */
+/* Variant picker inside the modal title: the native <select> is restyled to
+   look like a proper dropdown button — orange border, soft orange fill, a
+   hairline separator and a chevron on the right. The pill shape reads
+   unmistakably as "I can be clicked to change". */
 .exp-title-select-wrap {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   cursor: pointer;
   color: var(--accent-2);
-  padding: 2px 6px;
-  margin: -2px -2px;
-  border-radius: 6px;
-  transition: background .12s;
+  padding: 5px 10px 5px 12px;
+  margin: -4px 0;
+  border: 1.5px solid var(--accent-2);
+  border-radius: 10px;
+  background: rgba(226,115,74,.09);
+  transition: background .12s, border-color .12s, box-shadow .12s;
 }
-.exp-title-select-wrap:hover { background: rgba(226,115,74,.10); }
+.exp-title-select-wrap::after {
+  /* hairline divider between the variant name and the chevron */
+  content: "";
+  position: absolute;
+  right: 30px;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  background: rgba(226,115,74,.35);
+}
+.exp-title-select-wrap:hover {
+  background: rgba(226,115,74,.18);
+  border-color: #c75f36;
+}
+.exp-title-select-wrap:active {
+  background: rgba(226,115,74,.26);
+}
+.exp-title-select-wrap:focus-within {
+  background: rgba(226,115,74,.16);
+  box-shadow: 0 0 0 3px rgba(226,115,74,.28);
+}
 .exp-title-select {
   appearance: none;
   -webkit-appearance: none;
   background: transparent;
   border: none;
   color: inherit;
-  font: inherit;      /* inherit modal-title's 17 px bold */
+  font: inherit;        /* inherit modal-title's 17 px bold */
   padding: 0 2px 0 0;
   margin: 0;
   cursor: pointer;
@@ -907,19 +930,23 @@ input[type="file"] { display: none; }
   white-space: nowrap;
 }
 .exp-title-select:focus { outline: none; }
-.exp-title-select-wrap:focus-within {
-  background: rgba(226,115,74,.14);
-  box-shadow: 0 0 0 2px rgba(226,115,74,.25);
-}
 .exp-title-chevron {
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1;
   color: var(--accent-2);
-  pointer-events: none;    /* clicks fall through to the select below */
+  pointer-events: none;   /* clicks fall through to the select below */
+  font-weight: 700;
+  padding-left: 10px;     /* space from the hairline */
+  flex-shrink: 0;
+}
+/* On touch devices the pill gets a touch more padding so it reaches a comfy
+   tap size without pushing the title into a second line. */
+@media (pointer: coarse) {
+  .exp-title-select-wrap { padding: 7px 10px 7px 14px; }
 }
 /* The <select>'s own options are rendered by the OS popup and look OK by
    default; we only style the closed state. */
-.exp-target-hint { margin-top: 0; margin-bottom: 14px; }
+.exp-target-hint { margin-top: 2px; margin-bottom: 14px; }
 .exp-target-hint:empty { display: none; }
 
 /* Automatic step numbering: every visible exp-section gets a numbered badge
@@ -1509,7 +1536,7 @@ body.pseudo-full .plot-area {
   <div class="modal-header">
     <div class="modal-title" id="expTitle">
       <span>Kennfeld-Export</span>
-      <span class="exp-title-divider">·</span>
+      <span class="exp-title-divider">für</span>
       <span class="exp-title-select-wrap">
         <select id="expTarget" class="exp-title-select" aria-label="Zielsystem">
           <optgroup label="Zwischenstecker (Trim-Maps)">
