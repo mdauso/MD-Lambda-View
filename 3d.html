@@ -1697,7 +1697,7 @@ body.pseudo-full .plot-area {
     <div class="exp-section" id="expCustomTplSection">
       <div class="exp-section-title">Eigenes Template</div>
       <div class="modal-sub">
-        Lade eine leere <span id="expTplExt">.pvm</span>-Datei hoch, die Du in der PowerCommander-Software für Dein Fahrzeug gespeichert hast. Der Export verwendet die Modell-Signatur und Dongle-ID aus dieser Datei. Ohne eigenes Template ist kein Export möglich. Die Datei bleibt im Browser gespeichert, bis Du sie entfernst.
+        Lade eine <span id="expTplExt">.pvm</span>-Datei aus Deiner PowerCommander-Software. Bei PVM dient sie als Exportvorlage. Bei DJM werden Fahrzeugkennung, Achsen und Blockstruktur ausgelesen und für die Vorschau verwendet; ein binärer DJM-Export ist aus Sicherheitsgründen noch gesperrt. Die Datei bleibt im Browser gespeichert, bis Du sie entfernst.
       </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expTplFile">
@@ -2177,7 +2177,7 @@ const TARGET_SPEC = {
     kind: 'trim', status: 'ready',
     tpsSet: 'pciii',
     rpmMin: 500, rpmMax: 12000, rpmStep: 250,
-    hint: 'PCIII USB: 47 Drehzahlen (500–12000 /250), 9 TPS-Spalten (ohne 15 %). Die Felder sind durch das Dateiformat festgelegt.'
+    hint: 'PCIII USB: RPM-/TPS-Raster wird aus Deiner DJM-Datei ausgelesen. DJM-Analyse und Vorschau sind möglich; der binäre Export bleibt bis zur Verifizierung der Kraftstoffzellen gesperrt.'
   },
   rbe: {
     label: 'Rapid Bike EVO (.mpp)',
@@ -2320,14 +2320,76 @@ function cellPct(map, rpmIdx, tpsIdx) {
 
 const CUSTOM_TPL_KEYS      = { pcv: 'mdlv_tpl_pcv',      pciii: 'mdlv_tpl_pciii' };
 const CUSTOM_TPL_META_KEYS = { pcv: 'mdlv_tpl_pcv_meta', pciii: 'mdlv_tpl_pciii_meta' };
-const EXPECTED_TPL_SIZE    = { pcv: 1010, pciii: 5328 };
+const EXPECTED_TPL_SIZE    = { pcv: 1010 };
+
+/* MD-Lambda-View: read-only DJM structural parser (validated on 11 samples).
+   The fuel-cell offset/encoding has NOT been verified; DJM writes are forbidden. */
+function inspectDjmLayout(input) {
+  const b = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (b.length < 100) throw new Error('DJM: Datei zu kurz');
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const u16 = o => v.getUint16(o, true);
+  const u32 = o => v.getUint32(o, true);
+  if (u32(0) !== 202 || u16(10) !== 9) throw new Error('DJM: unbekannter Header');
+  const blockCount = u16(8);
+  const descriptionLength = u16(12);
+  const axisOffset = 0x54 + descriptionLength;
+  if (axisOffset > b.length - 20) throw new Error('DJM: ungültige Beschreibungslänge');
+  const rpmCount = u16(axisOffset - 18);
+  const tpsCount = u16(10);
+  if (!blockCount || blockCount > 16 || rpmCount < 2 || rpmCount > 200)
+    throw new Error('DJM: unplausible Block-/RPM-Anzahl');
+  const blockStride = rpmCount * 40 + 20;
+  const predictedSize = axisOffset + blockCount * blockStride - 20;
+  if (predictedSize !== b.length)
+    throw new Error(`DJM: Struktur passt nicht (${b.length} statt ${predictedSize} Byte)`);
+  const rpmAxis = Array.from({length:rpmCount}, (_,i) => u32(axisOffset + 4*i));
+  if (rpmAxis.some((x,i) => x < 100 || x > 25000 || (i && x <= rpmAxis[i-1])))
+    throw new Error('DJM: RPM-Achse unplausibel');
+  // Nine TPS points: 0% is implicit, the other eight precede the RPM data.
+  const tpsAxis = [0, ...Array.from({length:8}, (_,i) => u32(axisOffset - 0x34 + 4*i))];
+  if (tpsAxis.some((x,i) => x > 100 || (i && x <= tpsAxis[i-1])))
+    throw new Error('DJM: TPS-Achse unplausibel');
+  const blocks = Array.from({length:blockCount},(_,i) => {
+    const start = axisOffset + i * blockStride;
+    const axis = Array.from({length:rpmCount},(_,r) => u32(start+4*r));
+    if (axis.some((x,r) => x !== rpmAxis[r]))
+      throw new Error(`DJM: RPM-Achse in Block ${i+1} weicht ab`);
+    return {index:i, rpmAxisOffset:start, blockStart:start,
+      blockEnd:Math.min(start+blockStride,b.length)};
+  });
+  return {fileSize:b.length, modelId:u32(4), blockCount,
+    descriptionLength, tpsCount, tpsAxis, rpmCount, rpmAxis, blockStride,
+    blocks, predictedSize, writeSupported:false};
+}
+
+// The UI accepts recognized DJM templates for inspection and preview ONLY.
+// No existing DJM writer is safe for these variable-length structures.
+function inspectPowerCommanderTemplate(target, u8) {
+  if (target === 'pcv') {
+    const writable = u8.length === EXPECTED_TPL_SIZE.pcv;
+    return { writable, recognized: writable,
+      reason: writable ? 'Bekanntes PCV-Layout' : `Unbekanntes PVM-Layout (${u8.length} Byte)` };
+  }
+  if (target === 'pciii') {
+    try {
+      const layout = inspectDjmLayout(u8);
+      return { ...layout, recognized: true, writable: false,
+        reason: 'DJM-Struktur erkannt; Kraftstoffzellen noch nicht verifiziert' };
+    } catch (e) {
+      return { recognized: false, writable: false, reason: e.message || String(e) };
+    }
+  }
+  return { recognized: false, writable: false, reason: 'Unbekanntes Dateiformat' };
+}
+
 
 function loadCustomTemplate(target) {
   try {
     const b64 = localStorage.getItem(CUSTOM_TPL_KEYS[target]);
     if (!b64) return null;
     const u8 = b64ToU8(b64);
-    return u8.length === EXPECTED_TPL_SIZE[target] ? u8 : null;
+    return inspectPowerCommanderTemplate(target, u8).recognized ? u8 : null;
   } catch (e) { return null; }
 }
 
@@ -2394,38 +2456,11 @@ function buildPvmBinary(map) {
   return out;
 }
 
-// Build a .djm file (PowerCommander III USB). Base is also a real XT660R
-// export; everything after matrix 1 (metadata, repeated RPM axis, cylinder-2
-// matrix = all zeros, trailing padding) is kept verbatim.
+// DJM is presently READ-ONLY. Do not restore the old fixed-offset writer:
+// on varying RPM rows, description lengths and block counts it can overwrite
+// unrelated portions of the file. A cell-by-cell reference is required first.
 function buildDjmBinary(map) {
-  const out = requireCustomTemplate('pciii');     // 5328 bytes or null
-  if (!out) return null;
-  // Overwrite the template's "2005 Yamaha XT660R ..." note at 0x01C with our
-  // own branding. 144-byte NUL-padded region (PCIII shows this as "Notiz").
-  writeComment(out, 0x01C, 144);
-  // TPS axis at 0x0AC: 9 × int32 LE
-  for (let i = 0; i < 9; i++) {
-    writeI32LE(out, 0x0AC + i * 4, map.tpsAxis[i] | 0);
-  }
-  // RPM axis at 0x0E4: 47 × int32 LE
-  for (let i = 0; i < 47; i++) {
-    writeI32LE(out, 0x0E4 + i * 4, map.rpmAxis[i] | 0);
-  }
-  // Matrix at 0x1A0: COLUMN-MAJOR — 9 TPS columns × 47 RPM rows × int32 LE.
-  // Each TPS column is a contiguous block of 47 values; the offset for cell
-  // (RPM r, TPS c) is 0x1A0 + (c*47 + r)*4. Values are direct percent.
-  for (let c = 0; c < 9; c++) {
-    for (let r = 0; r < 47; r++) {
-      writeI32LE(out, 0x1A0 + (c * 47 + r) * 4, cellPct(map, r, c));
-    }
-  }
-  // Repeat the RPM axis at 0x0850 — this is NOT a second cylinder matrix as
-  // first assumed, but a mirror of the primary RPM axis used elsewhere by
-  // the PC3 software. Kept aligned with our main RPM axis.
-  for (let i = 0; i < 47; i++) {
-    writeI32LE(out, 0x0850 + i * 4, map.rpmAxis[i] | 0);
-  }
-  return out;
+  return null;
 }
 
 // ============ IAW16M (MAGNETI MARELLI) ECU-REFLASH ============
@@ -2895,7 +2930,6 @@ function refreshRbStatus() {
     if (meta && meta.name) parts.push(`„${meta.name}"`);
     if (meta && meta.nMaps) parts.push(`${meta.nMaps} Map${meta.nMaps === 2 ? 's' : ''}`);
     if (meta && meta.uploadedAt) parts.push(`hochgeladen ${formatBinUploadTime(meta.uploadedAt)}`);
-    statusEl.textContent = parts.join(' · ');
     statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Andere MPP...';
@@ -3042,9 +3076,12 @@ function coveredRpmSpanAt(tps, tpsAxis, idx) {
 // Build the full map: 2D array of {pct, src} where
 // src ∈ {'measured','nearest','filled','empty'}
 function buildExportMap(opts) {
-  const rpmAxis = [];
-  for (let r = opts.rpmMin; r <= opts.rpmMax; r += opts.rpmStep) rpmAxis.push(r);
-  const tpsAxis = TPS_SETS[opts.tpsSet] || TPS_SETS['pc-standard'];
+  const rpmAxis = opts.rpmAxis ? opts.rpmAxis.slice() : [];
+  if (!opts.rpmAxis) {
+    for (let r = opts.rpmMin; r <= opts.rpmMax; r += opts.rpmStep) rpmAxis.push(r);
+  }
+  const tpsAxis = opts.tpsAxis ? opts.tpsAxis.slice() :
+    (TPS_SETS[opts.tpsSet] || TPS_SETS['pciii']);
 
   const rows = tpsAxis.map((tps, ti) => {
     const span = (opts.fill === 'smart') ? coveredRpmSpanAt(tps, tpsAxis, ti) : null;
@@ -3086,7 +3123,16 @@ function buildExportMap(opts) {
 }
 
 function readExportOpts() {
+  let djmLayout = null;
+  if ($('#expTarget').value === 'pciii') {
+    const template = loadCustomTemplate('pciii');
+    if (template) {
+      const inspect = inspectPowerCommanderTemplate('pciii', template);
+      if (inspect.recognized) djmLayout = inspect;
+    }
+  }
   return {
+    ...(djmLayout ? { rpmAxis: djmLayout.rpmAxis, tpsAxis: djmLayout.tpsAxis } : {}),
     target:  $('#expTarget').value,
     rpmMin:  parseInt($('#expRpmMin').value, 10) || 500,
     rpmMax:  parseInt($('#expRpmMax').value, 10) || 13000,
@@ -3109,7 +3155,18 @@ function applyTargetSpec() {
 
   // The variant picker IS the title's <select>; it already reflects the active
   // target, nothing extra to sync.
-  $('#expTargetHint').textContent = spec.hint;
+  // Match the grid to the file, not to a hard-coded motorcycle model.
+  let djmLayout = null;
+  if (target === 'pciii') {
+    const template = loadCustomTemplate('pciii');
+    if (template) {
+      const inspect = inspectPowerCommanderTemplate('pciii', template);
+      if (inspect.recognized) djmLayout = inspect;
+    }
+  }
+  $('#expTargetHint').textContent = spec.hint + (djmLayout
+    ? ` Erkannt: ${djmLayout.rpmCount} RPM-Stützstellen (${djmLayout.rpmAxis[0]}–${djmLayout.rpmAxis[djmLayout.rpmCount - 1]}), ${djmLayout.tpsCount} TPS-Stützstellen, ${djmLayout.blockCount} Blöcke.`
+    : '');
   $('#expGridTitle').textContent = kind === 'readable'
     ? 'Raster (frei wählbar)'
     : `Raster (${spec.label})`;
@@ -3123,6 +3180,12 @@ function applyTargetSpec() {
     $('#expRpmMax').value  = spec.rpmMax;
     $('#expRpmStep').value = String(spec.rpmStep);
     if (spec.tpsSet) $('#expTpsSet').value = spec.tpsSet;
+    if (djmLayout) {
+      $('#expRpmMin').value = djmLayout.rpmAxis[0];
+      $('#expRpmMax').value = djmLayout.rpmAxis[djmLayout.rpmCount - 1];
+      const step = djmLayout.rpmAxis[1] - djmLayout.rpmAxis[0];
+      if ([250, 500, 1000].includes(step)) $('#expRpmStep').value = String(step);
+    }
   }
   ['expRpmMin','expRpmMax','expRpmStep','expTpsSet'].forEach(id => {
     $('#' + id).disabled = lock || !ready;
@@ -3135,9 +3198,9 @@ function applyTargetSpec() {
             : target === 'rbe' ? '.mpp'
             : target === 'iaw16m' ? '.bin'
             : null;
-  $('#expDownload').textContent = ext
-    ? `↓ ${ext} herunterladen`
-    : '↓ CSV herunterladen';
+  $('#expDownload').textContent = target === 'pciii'
+    ? 'DJM-Export noch gesperrt'
+    : (ext ? `↓ ${ext} herunterladen` : '↓ CSV herunterladen');
 
   // Variant-specific sections: show the one that belongs to the active target.
   // "trim" here = PowerCommander V/III: template upload + generic RPM/TPS grid.
@@ -3278,7 +3341,13 @@ function refreshCustomTplStatus() {
     statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Anderes Template...';
-    dlBtn.disabled = false;
+    if (target === 'pciii') {
+      const layout = inspectPowerCommanderTemplate(target, custom);
+      parts.push(`${layout.rpmCount} RPM · ${layout.tpsCount} TPS · ${layout.blockCount} Blöcke`);
+      parts.push('Nur Analyse/Vorschau – DJM-Export gesperrt');
+    }
+    statusEl.textContent = parts.join(' · ');
+    dlBtn.disabled = target === 'pciii';
   } else {
     statusEl.textContent = 'Noch kein Template geladen.';
     statusEl.classList.add('exp-tpl-missing');
@@ -3293,7 +3362,6 @@ function handleCustomTplFile(file) {
   const target = $('#expTarget').value;
   if (target === 'csv') return;
   const statusEl = $('#expTplStatus');
-  const expected = EXPECTED_TPL_SIZE[target];
   const extOk = target === 'pcv'
     ? /\.pvm$/i.test(file.name)
     : /\.djm$/i.test(file.name);
@@ -3306,8 +3374,9 @@ function handleCustomTplFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     const u8 = new Uint8Array(e.target.result);
-    if (u8.length !== expected) {
-      statusEl.textContent = `Datei hat ${u8.length} Bytes, erwartet ${expected}.`;
+    const inspection = inspectPowerCommanderTemplate(target, u8);
+    if (!inspection.recognized) {
+      statusEl.textContent = `Datei nicht unterstützt: ${inspection.reason}.`;
       statusEl.classList.remove('exp-tpl-custom');
       statusEl.classList.add('exp-tpl-error');
       return;
@@ -3318,9 +3387,11 @@ function handleCustomTplFile(file) {
       statusEl.classList.add('exp-tpl-error');
       return;
     }
-    refreshCustomTplStatus();
+    applyTargetSpec();
     renderExportPreview();
-    toast('Eigenes Template gespeichert', 2000);
+    toast(target === 'pciii'
+      ? `DJM erkannt: ${inspection.rpmCount} RPM · ${inspection.blockCount} Blöcke (nur Vorschau)`
+      : 'Eigenes Template gespeichert', 3000);
   };
   reader.onerror = () => {
     statusEl.textContent = 'Datei konnte nicht gelesen werden.';
@@ -3788,11 +3859,8 @@ function downloadExport() {
                     `${base}_MD-Lambda-View.pvm`);
     toast('.pvm heruntergeladen', 2000);
   } else if (opts.target === 'pciii') {
-    const bin = buildDjmBinary(map);
-    if (!bin) { toast('Zuerst eigenes .djm-Template hochladen', 3000); return; }
-    triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
-                    `${base}_MD-Lambda-View.djm`);
-    toast('.djm heruntergeladen', 2000);
+    toast('DJM-Export gesperrt: Zelloffset und Codierung noch nicht verifiziert', 4500);
+    return;
   } else if (opts.target === 'iaw16m') {
     // Flush any pending edits in the IAW parameter fields into storage first
     readIawParamsFromUi();
