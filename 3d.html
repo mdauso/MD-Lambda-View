@@ -1261,6 +1261,7 @@ input[type="file"] { display: none; }
 .exp-cell.exp-zero  { color: var(--ink-2); font-weight: 400; }
 .exp-cell.exp-empty { color: var(--ink-3); font-style: italic; }
 .exp-cell.exp-clamp { outline: 1.5px solid #e2734a; outline-offset: -2px; }
+.exp-cell.exp-insufficient { text-decoration: underline dotted; text-underline-offset: 3px; opacity: .75; }
 
 .iaw-source-banner {
   background: rgba(226, 115, 74, .10);
@@ -1626,18 +1627,27 @@ body.pseudo-full .plot-area {
 
     <div class="modal-sub exp-target-hint" id="expTargetHint"></div>
 
+    <!-- Global minimum sample count for ALL export targets; never vehicle-specific. -->
+    <div class="exp-section" id="expSampleGuardSection">
+      <div class="exp-section-title">Messwertabsicherung</div>
+      <div class="exp-grid-2">
+        <div class="exp-field"><label>Mindestanzahl Messpunkte pro Zelle</label><input type="number" id="expMinSamples" min="1" max="5000" step="1" inputmode="numeric" value="5"></div>
+      </div>
+      <div class="modal-sub">Gilt für <strong>alle Formate</strong> (PVM, DJM-Vorschau, MPP, CSV und IAW16M-Vorschau). Es zählen nur Messpunkte, die der jeweiligen Zelle direkt zugeordnet wurden. Unterhalb der Grenze bleibt der Originalwert erhalten (bzw. 0 % Korrektur). Das Füllen von Lücken hebt diesen Schutz nicht auf.</div>
+    </div>
+
     <!-- IAW16M: dedicated section with BIN upload (ZIP), editable targets,
          TPS→Grad conversion and correction parameters.
          Only shown when target = iaw16m. -->
     <div class="exp-section" id="expIawSection" hidden>
       <div class="exp-section-title">IAW16M · Ausgangs-BIN</div>
       <div class="modal-sub" style="margin-bottom:10px">
-        Eine originale <strong>.bin</strong> (64 KiB) oder ein ZIP mit einer BIN auswählen. Für kompatible IAW16M-Dumps werden Kennfeldposition, Drehzahlachse und die 16 TPS-Rohwerte automatisch geprüft. Mit einem geladenen Lambda-Log wird zusätzlich eine <strong>berechnete Base-Fuel-Korrektur</strong> angezeigt. <strong>Nur Simulation</strong> – ein flashbares BIN wird noch nicht erzeugt.
+        Eine originale <strong>.bin</strong> (64 KiB) oder ein ZIP mit einer BIN auswählen. Für kompatible IAW16M-Dumps werden Kennfeldposition, Drehzahlachse, TPS-Rohwerte und Delta Fuel geprüft. Mit geladenem Lambda-Log wird die <strong>berechnete Base-Fuel-Korrektur</strong> angezeigt. Der Download erstellt eine neue <strong>.bin</strong> und überprüft die vollständigen 65.536 Bytes: ausschließlich Base Fuel darf verändert sein.
       </div>
       <div class="exp-info-box">
         <strong>Dynamische Strukturerkennung:</strong><br>
         16 × 16 Kennfeldzellen; echte RPM-Stützstellen und TPS-Rohachse der ausgewählten BIN.<br>
-        Die Winkelachse und die Einspritzzeit-Skalierung <code>Byte / 15,5</code> sind anhand der MD-040KI-BIN und des ECUedit-Screenshots bestätigt. Bei anderen Softwareständen ist dieser Abgleich noch offen. Die Prüfsumme ist nicht verifiziert.
+        Die Winkelachse und die Einspritzzeit-Skalierung <code>Byte / 15,5</code> sind anhand der MD-040KI-BIN und des ECUedit-Screenshots bestätigt. Bei anderen Softwareständen ist dieser Abgleich noch offen. ECUedit hat beim Speichern eines einzelnen Messwerts keine weiteren Bytes geändert. Die ECU-Akzeptanz anderer Softwarestände ist nicht gesondert nachgewiesen.
       </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expIawFile">
@@ -1661,7 +1671,7 @@ body.pseudo-full .plot-area {
         <div class="exp-field"><label>MONOTONIE bis (Grad)</label><input type="number" id="expIawMono" step="0.1" min="0" max="80" inputmode="decimal"></div>
         <div class="exp-field span-full"><button class="modal-btn" id="expIawReset" type="button">↺ Standard</button></div>
       </div>
-      <div class="modal-sub">Glättung/Ausreißer-Filterung erfolgt bei Bedarf beim CSV-Einlesen. Die Vorschau begrenzt die Korrektur auf MAX_ÄNDERUNG. Monotonie wird nur in Zellen mit Messdaten und innerhalb dieser Grenze berücksichtigt. Ziel-λ kommt aus den vier Export-Zonen oben. Es wird keine BIN verändert.</div>
+      <div class="modal-sub">Glättung/Ausreißer-Filterung erfolgt beim CSV-Einlesen. Nur Zellen mit genügend Messpunkten werden korrigiert. Die Berechnung begrenzt die Änderung auf MAX_ÄNDERUNG. Monotonie wird nur in gemessenen Zellen und innerhalb dieser Grenze berücksichtigt. Die ursprüngliche BIN im Browser bleibt immer unverändert; der Download enthält eine neue Kopie.</div>
 
     </div>
 
@@ -1692,7 +1702,6 @@ body.pseudo-full .plot-area {
         <div class="exp-field"><label>% Kraftstoff je RB-Einheit</label><input type="number" id="expRbPctU" step="0.1" min="0.1" max="10" inputmode="decimal"></div>
         <div class="exp-field"><label>Toleranzband ±%</label><input type="number" id="expRbDead" step="0.5" min="0" max="20" inputmode="decimal"></div>
         <div class="exp-field"><label>Max. Änderung ± Einheiten</label><input type="number" id="expRbMaxS" step="1" min="1" max="20" inputmode="decimal"></div>
-        <div class="exp-field"><label>Min. Messpunkte pro Zelle</label><input type="number" id="expRbMinN" step="1" min="1" max="500" inputmode="decimal"></div>
         <div class="exp-field"><label>Korrektur erst ab U/min</label><input type="number" id="expRbCMin" step="50" min="0" max="20000" inputmode="decimal"></div>
         <div class="exp-field span-full"><button class="modal-btn" id="expRbReset" type="button">↺ Standard</button></div>
       </div>
@@ -2173,6 +2182,32 @@ const TPS_SETS = {
 //   'readable' — human-readable table (CSV)
 // `status: 'ready' | 'coming-soon'` gates the download button. Coming-soon
 // entries are listed so the roadmap is visible, but the UI blocks export.
+// One safety threshold for EVERY target: PowerCommander (PVM/DJM), RB EVO,
+// IAW16M and CSV. Stored independently of vehicle-specific parameters.
+const EXP_MIN_SAMPLES_KEY = 'mdlv_exp_min_samples_v1';
+function loadExportMinSamples() {
+  let value = null;
+  try {
+    value = localStorage.getItem(EXP_MIN_SAMPLES_KEY);
+    // Keep an existing RB user's old preference when first migrating.
+    if (value == null) {
+      const legacy = localStorage.getItem('mdlv_rb_params');
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (Number.isInteger(Number(parsed.minN))) value = String(parsed.minN);
+      }
+    }
+  } catch (e) {}
+  const n = Number(value == null ? 5 : value);
+  return Number.isInteger(n) && n >= 1 && n <= 5000 ? n : 5;
+}
+function storeExportMinSamples(value) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 5000) return false;
+  try { localStorage.setItem(EXP_MIN_SAMPLES_KEY, String(n)); } catch (e) {}
+  return true;
+}
+
 const TARGET_SPEC = {
   pcv: {
     label: 'PowerCommander V (.pvm)',
@@ -2207,7 +2242,6 @@ const TARGET_SPEC = {
       pctU:    1.0,   // % fuel per RB unit (calibration — bike-specific)
       dead:    2,     // tolerance band ±% around target λ
       maxS:    3,     // max ± units per pass (safety cap)
-      minN:    20,    // min samples per cell before it earns a correction
       cMin:    1700,  // RPM below which correction is skipped (idle regulation)
       rnd:     'trunc', // 'trunc' (= Excel ROUNDDOWN) or 'round' (kaufmännisch)
       lock0:   true,  // 0 % TPS column stays untouched (overrun)
@@ -2221,7 +2255,7 @@ const TARGET_SPEC = {
     // from 1000 to 9000 U/min; the IAW builder itself uses the fixed
     // 16-entry rpmAxis below regardless of these numbers.
     tpsSet: null, rpmMin: 1000, rpmMax: 9000, rpmStep: 250,
-    hint: 'IAW16M: Basis- und Delta-Kennfeld auf Originalachsen, plus berechnete Lambda-Korrektur des Base-Fuel-Kennfelds (nur Simulation). Das Delta-Kennfeld bleibt unverändert. BIN-Export gesperrt.',
+    hint: 'IAW16M: Base Fuel und Delta Fuel auf Originalachsen. Berechnete Base-Fuel-Korrekturen werden in eine Kopie Deiner Original-BIN geschrieben; ein vollständiger Bytevergleich verhindert Änderungen außerhalb der 256 Base-Fuel-Bytes. Delta Fuel und übrige BIN-Daten bleiben unverändert.',
     // Legacy MD-039 assumptions (NOT used for new IAW16M read-only layouts):
     binSize:    65536,
     mapAddress: 0xF161,
@@ -2544,6 +2578,7 @@ function buildPvmBinary(map) {
       if (!cell || cell.pct == null) continue; // empty cells preserve the original
       const delta = Math.round(cell.pct);
       if (!Number.isFinite(delta)) throw new Error('PVM: ungültige Korrektur');
+      if (delta === 0) continue; // preserve even unusual original byte values exactly
       const o = layout.primaryOffset + r*layout.tpsCount + c;
       // Encoded trim: 100=0%, e.g. 110=+10%. ±99% is the representable UI range.
       out[o] = Math.max(1, Math.min(199, out[o]+delta));
@@ -2560,7 +2595,7 @@ function buildDjmBinary(map) {
 }
 
 // ============ IAW16M / 64-KiB BIN STRUCTURE INSPECTOR ============
-// READ ONLY. MD-040KI.BIN + original ECUedit Base Fuel screenshot confirm:
+// ECUedit-verified MD-040KI reference. MD-040KI.BIN + Base Fuel screenshot confirm:
 // 16x16 bytes from the 53 A8 marker +2, column-major (RPM x TPS),
 // base injection time = rawByte / 15.5 ms, TPS angles as per screenshot.
 // The 3 BE-uint16 /4 RPM axes preceding the table belong to different
@@ -2568,7 +2603,8 @@ function buildDjmBinary(map) {
 // Always use the FIRST RPM axis for the displayed base fuel table.
 // 748/916 layout structure is validated; their ms scale is a hypothesis
 // consistent with MD-040, NOT independently checked against ECUedit.
-// No firmware writer is enabled: checksum & other maps are unverified.
+// Export is allowed only for structurally verified maps; modifications are constrained
+// to the 256 Base Fuel bytes and checked byte-for-byte before download.
 // ECUedit screenshot of MD-040: full-precision TPS angles rather than rounded labels.
 // These display angles are an MD-040 reference, not a universal TPS calibration.
 const IAW_TPS_DEG_REFERENCE = [80.3,60.3,47.7,36.6,27.9,21.4,16.8,12.6,9.7,7.5,5.1,4.2,3.5,2.9,2.4,2.0];
@@ -2578,7 +2614,7 @@ const IAW_TPS_DEG_REFERENCE = [80.3,60.3,47.7,36.6,27.9,21.4,16.8,12.6,9.7,7.5,5
 // The *exact Delta ms scale* has not yet been independently verified.
 const IAW_DELTA_ZERO_BYTE = 0x80;
 const IAW_DELTA_MS_SCALE_CANDIDATE = 15.5;
-let IAW_PREVIEW_MAP = 'base'; // 'base', 'corrected' (simulation), 'delta'
+let IAW_PREVIEW_MAP = 'base'; // 'base', 'corrected', 'delta'
 const IAW_TPS_RAW_REFERENCE = [13,17,23,32,44,61,83,111,143,175,203,225,239,247,252,254];
 const IAW_BASE_MS_SCALE = 15.5;
 function inspectIaw16mBin(bin) {
@@ -2636,7 +2672,7 @@ function inspectIaw16mBin(bin) {
     const deltaCells = deltaRecognized
       ? Array.from({length:16}, (_,col) =>
           Array.from(deltaBytes.slice(col*16,(col+1)*16))) : null;
-    candidates.push({recognized:true, writable:false, mapOffset,
+    candidates.push({recognized:true, writable:angleMappingKnown && deltaRecognized, mapOffset,
       rpmOffset, tpsOffset, rpmAxis:rpmAxes[0], rpmAxes,
       rpmVariationIndices:variationIndices, tpsRawAxis,
       tpsDegAxis:angleMappingKnown ? IAW_TPS_DEG_REFERENCE.slice() : null,
@@ -2647,7 +2683,9 @@ function inspectIaw16mBin(bin) {
       deltaNonNeutralCount:deltaRecognized ? 256-neutralCount : null,
       deltaZeroByte:IAW_DELTA_ZERO_BYTE,
       deltaScaleVerified:false,
-      reason:'Basis- und ggf. Delta-Einspritzkennfeld ausgelesen. Firmware-Export bleibt gesperrt.'});
+      reason:angleMappingKnown && deltaRecognized
+        ? '16×16 Base Fuel und Delta Fuel erkannt; BIN-Export nur mit unverändertem Delta und vollständigem Bytevergleich.'
+        : 'Kennfeld-Achsen oder Delta Fuel nicht verifiziert: nur Vorschau.'});
   }
   if (candidates.length !== 1) return bad(
     `IAW16M-Layout nicht eindeutig (${candidates.length} passende 16×16-Strukturen). Kein Binär-Export.`);
@@ -2765,93 +2803,77 @@ function targetLambdaForDeg(deg, params) {
   return targetLambdaAt(Math.max(0, Math.min(100, tps)));
 }
 
-// Core builder: returns {binOut, changes, warnings} or null if no BIN loaded.
+// Generate a modified COPY of the uploaded BIN from the EXACT same 16×16 values
+// shown in the "Berechnet" preview. Never write to localStorage or the source.
+// Guardrails: recognized 64-KiB layout, known TPS angles, recognized Delta map,
+// valid parameters, loaded log, min sample count, safety cap, byte-for-byte audit.
+// A modified byte outside Base Fuel aborts the export, always.
 function buildIawBinary() {
-  // Strict read-only policy until all ECU layouts are independently validated.
-  // Previously this writer assumed mapAddress=0xF161 for every 64-KiB BIN,
-  // which would corrupt the 916 example's map starting at 0xF15E.
-  return null;
-  /* Previous fixed-address writer retained below for reference, but disabled.
-  const bin = loadIawBin();
-  if (!bin) return null;
-  const spec   = TARGET_SPEC.iaw16m;
-  const params = loadIawParams();
-  const nCols = spec.mapCols, nRows = spec.mapRows;
-  const addr  = spec.mapAddress, scale = spec.byteScale;
-  const maxF  = params.maxChange / 100;
+  const original = loadIawBin();
+  if (!original) throw new Error('Zuerst eine IAW16M-Ausgangs-BIN laden.');
+  const layout = inspectIaw16mBin(original);
+  if (!layout.recognized || !layout.writable || !layout.deltaRecognized ||
+      !layout.tpsDegAxis || layout.msScale !== IAW_BASE_MS_SCALE ||
+      layout.mapOffset < 0 || layout.mapOffset + 256 > original.length)
+    throw new Error('IAW16M-Kennfeldstruktur nicht vollständig verifiziert: Export gesperrt.');
+  if (!STATE.hasData || !STATE.rawData || !STATE.rawData.rpm || !STATE.rawData.rpm.length)
+    throw new Error('Zuerst ein Lambda-Log laden.');
+  const params = readIawParamsFromUi();
+  const simulation = calculateIawFuelPreview(layout, params, STATE.rawData);
+  if (simulation.error) throw new Error(simulation.error);
+  if (!simulation.hasLog || simulation.covered === 0 || simulation.changes.length === 0)
+    throw new Error('Keine berechneten Änderungen mit ausreichenden Messpunkten.');
 
-  // Read current map (column-major: col*rows + row)
-  const oldBytes = Array(nCols).fill(0).map(() => Array(nRows).fill(0));
-  const newBytes = Array(nCols).fill(0).map(() => Array(nRows).fill(0));
-  for (let col = 0; col < nCols; col++) {
-    for (let row = 0; row < nRows; row++) {
-      oldBytes[col][row] = bin[addr + col * nRows + row];
-      newBytes[col][row] = oldBytes[col][row];
-    }
-  }
-
-  // Compute per-cell factor and new byte
+  const output = new Uint8Array(original); // new buffer, source untouched
+  const start = layout.mapOffset;
+  const end = start + 256;
+  let planned = 0;
   const changes = [];
-  for (let col = 0; col < nCols; col++) {
-    const rpm = spec.rpmAxis[col];
-    for (let row = 0; row < nRows; row++) {
-      const deg = spec.degAxis[row];
-      const sample = sampleIawCell(col, row, params, spec);
-      if (sample.lam == null) continue;
-      const target = targetLambdaForDeg(deg, params);
-      // Smoothing / outlier rejection was already done at CSV import by the
-      // stability filter — here we just use the lambda as it stands.
-      const rawFactor = sample.lam / target;
-      // Clamp to ± maxChange (safety cap, not smoothing)
-      const factor = Math.max(1 - maxF, Math.min(1 + maxF, rawFactor));
-      if (factor === 1) continue;
-      const oldMs = oldBytes[col][row] / scale;
-      const newMs = Math.round(oldMs * factor * scale) / scale;
-      const newByte = Math.max(0, Math.min(255, Math.round(newMs * scale)));
-      if (newByte !== oldBytes[col][row]) {
-        newBytes[col][row] = newByte;
-        changes.push({
-          deg, rpm, n: sample.n,
-          lamMeas: sample.lam, lamTarget: target,
-          oldByte: oldBytes[col][row], newByte,
-          deltaPct: (newByte / oldBytes[col][row] - 1) * 100,
-        });
-      }
-    }
+  for (let col = 0; col < 16; col++) for (let row = 0; row < 16; row++) {
+    const cell = simulation.cells[col][row];
+    const address = start + col * 16 + row;
+    if (original[address] !== cell.oldByte)
+      throw new Error(`Basiswert stimmt nicht mit BIN überein: 0x${address.toString(16)}.`);
+    if (!Number.isInteger(cell.newByte) || cell.newByte < 0 || cell.newByte > 255)
+      throw new Error(`Ungültiger Einspritzwert an 0x${address.toString(16)}.`);
+    const cap = params.maxChange / 100;
+    if (cell.newByte < Math.ceil(cell.oldByte*(1-cap)-1e-9) ||
+        cell.newByte > Math.floor(cell.oldByte*(1+cap)+1e-9))
+      throw new Error(`MAX_ÄNDERUNG bei 0x${address.toString(16)} überschritten.`);
+    if (!cell.measured && cell.newByte !== cell.oldByte)
+      throw new Error(`Zelle ohne ausreichend Messpunkte verändert: 0x${address.toString(16)}.`);
+    output[address] = cell.newByte;
+    if (cell.newByte !== cell.oldByte) { planned++; changes.push({...cell,address}); }
   }
 
-  // Monotony: per column, from the smallest-Grad row (bottom of table)
-  // upward until monotonyUntilDeg: no row may be smaller than the row below it.
-  for (let col = 0; col < nCols; col++) {
-    // degAxis is descending (80..2.0), so the "row below" (smaller Grad) has HIGHER index
-    for (let row = nRows - 2; row >= 0; row--) {
-      if (spec.degAxis[row] > params.monotonyUntilDeg) break;
-      if (newBytes[col][row] < newBytes[col][row + 1]) {
-        newBytes[col][row] = newBytes[col][row + 1];
-      }
-    }
+  // Independent FULL-FILE verification, including separator, Delta and all
+  // calibration / metadata / executable regions. Byte *and bit* difference.
+  let changedBytes = 0, changedBits = 0, outsideChanges = 0;
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] === output[i]) continue;
+    changedBytes++;
+    if (i < start || i >= end) outsideChanges++;
+    let x = original[i] ^ output[i];
+    while (x) { changedBits += x & 1; x >>>= 1; }
+    // Cross-check against the independently collected preview changes.
+    const col = Math.floor((i-start) / 16), row = (i-start) % 16;
+    if (i >= start && i < end && output[i] !== simulation.cells[col][row].newByte)
+      throw new Error('Binärvergleich: Vorschau und Export weichen voneinander ab.');
   }
-
-  // Write back into a fresh copy of the BIN
-  const out = new Uint8Array(bin);
-  for (let col = 0; col < nCols; col++) {
-    for (let row = 0; row < nRows; row++) {
-      out[addr + col * nRows + row] = newBytes[col][row];
-    }
+  if (output.length !== 65536 || outsideChanges !== 0 || changedBytes !== planned ||
+      changedBytes !== simulation.altered || changedBytes === 0 ||
+      changes.length !== simulation.changes.length)
+    throw new Error('Binärvergleich fehlgeschlagen: unerwartete Dateiveränderung.');
+  // Explicitly preserve Delta Fuel in its entirety.
+  for (let i=layout.deltaOffset; i < layout.deltaOffset+256; i++) {
+    if (original[i] !== output[i])
+      throw new Error('Delta Fuel wurde verändert. Export abgebrochen.');
   }
-
-  // Byte-exact safety check: no change may land outside the map region
-  const warnings = [];
-  for (let i = 0; i < bin.length; i++) {
-    if (bin[i] !== out[i]) {
-      if (i < addr || i >= addr + nCols * nRows) {
-        warnings.push(`Byte 0x${i.toString(16)} wurde außerhalb des Kennfelds geändert!`);
-      }
-    }
-  }
-
-  return { binOut: out, changes, warnings, oldBytes, newBytes };
-  */
+  return {
+    binOut: output, changes, warnings: [], layout, simulation,
+    verification: { changedBytes, changedBits, outsideChanges, unchangedBytes:65536-changedBytes,
+      mapStart:start, mapEnd:end-1, deltaUnchanged:true, fileSize:65536 }
+  };
 }
 
 // Pack a .bin into a .zip and return a Blob. Uses JSZip (lazy-loaded).
@@ -3065,10 +3087,11 @@ function buildRbMap() {
   const newBytes = oldBytes.map(r => r.slice());
   const changes = [];
   const warnings = [];
+  let insufficient = 0;
   const pctU = parseFloat(params.pctU) || 1;
   const dead = parseFloat(params.dead) || 0;
   const maxS = parseFloat(params.maxS);
-  const minN = parseFloat(params.minN) || 0;
+  const minN = loadExportMinSamples();
   const cMin = parseFloat(params.cMin) || 0;
   const lock0 = params.lock0 !== false;
   const roundFn = params.rnd === 'round' ? Math.round : Math.trunc;
@@ -3079,6 +3102,7 @@ function buildRbMap() {
     for (let j = 0; j < nCols; j++) {
       if (lock0 && j === 0) continue;
       const sample = sampleRbCell(i, j);
+      if (sample.n > 0 && sample.n < minN) insufficient++;
       if (sample.lam == null || sample.n < minN) continue;
       const target = targetLambdaAt(spec.tpsAxis[j]);
       const dev = (sample.lam / target - 1) * 100;
@@ -3096,7 +3120,7 @@ function buildRbMap() {
       });
     }
   }
-  return { oldBytes, newBytes, changes, warnings, mppData };
+  return { oldBytes, newBytes, changes, warnings, mppData, insufficient, minSamples: minN };
 }
 
 async function handleRbMppUpload(file) {
@@ -3155,7 +3179,6 @@ function renderRbParams() {
   $('#expRbPctU').value = p.pctU;
   $('#expRbDead').value = p.dead;
   $('#expRbMaxS').value = p.maxS;
-  $('#expRbMinN').value = p.minN;
   $('#expRbCMin').value = p.cMin;
   if ($('#expRbRnd'))   $('#expRbRnd').value   = p.rnd;
   if ($('#expRbLock0')) $('#expRbLock0').checked = !!p.lock0;
@@ -3169,7 +3192,6 @@ function readRbParamsFromUi() {
   p.pctU = num('expRbPctU', p.pctU);
   p.dead = num('expRbDead', p.dead);
   p.maxS = num('expRbMaxS', p.maxS);
-  p.minN = num('expRbMinN', p.minN);
   p.cMin = num('expRbCMin', p.cMin);
   if ($('#expRbRnd'))   p.rnd   = $('#expRbRnd').value;
   if ($('#expRbLock0')) p.lock0 = $('#expRbLock0').checked;
@@ -3276,8 +3298,42 @@ function coveredRpmSpanAt(tps, tpsAxis, idx) {
   return found ? { rMin, rMax } : null;
 }
 
-// Build the full map: 2D array of {pct, src} where
-// src ∈ {'measured','nearest','filled','empty'}
+// Allocate each raw log point to exactly one destination cell using midpoints
+// between adjacent axis values (instead of reusing a possibly interpolated 3D
+// display cell). Points outside half a cell at either end are not extrapolated.
+// Each destination cell must satisfy the GLOBAL minimum count. In particular,
+// the selectable gap-fill strategies may NOT circumvent this threshold.
+function exportAxisBucket(axis, value) {
+  if (!Number.isFinite(value) || !axis.length) return -1;
+  if (axis.length === 1) return Math.abs(value - axis[0]) < 1e-8 ? 0 : -1;
+  const start = axis[0] - (axis[1] - axis[0]) / 2;
+  const end = axis[axis.length - 1] + (axis[axis.length - 1] - axis[axis.length - 2]) / 2;
+  if (value < start || value > end) return -1;
+  let lo = 0, hi = axis.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (value >= (axis[mid] + axis[mid + 1]) / 2) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+function exportRawBuckets(rpmAxis, tpsAxis) {
+  const buckets = tpsAxis.map(() => rpmAxis.map(() => ({ sum: 0, n: 0 })));
+  const raw = STATE.rawData;
+  if (!raw || !raw.rpm || !raw.throttle || !raw.lambda) return buckets;
+  for (let i = 0; i < raw.rpm.length; i++) {
+    const r = Number(raw.rpm[i]), t = Number(raw.throttle[i]), lam = Number(raw.lambda[i]);
+    if (!Number.isFinite(r) || !Number.isFinite(t) || !Number.isFinite(lam) ||
+        t < 0 || t > 100 || lam < 0.5 || lam > 2.5) continue;
+    const ri = exportAxisBucket(rpmAxis, r);
+    const ti = exportAxisBucket(tpsAxis, t);
+    if (ri < 0 || ti < 0) continue;
+    const b = buckets[ti][ri];
+    b.sum += lam; b.n++;
+  }
+  return buckets;
+}
+
 function buildExportMap(opts) {
   const rpmAxis = opts.rpmAxis ? opts.rpmAxis.slice() : [];
   if (!opts.rpmAxis) {
@@ -3285,44 +3341,26 @@ function buildExportMap(opts) {
   }
   const tpsAxis = opts.tpsAxis ? opts.tpsAxis.slice() :
     (TPS_SETS[opts.tpsSet] || TPS_SETS['pciii']);
-
-  const rows = tpsAxis.map((tps, ti) => {
-    const span = (opts.fill === 'smart') ? coveredRpmSpanAt(tps, tpsAxis, ti) : null;
-    return rpmAxis.map(rpm => {
-      let lam = sampleMeasuredLambda(rpm, tps);
-      let src = 'measured';
-      if (lam == null) {
-        if (opts.fill === 'nearest') {
-          lam = nearestCellLambda(rpm, tps);
-          src = (lam == null) ? 'empty' : 'nearest';
-        } else if (opts.fill === 'smart') {
-          // Only close gaps that sit inside the measured RPM span of this row
-          if (span && rpm >= span.rMin && rpm <= span.rMax) {
-            lam = nearestCellLambda(rpm, tps);
-            src = (lam == null) ? 'filled' : 'nearest';
-          } else {
-            src = 'filled';   // outside the logged range → leave untouched
-          }
-        } else if (opts.fill === 'empty') {
-          src = 'empty';
-        } else {
-          src = 'filled';     // → 0 %
-        }
-      }
-      let pct = null;
-      let clamped = false;
-      if (lam != null) {
-        const tgt = targetLambdaAt(tps);
-        pct = (lam / tgt - 1) * 100;
-        if (pct > opts.clamp) { pct = opts.clamp; clamped = true; }
-        if (pct < -opts.clamp){ pct = -opts.clamp; clamped = true; }
-      } else if (src === 'filled') {
-        pct = 0;
-      }
-      return { pct, src, clamped };
-    });
-  });
-  return { rpmAxis, tpsAxis, rows };
+  const minSamples = loadExportMinSamples();
+  const buckets = exportRawBuckets(rpmAxis, tpsAxis);
+  const rows = tpsAxis.map((tps, ti) => rpmAxis.map((rpm, ri) => {
+    const b = buckets[ti][ri];
+    // No qualifying measurement: PVM/MPP must retain its original value;
+    // a zero percent adjustment is the neutral value for trim maps and CSV.
+    if (b.n < minSamples) {
+      const insufficient = b.n > 0;
+      return {pct: (!insufficient && opts.fill === 'empty') ? null : 0,
+        src: insufficient ? 'insufficient' : (opts.fill === 'empty' ? 'empty' : 'filled'),
+        n: b.n, clamped: false};
+    }
+    const lam = b.sum / b.n;
+    const target = targetLambdaAt(tps);
+    let pct = (lam / target - 1) * 100;
+    const clamped = Math.abs(pct) > opts.clamp;
+    pct = Math.max(-opts.clamp, Math.min(opts.clamp, pct));
+    return {pct, src: 'measured', n: b.n, clamped};
+  }));
+  return {rpmAxis, tpsAxis, rows, minSamples};
 }
 
 function readExportOpts() {
@@ -3406,6 +3444,7 @@ function applyTargetSpec() {
             : null;
   $('#expDownload').textContent = target === 'pciii'
     ? 'DJM-Export noch gesperrt'
+    : target === 'iaw16m' ? '↓ Korrigierte .bin herunterladen'
     : (ext ? `↓ ${ext} herunterladen` : '↓ CSV herunterladen');
 
   // Variant-specific sections: show the one that belongs to the active target.
@@ -3420,7 +3459,7 @@ function applyTargetSpec() {
   $('#expGridSection').hidden   = isFlash;
   $('#expClampSection').hidden  = isFlash;
   // Adopt buttons: each flash variant has its own, mutually exclusive.
-  $('#expIawAdopt').hidden      = (target !== 'iaw16m');
+  $('#expIawAdopt').hidden      = true; // source BIN is never overwritten by an export
   $('#expRbAdopt').hidden       = (target !== 'rbe');
   if (kind === 'trim') {
     $('#expTplExt').textContent = ext;
@@ -3470,7 +3509,7 @@ function refreshIawStatus() {
   const clearBtn = $('#expIawClear');
   const btnLabel = $('#expIawBtnLabel');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
-  dlBtn.disabled = true;                // NEVER write unverified ECU firmware
+  dlBtn.disabled = true;                // enabled by the preview once log and map are validated
   adoptBtn.disabled = true;
   adoptBtn.style.opacity = '0.55';
   if (bin) {
@@ -3480,7 +3519,7 @@ function refreshIawStatus() {
     if (layout.recognized) {
       parts.push(`16×16 bei 0x${layout.mapOffset.toString(16).toUpperCase()}`);
       parts.push(`${layout.rpmAxis[15]}–${layout.rpmAxis[0]} RPM`);
-      parts.push(`Basis: ms (÷15,5); Delta: ${layout.deltaRecognized ? 'erkannt, '+layout.deltaNonNeutralCount+' nicht-neutrale Rohwerte' : 'nicht sicher erkannt'}; nur Vorschau`);
+      parts.push(`Basis: ms (÷15,5); Delta: ${layout.deltaRecognized ? 'erkannt, '+layout.deltaNonNeutralCount+' nicht-neutrale Rohwerte' : 'nicht sicher erkannt'}; ${layout.writable ? 'BIN-Export nach Bytevergleich möglich' : 'nur Vorschau'}`);
       if (layout.rpmVariationIndices.length) parts.push('RPM-Achsen unterscheiden sich');
       statusEl.classList.add('exp-tpl-custom');
     } else {
@@ -3538,9 +3577,11 @@ function refreshCustomTplStatus() {
     return;
   }
 
-  // ECU BIN diagnostic mode: no writer until a verified calibration definition exists.
+  // IAW16M: the preview performs the final log/map eligibility check.
   if (target === 'iaw16m') {
-    dlBtn.disabled = true;
+    const bin = loadIawBin();
+    const layout = bin && inspectIaw16mBin(bin);
+    dlBtn.disabled = !(layout && layout.writable && STATE.hasData);
     return;
   }
 
@@ -3740,8 +3781,10 @@ function renderExportPreview() {
       const v = Math.round(cell.pct);
       const cls = v === 0 ? 'exp-zero' : (v > 0 ? 'exp-pos' : 'exp-neg');
       const clamp = cell.clamped ? ' exp-clamp' : '';
+      const lowN = cell.src === 'insufficient' ? ' exp-insufficient' : '';
+      const reason = cell.src === 'insufficient' ? ` title="Messpunkte / samples: ${cell.n}; Mindestanzahl / minimum: ${loadExportMinSamples()} — unverändert / unchanged"` : ''; 
       const sign = v > 0 ? '+' : '';
-      return `<td class="exp-cell ${cls}${clamp}">${sign}${v}</td>`;
+      return `<td class="exp-cell ${cls}${clamp}${lowN}"${reason}>${sign}${v}</td>`;
     }).join('');
     return `<tr><th>${tps}%</th>${cells}</tr>`;
   }).join('');
@@ -3773,9 +3816,10 @@ function renderExportPreview() {
     </div>
   `;
   // Summary line
-  let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0;
+  let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0, countInsufficient = 0;
   rows.forEach(row => row.forEach(c => {
-    if (c.src === 'measured') countMeasured++;
+    if (c.src === 'insufficient') countInsufficient++;
+    else if (c.src === 'measured') countMeasured++;
     else if (c.src === 'nearest') countNearest++;
     else if (c.src === 'filled')  countFilled++;
     else countEmpty++;
@@ -3784,6 +3828,7 @@ function renderExportPreview() {
   const total = rows.length * (rows[0] ? rows[0].length : 0);
   $('#expSummary').innerHTML = `
     <span><strong>${countMeasured}</strong>/${total} aus Messung</span>
+    ${countInsufficient ? `<span class="exp-badge-warn"><strong>${countInsufficient}</strong> Zellen unter ${loadExportMinSamples()} Messpunkten (unverändert)</span>` : ''}
     ${countNearest ? `<span><strong>${countNearest}</strong> interpoliert</span>` : ''}
     ${countFilled ? `<span><strong>${countFilled}</strong> auf 0 % (ohne Daten)</span>` : ''}
     ${countEmpty ? `<span><strong>${countEmpty}</strong> leer</span>` : ''}
@@ -3804,6 +3849,7 @@ function calculateIawFuelPreview(layout, params, log) {
       maxDeg <= minDeg || minDeg < 0 || maxDeg > 120 || capPct < 1 || capPct > 30 ||
       monotonyUntilDeg < 0 || monotonyUntilDeg > 80)
     return {error:'Ungültige IAW-Parameter: Winkel, MAX_ÄNDERUNG und Monotonie prüfen.'};
+  const minSamples = loadExportMinSamples();
   const rpmAxis = layout.rpmAxis;
   const degAxis = layout.tpsDegAxis;
   const buckets = Array.from({length:16},()=>Array.from({length:16},()=>({sum:0,n:0})));
@@ -3838,13 +3884,14 @@ function calculateIawFuelPreview(layout, params, log) {
   }
   const result = Array.from({length:16},()=>Array(16));
   const cap=capPct/100;
-  let covered=0, altered=0, capped=0, monotonyAdjusted=0, monotonyLimited=0;
+  let covered=0, altered=0, capped=0, insufficient=0, monotonyAdjusted=0, monotonyLimited=0;
   for (let col=0;col<16;col++) for (let row=0;row<16;row++) {
     const oldByte=layout.cells[col][row], oldMs=oldByte/layout.msScale;
     const bucket=buckets[col][row];
     const lam=bucket.n ? bucket.sum/bucket.n : null;
     const target=targetLambdaForDeg(degAxis[row],params);
-    const valid=lam!=null && oldByte>0 && Number.isFinite(target) && target>0;
+    const valid=bucket.n >= minSamples && oldByte>0 && Number.isFinite(target) && target>0;
+    if (bucket.n > 0 && bucket.n < minSamples) insufficient++;
     const rawFactor=valid ? lam/target : 1;
     const factor=valid ? Math.max(1-cap,Math.min(1+cap,rawFactor)) : 1;
     // Quantisation must not itself break the safety cap (e.g. 8 -> 9 bytes
@@ -3880,7 +3927,7 @@ function calculateIawFuelPreview(layout, params, log) {
     if (cell.newByte!==cell.oldByte) { altered++; changes.push(cell); }
   }
   return { cells:result,changes,hasLog,accepted,outside,invalid,covered,altered,capped,
-    monotonyAdjusted,monotonyLimited,capPct };
+    monotonyAdjusted,monotonyLimited,capPct,insufficient,minSamples };
 }
 
 // Base Fuel: original or simulated correction; Delta Fuel: read-only.
@@ -3890,6 +3937,7 @@ function renderIawPreview() {
   const uploaded=loadIawBin();
   const layout=uploaded && inspectIaw16mBin(uploaded);
   if (!layout || !layout.recognized) {
+    $('#expDownload').disabled=true;
     const message=layout ? layout.reason :
       'Noch keine BIN geladen. Bitte eine original 64-KiB IAW16M-BIN (.bin oder .zip) auswählen.';
     $('#expPreviewWrap').innerHTML=`<div class="modal-sub exp-preview-empty">${message}</div>`;
@@ -3897,6 +3945,8 @@ function renderIawPreview() {
     return;
   }
   const sim=calculateIawFuelPreview(layout,params,STATE.hasData ? STATE.rawData : null);
+  const exportReady = !!(layout.writable && !sim.error && sim.hasLog && sim.altered > 0);
+  $('#expDownload').disabled = !exportReady;
   const isDelta=IAW_PREVIEW_MAP==='delta' && layout.deltaRecognized;
   const isCorrected=IAW_PREVIEW_MAP==='corrected' && !isDelta;
   const reversedRpmCols=Array.from({length:16},(_,i)=>15-i);
@@ -3920,8 +3970,8 @@ function renderIawPreview() {
       const extra=cell.limited?' exp-clamp':'';
       const details=cell.measured
         ? `Original ${cell.oldMs.toFixed(2)} ms | Vorschlag ${cell.newMs.toFixed(2)} ms | λ ${cell.lamMeas.toFixed(3)} / Ziel ${cell.lamTarget.toFixed(3)} | Δ ${cell.deltaPct.toFixed(1)} % | ${cell.n} Messungen${cell.limited?' | MAX begrenzt':''}${cell.monotony?' | Monotonie angepasst':''}`
-        : `Ohne Messwerte: unverändert ${cell.oldMs.toFixed(2)} ms`;
-      const lowN=cell.measured && cell.n<5?' iaw-low-n':'';
+        : cell.n > 0 ? `${cell.n} Messpunkte; Mindestanzahl ${sim.minSamples}: unverändert ${cell.oldMs.toFixed(2)} ms` : `Ohne Messwerte: unverändert ${cell.oldMs.toFixed(2)} ms`;
+      const lowN=cell.n>0 && cell.n<sim.minSamples?' iaw-low-n':'';
       return `<td class="exp-cell ${cls}${extra}${lowN}" title="${esc(details)}">${cell.newMs.toFixed(2)}</td>`;
     }).join('');
     return `<tr><th>${label} (0x${sensor.toString(16).toUpperCase().padStart(2,'0')})</th>${vals}</tr>`;
@@ -3946,7 +3996,7 @@ function renderIawPreview() {
   const selected=isDelta?'Delta Fuel':isCorrected?'Berechnete Base Fuel':'Original Base Fuel';
   $('#expPreviewWrap').innerHTML=`
     <div class="iaw-source-banner">
-      <div style="font-weight:700;margin-bottom:6px">🔒 IAW16M · ${selected} (nur Vorschau)</div>
+      <div style="font-weight:700;margin-bottom:6px">IAW16M · ${selected}${isDelta ? " (Delta: schreibgeschützt)" : ""}</div>
       <div class="modal-sub">BIN: <strong>${safeName}</strong></div>
       <div class="iaw-map-switch" role="group" aria-label="IAW16M Kennfeldansicht">
         <button class="modal-btn ${IAW_PREVIEW_MAP==='base'?'primary':''}" data-iaw-map="base" type="button" aria-pressed="${IAW_PREVIEW_MAP==='base'}">Original</button>
@@ -3958,7 +4008,7 @@ function renderIawPreview() {
       <div class="modal-sub" style="margin-top:6px">${scaleInfo}</div>
       <div class="modal-sub" style="margin-top:6px">${axisNote}</div>
       ${simulationNote}
-      <div class="modal-sub" style="margin-top:6px"><strong>Keine BIN-Änderung / kein BIN-Export.</strong> Das Delta-Kennfeld bleibt unverändert. Prüfsumme und Softwarestand müssen vor einem Flash-Export geprüft werden.</div>
+      <div class="modal-sub" style="margin-top:6px"><strong>${layout.writable ? 'BIN-Export mit vollständigem Byte-für-Byte-Vergleich' : 'BIN-Export für diese Struktur gesperrt'}.</strong> Nur die 256 Base-Fuel-Bytes dürfen sich ändern; Delta Fuel und der übrige BIN-Inhalt bleiben unverändert. Original vor dem Flashen sichern, Export in ECUedit prüfen.</div>
     </div>
     <div class="exp-scroll-map"><table class="exp-preview iaw-preview">
       <thead><tr><th>Gas / RPM</th>${headers}</tr></thead>
@@ -3966,10 +4016,10 @@ function renderIawPreview() {
     </table></div>
     ${isCorrected && !sim.error && sim.hasLog ? renderIawChangeList(sim.changes) : ''}`;
   $('#expSummary').innerHTML=isDelta
-    ? `<span><strong>${layout.deltaNeutralCount}</strong> neutrale Delta-Zellen</span><span class="exp-badge-warn">⚠ Delta-ms-Skala vorläufig</span><span class="exp-badge-warn">🔒 Kein BIN-Export</span>`
+    ? `<span><strong>${layout.deltaNeutralCount}</strong> neutrale Delta-Zellen</span><span class="exp-badge-warn">⚠ Delta-ms-Skala vorläufig</span><span class="exp-badge-warn">🔒 Delta bleibt unverändert</span>`
     : isCorrected && !sim.error
-      ? `<span><strong>${sim.covered}/256</strong> Zellen mit Lambda-Messungen</span><span><strong>${sim.altered}</strong> geänderte Vorschlagswerte</span><span><strong>${sim.capped}</strong> an MAX begrenzt</span>${sim.monotonyAdjusted ? `<span><strong>${sim.monotonyAdjusted}</strong> Monotonieanpassungen</span>`:''}${sim.monotonyLimited ? `<span class="exp-badge-warn">${sim.monotonyLimited} Monotonie-Konflikte (MAX hat Vorrang)</span>`:''}<span class="exp-badge-warn">🔒 Kein BIN-Export</span>`
-      : `<span><strong>256</strong> Original-Einspritzwerte</span><span><strong>0</strong> BIN-Bytes verändert</span><span class="exp-badge-warn">🔒 Kein BIN-Export</span>`;
+      ? `<span><strong>${sim.covered}/256</strong> Zellen mit genügend Messpunkten (≥${sim.minSamples})</span>${sim.insufficient ? `<span class="exp-badge-warn"><strong>${sim.insufficient}</strong> unter Mindestanzahl, unverändert</span>` : ''}<span><strong>${sim.altered}</strong> geänderte Vorschlagswerte</span><span><strong>${sim.capped}</strong> an MAX begrenzt</span>${sim.monotonyAdjusted ? `<span><strong>${sim.monotonyAdjusted}</strong> Monotonieanpassungen</span>`:''}${sim.monotonyLimited ? `<span class="exp-badge-warn">${sim.monotonyLimited} Monotonie-Konflikte (MAX hat Vorrang)</span>`:''}<span>${exportReady ? '✓ BIN-Export nach Binärprüfung möglich' : 'BIN-Export: Log oder verifizierte Struktur nötig'}</span>`
+      : `<span><strong>256</strong> Original-Einspritzwerte</span><span><strong>0</strong> BIN-Bytes verändert</span><span>${exportReady ? '✓ BIN-Export nach Binärprüfung möglich' : 'BIN-Export: Log oder verifizierte Struktur nötig'}</span>`;
   $('#expIawAdopt').disabled=true;
   $('#expIawAdopt').style.opacity='0.55';
 }
@@ -3983,9 +4033,9 @@ function renderIawChangeList(changes) {
     return `<tr><td>${c.deg.toFixed(1)}°</td><td>${c.rpm}</td><td>${c.oldMs.toFixed(2)}</td><td class="${cls}" style="font-weight:700">${c.newMs.toFixed(2)}</td><td class="${cls}">${c.deltaPct>0?'+':''}${c.deltaPct.toFixed(1)}%</td><td>${c.lamMeas.toFixed(3)}</td><td>${c.lamTarget.toFixed(3)}</td><td>${c.n}${c.n<5?' ⚠':''}</td></tr>`;
   }).join('');
   const more=changes.length>show.length?`<div class="modal-sub" style="margin-top:6px;text-align:right">… weitere ${changes.length-show.length} Änderungen</div>`:'';
-  return `<div class="exp-section-title" style="margin:16px 0 8px">Größte berechnete Änderungen (${show.length} von ${changes.length}) · nur Simulation</div>
+  return `<div class="exp-section-title" style="margin:16px 0 8px">Größte berechnete Änderungen (${show.length} von ${changes.length}) · Base Fuel</div>
     <div class="exp-scroll-map"><table class="exp-preview iaw-change-list"><thead><tr><th>Grad</th><th>RPM</th><th>alt ms</th><th>neu ms</th><th>Δ%</th><th>λ gem.</th><th>λ Ziel</th><th>n</th></tr></thead><tbody>${rows}</tbody></table></div>
-    ${more}<div class="modal-sub" style="margin-top:8px">⚠ Bei weniger als fünf Messpunkten je Zelle ist die Aussagekraft gering (in der Tabelle mit ⚠ markiert). Die Vorschau nutzt nur tatsächlich zugeordnete Messwerte; keine Interpolation in ungemessene Zellen.</div>`;
+    ${more}<div class="modal-sub" style="margin-top:8px">Nur Zellen mit mindestens ${loadExportMinSamples()} direkt zugeordneten Messpunkten werden korrigiert. Alle anderen bleiben unverändert.</div>`;
 }
 
 // Rapid Bike EVO preview: 40×8 grid of integer RB units with alt/neu per changed
@@ -4067,6 +4117,7 @@ function renderRbPreview() {
     ${posN ? `<span style="color:var(--rich)"><strong>${posN}</strong> fetter</span>` : ''}
     ${negN ? `<span style="color:var(--lean)"><strong>${negN}</strong> magerer</span>` : ''}
     <span><strong>${unchanged}</strong> unverändert</span>
+    ${result.insufficient ? `<span class="exp-badge-warn"><strong>${result.insufficient}</strong> unter ${result.minSamples} Messpunkten; unverändert</span>` : ''}
     ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} Warnung(en)</span>` : ''}
   `;
 
@@ -4118,6 +4169,7 @@ function buildExportCsv(opts, map) {
     `# TPS-Raster: ${tpsAxis.join(', ')} %`,
     `# RPM-Raster: ${opts.rpmMin}–${opts.rpmMax} in ${opts.rpmStep}er Schritten`,
     `# Clamping: ±${opts.clamp}%`,
+    `# Mindestanzahl Messpunkte pro Zelle: ${loadExportMinSamples()}`,
     `# Werte: Kraftstoff-Änderung in % (positiv = mehr Kraftstoff, negativ = weniger)`,
     ``,
     ``,
@@ -4169,26 +4221,27 @@ function downloadExport() {
     toast('DJM-Export gesperrt: Zelloffset und Codierung noch nicht verifiziert', 4500);
     return;
   } else if (opts.target === 'iaw16m') {
-    toast('IAW16M: Flash-BIN-Export vorerst gesperrt (Kennfeld-Skalierung/Prüfsumme ungeprüft)', 5000);
-    return;
-    // Flush any pending edits in the IAW parameter fields into storage first
-    readIawParamsFromUi();
-    const result = buildIawBinary();
-    if (!result) { toast('Zuerst Ausgangs-BIN (ZIP) hochladen', 3000); return; }
-    if (result.warnings.length) {
-      toast(`Warnung: ${result.warnings[0]}`, 4000);
-      return;
+    try {
+      // Recalculate just before download: never reuse a stale preview or source.
+      const result = buildIawBinary();
+      const audit = result.verification;
+      const meta = loadIawBinMeta();
+      const srcName = (meta && meta.name ? meta.name : 'IAW16M.bin')
+        .replace(/\.bin$/i, '').replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const filename = `${srcName}_MDLV_Lambda.bin`;
+      const ok = confirm(
+        `IAW16M-BIN exportieren?\n\nAusgangs-BIN: ${meta && meta.name || 'IAW16M.bin'}\n` +
+        `Lambda-Log: ${STATE.fileName || 'unbekannt'}\n` +
+        `${audit.changedBytes} Base-Fuel-Bytes (${audit.changedBits} Bits) geändert.\n` +
+        `${audit.outsideChanges} Änderungen außerhalb Base Fuel.\nDelta Fuel: unverändert.\n\n` +
+        `Vor dem Flashen in ECUedit prüfen und Original-BIN sichern.`
+      );
+      if (!ok) return;
+      triggerDownload(new Blob([result.binOut], {type:'application/octet-stream'}), filename);
+      toast(`BIN exportiert: ${audit.changedBytes} Bytes / ${audit.changedBits} Bits; außerhalb Base Fuel 0`, 4500);
+    } catch (e) {
+      toast('IAW16M-Export abgebrochen: ' + (e.message || String(e)), 5500);
     }
-    (async () => {
-      try {
-        const outName = `${base}_MD-Lambda-View.bin`;
-        const blob = await iawBinToZip(result.binOut, outName);
-        triggerDownload(blob, `${base}_MD-Lambda-View.zip`);
-        toast(`BIN exportiert (${result.changes.length} Zellen geändert)`, 3500);
-      } catch (e) {
-        toast('Fehler: ' + (e.message || e), 4000);
-      }
-    })();
   } else if (opts.target === 'rbe') {
     readRbParamsFromUi();
     const result = buildRbMap();
@@ -4227,6 +4280,19 @@ function closeExportModal() {
   $('#expModal').classList.remove('open');
   $('#expBackdrop').classList.remove('open');
 }
+
+// Shared minimum-sample input. One setting controls every export target.
+$('#expMinSamples').value = loadExportMinSamples();
+$('#expMinSamples').addEventListener('change', () => {
+  const input = $('#expMinSamples');
+  if (!storeExportMinSamples(input.value)) {
+    input.value = loadExportMinSamples();
+    toast('Bitte eine ganze Zahl von 1 bis 5000 eingeben', 3000);
+    return;
+  }
+  input.value = loadExportMinSamples();
+  renderExportPreview();
+});
 
 // Wire controls → re-render preview
 ['expRpmMin','expRpmMax','expRpmStep','expTpsSet','expClamp','expFill'].forEach(id => {
@@ -4396,7 +4462,7 @@ $('#expRbAdopt').addEventListener('click', () => {
   toast(`„${newName}" ist jetzt die Ausgangs-MPP`, 3500);
 });
 // Persist RB parameter edits on blur/change AND refresh the preview live
-['expRbPctU','expRbDead','expRbMaxS','expRbMinN','expRbCMin']
+['expRbPctU','expRbDead','expRbMaxS','expRbCMin']
   .forEach(id => {
     $('#' + id).addEventListener('change', () => {
       readRbParamsFromUi();

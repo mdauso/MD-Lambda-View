@@ -1643,12 +1643,12 @@ body.pseudo-full .plot-area {
     <div class="exp-section" id="expIawSection" hidden>
       <div class="exp-section-title">IAW16M · Source BIN</div>
       <div class="modal-sub" style="margin-bottom:10px">
-        Select an original <strong>.bin</strong> (64 KiB) or a ZIP containing one BIN. Compatible IAW16M dumps are checked automatically for the map location, RPM axis and 16 raw TPS values. When a lambda log is loaded, a <strong>calculated Base Fuel correction</strong> is also shown. <strong>Preview only</strong> – no flashable BIN is generated yet.
+        Choose an original <strong>.bin</strong> (64 KiB) or a ZIP containing one BIN. For compatible IAW16M dumps, map position, RPM axis, TPS raw values and Delta Fuel are checked. With a lambda log loaded, the <strong>calculated Base Fuel correction</strong> is displayed. Download generates a new <strong>.bin</strong> and verifies all 65,536 bytes: only Base Fuel may change.
       </div>
       <div class="exp-info-box">
         <strong>Dynamic structure detection:</strong><br>
         16 × 16 map cells; actual RPM breakpoints and raw TPS axis from the selected BIN.<br>
-        The throttle-angle axis and injection-time scale <code>byte / 15.5</code> were checked against the MD-040KI BIN and an ECUedit screenshot. Other firmware revisions have not yet been independently verified. The checksum is not verified.
+        The angle axis and injection-time scale <code>byte / 15.5</code> are confirmed using the MD-040KI BIN and ECUedit screenshot. Other software versions have not been cross-checked. ECUedit did not change any other bytes when saving a single map cell. ECU acceptance of other software versions has not been independently confirmed.
       </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expIawFile">
@@ -1672,7 +1672,7 @@ body.pseudo-full .plot-area {
         <div class="exp-field"><label>MONOTONY up to (degrees)</label><input type="number" id="expIawMono" step="0.1" min="0" max="80" inputmode="decimal"></div>
         <div class="exp-field span-full"><button class="modal-btn" id="expIawReset" type="button">↺ Default</button></div>
       </div>
-      <div class="modal-sub">Smoothing and outlier filtering are applied on CSV import if needed. Only cells that reach the global sample minimum can be corrected. The preview caps corrections at MAX_CHANGE. Monotonicity is applied only to measured cells and within that limit. Target λ comes from the four export zones above. No BIN bytes are changed.</div>
+      <div class="modal-sub">Smoothing/outlier rejection happens at CSV import. Only cells with enough samples are corrected. The calculation limits changes to MAX_CHANGE. Monotony is applied only to measured cells within that limit. The original BIN stored in the browser is never changed; the download is a new copy.</div>
 
     </div>
 
@@ -2256,7 +2256,7 @@ const TARGET_SPEC = {
     // from 1000 to 9000 U/min; the IAW builder itself uses the fixed
     // 16-entry rpmAxis below regardless of these numbers.
     tpsSet: null, rpmMin: 1000, rpmMax: 9000, rpmStep: 250,
-    hint: 'IAW16M: Base Fuel and Delta Fuel on the original axes, plus a calculated lambda correction for Base Fuel (preview only). Delta Fuel is not changed. BIN export is disabled.',
+    hint: 'IAW16M: Base Fuel and Delta Fuel on the original axes. Calculated Base Fuel corrections are written to a copy of your original BIN; a complete byte-by-byte comparison prevents changes outside the 256 Base Fuel bytes. Delta Fuel and all other BIN data remain unchanged.',
     // Legacy MD-039 assumptions (NOT used for new IAW16M read-only layouts):
     binSize:    65536,
     mapAddress: 0xF161,
@@ -2596,7 +2596,7 @@ function buildDjmBinary(map) {
 }
 
 // ============ IAW16M / 64-KiB BIN STRUCTURE INSPECTOR ============
-// READ ONLY. MD-040KI.BIN + original ECUedit Base Fuel screenshot confirm:
+// ECUedit-verified MD-040KI reference. MD-040KI.BIN + Base Fuel screenshot confirm:
 // 16x16 bytes from the 53 A8 marker +2, column-major (RPM x TPS),
 // base injection time = rawByte / 15.5 ms, TPS angles as per screenshot.
 // The 3 BE-uint16 /4 RPM axes preceding the table belong to different
@@ -2604,7 +2604,8 @@ function buildDjmBinary(map) {
 // Always use the FIRST RPM axis for the displayed base fuel table.
 // 748/916 layout structure is validated; their ms scale is a hypothesis
 // consistent with MD-040, NOT independently checked against ECUedit.
-// No firmware writer is enabled: checksum & other maps are unverified.
+// Export is allowed only for structurally verified maps; modifications are constrained
+// to the 256 Base Fuel bytes and checked byte-for-byte before download.
 // ECUedit screenshot of MD-040: full-precision TPS angles rather than rounded labels.
 // These display angles are an MD-040 reference, not a universal TPS calibration.
 const IAW_TPS_DEG_REFERENCE = [80.3,60.3,47.7,36.6,27.9,21.4,16.8,12.6,9.7,7.5,5.1,4.2,3.5,2.9,2.4,2.0];
@@ -2614,7 +2615,7 @@ const IAW_TPS_DEG_REFERENCE = [80.3,60.3,47.7,36.6,27.9,21.4,16.8,12.6,9.7,7.5,5
 // The *exact Delta ms scale* has not yet been independently verified.
 const IAW_DELTA_ZERO_BYTE = 0x80;
 const IAW_DELTA_MS_SCALE_CANDIDATE = 15.5;
-let IAW_PREVIEW_MAP = 'base'; // 'base', 'corrected' (simulation), 'delta'
+let IAW_PREVIEW_MAP = 'base'; // 'base', 'corrected', 'delta'
 const IAW_TPS_RAW_REFERENCE = [13,17,23,32,44,61,83,111,143,175,203,225,239,247,252,254];
 const IAW_BASE_MS_SCALE = 15.5;
 function inspectIaw16mBin(bin) {
@@ -2672,7 +2673,7 @@ function inspectIaw16mBin(bin) {
     const deltaCells = deltaRecognized
       ? Array.from({length:16}, (_,col) =>
           Array.from(deltaBytes.slice(col*16,(col+1)*16))) : null;
-    candidates.push({recognized:true, writable:false, mapOffset,
+    candidates.push({recognized:true, writable:angleMappingKnown && deltaRecognized, mapOffset,
       rpmOffset, tpsOffset, rpmAxis:rpmAxes[0], rpmAxes,
       rpmVariationIndices:variationIndices, tpsRawAxis,
       tpsDegAxis:angleMappingKnown ? IAW_TPS_DEG_REFERENCE.slice() : null,
@@ -2683,7 +2684,9 @@ function inspectIaw16mBin(bin) {
       deltaNonNeutralCount:deltaRecognized ? 256-neutralCount : null,
       deltaZeroByte:IAW_DELTA_ZERO_BYTE,
       deltaScaleVerified:false,
-      reason:'Base Fuel and (where available) Delta Fuel maps read. Firmware export remains disabled.'});
+      reason:angleMappingKnown && deltaRecognized
+        ? '16×16 Base Fuel and Delta Fuel recognized; BIN export requires unchanged Delta and full byte comparison.'
+        : 'Map axes or Delta Fuel not verified: preview only.'});
   }
   if (candidates.length !== 1) return bad(
     `Ambiguous IAW16M layout (${candidates.length} matching 16×16 structures). No binary export.`);
@@ -2801,93 +2804,77 @@ function targetLambdaForDeg(deg, params) {
   return targetLambdaAt(Math.max(0, Math.min(100, tps)));
 }
 
-// Core builder: returns {binOut, changes, warnings} or null if no BIN loaded.
+// Generate a modified COPY of the uploaded BIN from the EXACT same 16×16 values
+// shown in the "Calculated" preview. Never write to localStorage or the source.
+// Guardrails: recognized 64-KiB layout, known TPS angles, recognized Delta map,
+// valid parameters, loaded log, min sample count, safety cap, byte-for-byte audit.
+// A modified byte outside Base Fuel aborts the export, always.
 function buildIawBinary() {
-  // Strict read-only policy until all ECU layouts are independently validated.
-  // Previously this writer assumed mapAddress=0xF161 for every 64-KiB BIN,
-  // which would corrupt the 916 example's map starting at 0xF15E.
-  return null;
-  /* Previous fixed-address writer retained below for reference, but disabled.
-  const bin = loadIawBin();
-  if (!bin) return null;
-  const spec   = TARGET_SPEC.iaw16m;
-  const params = loadIawParams();
-  const nCols = spec.mapCols, nRows = spec.mapRows;
-  const addr  = spec.mapAddress, scale = spec.byteScale;
-  const maxF  = params.maxChange / 100;
+  const original = loadIawBin();
+  if (!original) throw new Error('Load an original IAW16M BIN first.');
+  const layout = inspectIaw16mBin(original);
+  if (!layout.recognized || !layout.writable || !layout.deltaRecognized ||
+      !layout.tpsDegAxis || layout.msScale !== IAW_BASE_MS_SCALE ||
+      layout.mapOffset < 0 || layout.mapOffset + 256 > original.length)
+    throw new Error('IAW16M map layout not fully verified: export blocked.');
+  if (!STATE.hasData || !STATE.rawData || !STATE.rawData.rpm || !STATE.rawData.rpm.length)
+    throw new Error('Load a lambda log first.');
+  const params = readIawParamsFromUi();
+  const simulation = calculateIawFuelPreview(layout, params, STATE.rawData);
+  if (simulation.error) throw new Error(simulation.error);
+  if (!simulation.hasLog || simulation.covered === 0 || simulation.changes.length === 0)
+    throw new Error('No calculated changes with enough samples.');
 
-  // Read current map (column-major: col*rows + row)
-  const oldBytes = Array(nCols).fill(0).map(() => Array(nRows).fill(0));
-  const newBytes = Array(nCols).fill(0).map(() => Array(nRows).fill(0));
-  for (let col = 0; col < nCols; col++) {
-    for (let row = 0; row < nRows; row++) {
-      oldBytes[col][row] = bin[addr + col * nRows + row];
-      newBytes[col][row] = oldBytes[col][row];
-    }
-  }
-
-  // Compute per-cell factor and new byte
+  const output = new Uint8Array(original); // new buffer, source untouched
+  const start = layout.mapOffset;
+  const end = start + 256;
+  let planned = 0;
   const changes = [];
-  for (let col = 0; col < nCols; col++) {
-    const rpm = spec.rpmAxis[col];
-    for (let row = 0; row < nRows; row++) {
-      const deg = spec.degAxis[row];
-      const sample = sampleIawCell(col, row, params, spec);
-      if (sample.lam == null) continue;
-      const target = targetLambdaForDeg(deg, params);
-      // Smoothing / outlier rejection was already done at CSV import by the
-      // stability filter — here we just use the lambda as it stands.
-      const rawFactor = sample.lam / target;
-      // Clamp to ± maxChange (safety cap, not smoothing)
-      const factor = Math.max(1 - maxF, Math.min(1 + maxF, rawFactor));
-      if (factor === 1) continue;
-      const oldMs = oldBytes[col][row] / scale;
-      const newMs = Math.round(oldMs * factor * scale) / scale;
-      const newByte = Math.max(0, Math.min(255, Math.round(newMs * scale)));
-      if (newByte !== oldBytes[col][row]) {
-        newBytes[col][row] = newByte;
-        changes.push({
-          deg, rpm, n: sample.n,
-          lamMeas: sample.lam, lamTarget: target,
-          oldByte: oldBytes[col][row], newByte,
-          deltaPct: (newByte / oldBytes[col][row] - 1) * 100,
-        });
-      }
-    }
+  for (let col = 0; col < 16; col++) for (let row = 0; row < 16; row++) {
+    const cell = simulation.cells[col][row];
+    const address = start + col * 16 + row;
+    if (original[address] !== cell.oldByte)
+      throw new Error(`Base value does not match BIN: 0x${address.toString(16)}.`);
+    if (!Number.isInteger(cell.newByte) || cell.newByte < 0 || cell.newByte > 255)
+      throw new Error(`Invalid injection value at 0x${address.toString(16)}.`);
+    const cap = params.maxChange / 100;
+    if (cell.newByte < Math.ceil(cell.oldByte*(1-cap)-1e-9) ||
+        cell.newByte > Math.floor(cell.oldByte*(1+cap)+1e-9))
+      throw new Error(`MAX_CHANGE exceeded at 0x${address.toString(16)}.`);
+    if (!cell.measured && cell.newByte !== cell.oldByte)
+      throw new Error(`Cell with too few samples modified: 0x${address.toString(16)}.`);
+    output[address] = cell.newByte;
+    if (cell.newByte !== cell.oldByte) { planned++; changes.push({...cell,address}); }
   }
 
-  // Monotony: per column, from the smallest-Grad row (bottom of table)
-  // upward until monotonyUntilDeg: no row may be smaller than the row below it.
-  for (let col = 0; col < nCols; col++) {
-    // degAxis is descending (80..2.0), so the "row below" (smaller Grad) has HIGHER index
-    for (let row = nRows - 2; row >= 0; row--) {
-      if (spec.degAxis[row] > params.monotonyUntilDeg) break;
-      if (newBytes[col][row] < newBytes[col][row + 1]) {
-        newBytes[col][row] = newBytes[col][row + 1];
-      }
-    }
+  // Independent FULL-FILE verification, including separator, Delta and all
+  // calibration / metadata / executable regions. Byte *and bit* difference.
+  let changedBytes = 0, changedBits = 0, outsideChanges = 0;
+  for (let i = 0; i < original.length; i++) {
+    if (original[i] === output[i]) continue;
+    changedBytes++;
+    if (i < start || i >= end) outsideChanges++;
+    let x = original[i] ^ output[i];
+    while (x) { changedBits += x & 1; x >>>= 1; }
+    // Cross-check against the independently collected preview changes.
+    const col = Math.floor((i-start) / 16), row = (i-start) % 16;
+    if (i >= start && i < end && output[i] !== simulation.cells[col][row].newByte)
+      throw new Error('Binary verification: preview and export differ.');
   }
-
-  // Write back into a fresh copy of the BIN
-  const out = new Uint8Array(bin);
-  for (let col = 0; col < nCols; col++) {
-    for (let row = 0; row < nRows; row++) {
-      out[addr + col * nRows + row] = newBytes[col][row];
-    }
+  if (output.length !== 65536 || outsideChanges !== 0 || changedBytes !== planned ||
+      changedBytes !== simulation.altered || changedBytes === 0 ||
+      changes.length !== simulation.changes.length)
+    throw new Error('Binary verification failed: unexpected file modification.');
+  // Explicitly preserve Delta Fuel in its entirety.
+  for (let i=layout.deltaOffset; i < layout.deltaOffset+256; i++) {
+    if (original[i] !== output[i])
+      throw new Error('Delta Fuel was modified. Export aborted.');
   }
-
-  // Byte-exact safety check: no change may land outside the map region
-  const warnings = [];
-  for (let i = 0; i < bin.length; i++) {
-    if (bin[i] !== out[i]) {
-      if (i < addr || i >= addr + nCols * nRows) {
-        warnings.push(`Byte 0x${i.toString(16)} was changed outside the map!`);
-      }
-    }
-  }
-
-  return { binOut: out, changes, warnings, oldBytes, newBytes };
-  */
+  return {
+    binOut: output, changes, warnings: [], layout, simulation,
+    verification: { changedBytes, changedBits, outsideChanges, unchangedBytes:65536-changedBytes,
+      mapStart:start, mapEnd:end-1, deltaUnchanged:true, fileSize:65536 }
+  };
 }
 
 // Pack a .bin into a .zip and return a Blob. Uses JSZip (lazy-loaded).
@@ -3458,6 +3445,7 @@ function applyTargetSpec() {
             : null;
   $('#expDownload').textContent = target === 'pciii'
     ? 'DJM export disabled'
+    : target === 'iaw16m' ? '↓ Download corrected .bin'
     : (ext ? `↓ Download ${ext}` : '↓ Download CSV');
 
   // Variant-specific sections: show the one that belongs to the active target.
@@ -3472,7 +3460,7 @@ function applyTargetSpec() {
   $('#expGridSection').hidden   = isFlash;
   $('#expClampSection').hidden  = isFlash;
   // Adopt buttons: each flash variant has its own, mutually exclusive.
-  $('#expIawAdopt').hidden      = (target !== 'iaw16m');
+  $('#expIawAdopt').hidden      = true; // source BIN is never overwritten by an export
   $('#expRbAdopt').hidden       = (target !== 'rbe');
   if (kind === 'trim') {
     $('#expTplExt').textContent = ext;
@@ -3522,7 +3510,7 @@ function refreshIawStatus() {
   const clearBtn = $('#expIawClear');
   const btnLabel = $('#expIawBtnLabel');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
-  dlBtn.disabled = true;                // NEVER write unverified ECU firmware
+  dlBtn.disabled = true;                // enabled by the preview once log and map are validated
   adoptBtn.disabled = true;
   adoptBtn.style.opacity = '0.55';
   if (bin) {
@@ -3532,7 +3520,7 @@ function refreshIawStatus() {
     if (layout.recognized) {
       parts.push(`16×16 at 0x${layout.mapOffset.toString(16).toUpperCase()}`);
       parts.push(`${layout.rpmAxis[15]}–${layout.rpmAxis[0]} RPM`);
-      parts.push(`Base: ms (÷15.5); Delta: ${layout.deltaRecognized ? 'detected, '+layout.deltaNonNeutralCount+' non-neutral raw values' : 'not reliably identified'}; preview only`);
+      parts.push(`Basis: ms (÷15,5); Delta: ${layout.deltaRecognized ? 'erkannt, '+layout.deltaNonNeutralCount+' nicht-neutrale Rohwerte' : 'nicht sicher erkannt'}; ${layout.writable ? 'BIN-Export nach Bytevergleich möglich' : 'nur Vorschau'}`);
       if (layout.rpmVariationIndices.length) parts.push('RPM axes differ');
       statusEl.classList.add('exp-tpl-custom');
     } else {
@@ -3590,9 +3578,11 @@ function refreshCustomTplStatus() {
     return;
   }
 
-  // ECU BIN diagnostic mode: no writer until a verified calibration definition exists.
+  // IAW16M: the preview performs the final log/map eligibility check.
   if (target === 'iaw16m') {
-    dlBtn.disabled = true;
+    const bin = loadIawBin();
+    const layout = bin && inspectIaw16mBin(bin);
+    dlBtn.disabled = !(layout && layout.writable && STATE.hasData);
     return;
   }
 
@@ -3948,6 +3938,7 @@ function renderIawPreview() {
   const uploaded=loadIawBin();
   const layout=uploaded && inspectIaw16mBin(uploaded);
   if (!layout || !layout.recognized) {
+    $('#expDownload').disabled=true;
     const message=layout ? layout.reason :
       'No BIN loaded. Select an original 64-KiB IAW16M BIN (.bin or .zip).';
     $('#expPreviewWrap').innerHTML=`<div class="modal-sub exp-preview-empty">${message}</div>`;
@@ -3955,6 +3946,8 @@ function renderIawPreview() {
     return;
   }
   const sim=calculateIawFuelPreview(layout,params,STATE.hasData ? STATE.rawData : null);
+  const exportReady = !!(layout.writable && !sim.error && sim.hasLog && sim.altered > 0);
+  $('#expDownload').disabled = !exportReady;
   const isDelta=IAW_PREVIEW_MAP==='delta' && layout.deltaRecognized;
   const isCorrected=IAW_PREVIEW_MAP==='corrected' && !isDelta;
   const reversedRpmCols=Array.from({length:16},(_,i)=>15-i);
@@ -4004,7 +3997,7 @@ function renderIawPreview() {
   const selected=isDelta?'Delta Fuel':isCorrected?'Calculated Base Fuel':'Original Base Fuel';
   $('#expPreviewWrap').innerHTML=`
     <div class="iaw-source-banner">
-      <div style="font-weight:700;margin-bottom:6px">🔒 IAW16M · ${selected} (preview only)</div>
+      <div style="font-weight:700;margin-bottom:6px">IAW16M · ${selected}${isDelta ? " (Delta: read-only)" : ""}</div>
       <div class="modal-sub">BIN: <strong>${safeName}</strong></div>
       <div class="iaw-map-switch" role="group" aria-label="IAW16M map view">
         <button class="modal-btn ${IAW_PREVIEW_MAP==='base'?'primary':''}" data-iaw-map="base" type="button" aria-pressed="${IAW_PREVIEW_MAP==='base'}">Original</button>
@@ -4016,7 +4009,7 @@ function renderIawPreview() {
       <div class="modal-sub" style="margin-top:6px">${scaleInfo}</div>
       <div class="modal-sub" style="margin-top:6px">${axisNote}</div>
       ${simulationNote}
-      <div class="modal-sub" style="margin-top:6px"><strong>No BIN modification / no BIN export.</strong> Delta Fuel remains unchanged. Check the checksum and firmware revision before enabling flash export.</div>
+      <div class="modal-sub" style="margin-top:6px"><strong>${layout.writable ? 'BIN export with complete byte-by-byte verification' : 'BIN export blocked for this layout'}.</strong> Only the 256 Base Fuel bytes may change; Delta Fuel and the remainder of the BIN stay unchanged. Back up the original before flashing and check the export in ECUedit.</div>
     </div>
     <div class="exp-scroll-map"><table class="exp-preview iaw-preview">
       <thead><tr><th>Gas / RPM</th>${headers}</tr></thead>
@@ -4024,10 +4017,10 @@ function renderIawPreview() {
     </table></div>
     ${isCorrected && !sim.error && sim.hasLog ? renderIawChangeList(sim.changes) : ''}`;
   $('#expSummary').innerHTML=isDelta
-    ? `<span><strong>${layout.deltaNeutralCount}</strong> neutral Delta cells</span><span class="exp-badge-warn">⚠ Delta ms scale tentative</span><span class="exp-badge-warn">🔒 No BIN export</span>`
+    ? `<span><strong>${layout.deltaNeutralCount}</strong> neutral Delta cells</span><span class="exp-badge-warn">⚠ Delta ms scale provisional</span><span class="exp-badge-warn">🔒 Delta unchanged</span>`
     : isCorrected && !sim.error
-      ? `<span><strong>${sim.covered}/256</strong> cells with enough samples (≥${sim.minSamples})</span>${sim.insufficient ? `<span class="exp-badge-warn"><strong>${sim.insufficient}</strong> below minimum, unchanged</span>` : ''}<span><strong>${sim.altered}</strong> changed proposed values</span><span><strong>${sim.capped}</strong> capped at MAX</span>${sim.monotonyAdjusted ? `<span><strong>${sim.monotonyAdjusted}</strong> monotonicity adjustments</span>`:''}${sim.monotonyLimited ? `<span class="exp-badge-warn">${sim.monotonyLimited} monotonicity conflicts (MAX takes priority)</span>`:''}<span class="exp-badge-warn">🔒 No BIN export</span>`
-      : `<span><strong>256</strong> original injection values</span><span><strong>0</strong> BIN bytes changed</span><span class="exp-badge-warn">🔒 No BIN export</span>`;
+      ? `<span><strong>${sim.covered}/256</strong> cells with enough samples (≥${sim.minSamples})</span>${sim.insufficient ? `<span class="exp-badge-warn"><strong>${sim.insufficient}</strong> below minimum, unchanged</span>` : ''}<span><strong>${sim.altered}</strong> changed proposed values</span><span><strong>${sim.capped}</strong> capped at MAX</span>${sim.monotonyAdjusted ? `<span><strong>${sim.monotonyAdjusted}</strong> monotonicity adjustments</span>`:''}${sim.monotonyLimited ? `<span class="exp-badge-warn">${sim.monotonyLimited} monotonicity conflicts (MAX takes priority)</span>`:''}<span>${exportReady ? '✓ BIN export available after binary verification' : 'BIN export: log or verified map layout required'}</span>`
+      : `<span><strong>256</strong> original injection values</span><span><strong>0</strong> BIN bytes changed</span><span>${exportReady ? '✓ BIN export available after binary verification' : 'BIN export: log or verified map layout required'}</span>`;
   $('#expIawAdopt').disabled=true;
   $('#expIawAdopt').style.opacity='0.55';
 }
@@ -4041,7 +4034,7 @@ function renderIawChangeList(changes) {
     return `<tr><td>${c.deg.toFixed(1)}°</td><td>${c.rpm}</td><td>${c.oldMs.toFixed(2)}</td><td class="${cls}" style="font-weight:700">${c.newMs.toFixed(2)}</td><td class="${cls}">${c.deltaPct>0?'+':''}${c.deltaPct.toFixed(1)}%</td><td>${c.lamMeas.toFixed(3)}</td><td>${c.lamTarget.toFixed(3)}</td><td>${c.n}${c.n<5?' ⚠':''}</td></tr>`;
   }).join('');
   const more=changes.length>show.length?`<div class="modal-sub" style="margin-top:6px;text-align:right">… ${changes.length-show.length} more changes</div>`:'';
-  return `<div class="exp-section-title" style="margin:16px 0 8px">Largest calculated changes (${show.length} of ${changes.length}) · preview only</div>
+  return `<div class="exp-section-title" style="margin:16px 0 8px">Largest calculated changes (${show.length} of ${changes.length}) · Base Fuel</div>
     <div class="exp-scroll-map"><table class="exp-preview iaw-change-list"><thead><tr><th>Grad</th><th>RPM</th><th>Old ms</th><th>New ms</th><th>Δ%</th><th>λ meas.</th><th>λ target</th><th>n</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${more}<div class="modal-sub" style="margin-top:8px">Only cells with at least ${loadExportMinSamples()} directly assigned log samples are eligible for correction. All other cells remain unchanged.</div>`;
 }
@@ -4229,26 +4222,27 @@ function downloadExport() {
     toast('DJM export disabled: cell offsets and encoding not yet verified', 4500);
     return;
   } else if (opts.target === 'iaw16m') {
-    toast('IAW16M: flash BIN export disabled (map scaling/checksum not fully verified)', 5000);
-    return;
-    // Flush any pending edits in the IAW parameter fields into storage first
-    readIawParamsFromUi();
-    const result = buildIawBinary();
-    if (!result) { toast('Upload the source BIN (ZIP) first', 3000); return; }
-    if (result.warnings.length) {
-      toast(`Warnung: ${result.warnings[0]}`, 4000);
-      return;
+    try {
+      // Recalculate just before download: never reuse a stale preview or source.
+      const result = buildIawBinary();
+      const audit = result.verification;
+      const meta = loadIawBinMeta();
+      const srcName = (meta && meta.name ? meta.name : 'IAW16M.bin')
+        .replace(/\.bin$/i, '').replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const filename = `${srcName}_MDLV_Lambda.bin`;
+      const ok = confirm(
+        `Export IAW16M BIN?\n\nSource BIN: ${meta && meta.name || 'IAW16M.bin'}\n` +
+        `Lambda log: ${STATE.fileName || 'unknown'}\n` +
+        `${audit.changedBytes} Base Fuel bytes (${audit.changedBits} bits) changed.\n` +
+        `${audit.outsideChanges} changes outside Base Fuel.\nDelta Fuel: unchanged.\n\n` +
+        `Check in ECUedit and back up the original BIN before flashing.`
+      );
+      if (!ok) return;
+      triggerDownload(new Blob([result.binOut], {type:'application/octet-stream'}), filename);
+      toast(`BIN exported: ${audit.changedBytes} bytes / ${audit.changedBits} bits; outside Base Fuel 0`, 4500);
+    } catch (e) {
+      toast('IAW16M export aborted: ' + (e.message || String(e)), 5500);
     }
-    (async () => {
-      try {
-        const outName = `${base}_MD-Lambda-View.bin`;
-        const blob = await iawBinToZip(result.binOut, outName);
-        triggerDownload(blob, `${base}_MD-Lambda-View.zip`);
-        toast(`BIN exported (${result.changes.length} cells changed)`, 3500);
-      } catch (e) {
-        toast('Error: ' + (e.message || e), 4000);
-      }
-    })();
   } else if (opts.target === 'rbe') {
     readRbParamsFromUi();
     const result = buildRbMap();
