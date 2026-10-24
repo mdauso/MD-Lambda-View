@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<!-- ENGLISH LOCALIZATION OF VERSION 63; EDIT SOURCE 3d.html FOR FUTURE RELEASES -->
 <html lang="en">
 <head>
+<!-- GENERATED FILE — do not edit. Built from 3d.html by i18n/make_en.py -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#f5e6a3">
@@ -741,7 +741,7 @@ input[type="file"] { display: none; }
   align-items: center;
 }
 /* Narrow phones (portrait): tighten body padding and stack footer buttons so
-   long labels like "↻ Adopt calculated BIN as new source" don't clip. */
+   long labels like "↻ Berechnete BIN als neue Ausgangs-BIN" don't clip. */
 @media (max-width: 480px) {
   .modal-body { padding: 14px 14px 18px; }
   .modal-footer {
@@ -1059,7 +1059,7 @@ input[type="file"] { display: none; }
    a fixed-width column on the right. The grid itself drops to one column so
    each row gets the full width of its section.
    Covers the λ-target / TPS-bound panels AND every exp-grid in the IAW16M
-   section (TPS → angle conversion, correction parameters) so no label ever wraps.
+   section (TPS → Grad conversion, Korrekturparameter) so no label ever wraps.
    The reset button inside `.span-full` keeps its full-row behaviour below. */
 #expTargetsGrid,
 #expBoundsGrid,
@@ -1188,7 +1188,7 @@ input[type="file"] { display: none; }
   max-width: calc(100% + 32px);
 }
 /* The horizontal scrollbar for the wide map table sits HERE, right under the
-   map and right above the "Largest changes" list — orange thumb, cream track,
+   map and right above the "Größte Änderungen"-list — orange thumb, cream track,
    always visible on every platform (no iOS auto-hide). */
 .exp-scroll-map {
   overflow-x: auto;
@@ -1262,6 +1262,7 @@ input[type="file"] { display: none; }
 .exp-cell.exp-zero  { color: var(--ink-2); font-weight: 400; }
 .exp-cell.exp-empty { color: var(--ink-3); font-style: italic; }
 .exp-cell.exp-clamp { outline: 1.5px solid #e2734a; outline-offset: -2px; }
+.exp-cell.exp-insufficient { text-decoration: underline dotted; text-underline-offset: 3px; opacity: .75; }
 
 .iaw-source-banner {
   background: rgba(226, 115, 74, .10);
@@ -1627,6 +1628,15 @@ body.pseudo-full .plot-area {
 
     <div class="modal-sub exp-target-hint" id="expTargetHint"></div>
 
+    <!-- Global minimum sample count for ALL export targets; never vehicle-specific. -->
+    <div class="exp-section" id="expSampleGuardSection">
+      <div class="exp-section-title">Measurement confidence</div>
+      <div class="exp-grid-2">
+        <div class="exp-field"><label>Minimum samples per cell</label><input type="number" id="expMinSamples" min="1" max="5000" step="1" inputmode="numeric" value="5"></div>
+      </div>
+      <div class="modal-sub">Applies to <strong>all formats</strong> (PVM, DJM preview, MPP, CSV and IAW16M preview). Only measured samples assigned directly to a cell count. Cells below the threshold retain the original value (or 0% correction). Gap filling never overrides this protection.</div>
+    </div>
+
     <!-- IAW16M: dedicated section with BIN upload (ZIP), editable targets,
          TPS→Grad conversion and correction parameters.
          Only shown when target = iaw16m. -->
@@ -1662,7 +1672,7 @@ body.pseudo-full .plot-area {
         <div class="exp-field"><label>MONOTONY up to (degrees)</label><input type="number" id="expIawMono" step="0.1" min="0" max="80" inputmode="decimal"></div>
         <div class="exp-field span-full"><button class="modal-btn" id="expIawReset" type="button">↺ Default</button></div>
       </div>
-      <div class="modal-sub">Smoothing and outlier filtering are applied on CSV import if needed. The preview caps corrections at MAX_CHANGE. Monotonicity is applied only to measured cells and within that limit. Target λ comes from the four export zones above. No BIN bytes are changed.</div>
+      <div class="modal-sub">Smoothing and outlier filtering are applied on CSV import if needed. Only cells that reach the global sample minimum can be corrected. The preview caps corrections at MAX_CHANGE. Monotonicity is applied only to measured cells and within that limit. Target λ comes from the four export zones above. No BIN bytes are changed.</div>
 
     </div>
 
@@ -1693,7 +1703,6 @@ body.pseudo-full .plot-area {
         <div class="exp-field"><label>% fuel per RB unit</label><input type="number" id="expRbPctU" step="0.1" min="0.1" max="10" inputmode="decimal"></div>
         <div class="exp-field"><label>Tolerance band ±%</label><input type="number" id="expRbDead" step="0.5" min="0" max="20" inputmode="decimal"></div>
         <div class="exp-field"><label>Max. change ± units</label><input type="number" id="expRbMaxS" step="1" min="1" max="20" inputmode="decimal"></div>
-        <div class="exp-field"><label>Min. samples per cell</label><input type="number" id="expRbMinN" step="1" min="1" max="500" inputmode="decimal"></div>
         <div class="exp-field"><label>Correct only above rpm</label><input type="number" id="expRbCMin" step="50" min="0" max="20000" inputmode="decimal"></div>
         <div class="exp-field span-full"><button class="modal-btn" id="expRbReset" type="button">↺ Default</button></div>
       </div>
@@ -2174,6 +2183,32 @@ const TPS_SETS = {
 //   'readable' — human-readable table (CSV)
 // `status: 'ready' | 'coming-soon'` gates the download button. Coming-soon
 // entries are listed so the roadmap is visible, but the UI blocks export.
+// One safety threshold for EVERY target: PowerCommander (PVM/DJM), RB EVO,
+// IAW16M and CSV. Stored independently of vehicle-specific parameters.
+const EXP_MIN_SAMPLES_KEY = 'mdlv_exp_min_samples_v1';
+function loadExportMinSamples() {
+  let value = null;
+  try {
+    value = localStorage.getItem(EXP_MIN_SAMPLES_KEY);
+    // Keep an existing RB user's old preference when first migrating.
+    if (value == null) {
+      const legacy = localStorage.getItem('mdlv_rb_params');
+      if (legacy) {
+        const parsed = JSON.parse(legacy);
+        if (Number.isInteger(Number(parsed.minN))) value = String(parsed.minN);
+      }
+    }
+  } catch (e) {}
+  const n = Number(value == null ? 5 : value);
+  return Number.isInteger(n) && n >= 1 && n <= 5000 ? n : 5;
+}
+function storeExportMinSamples(value) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 5000) return false;
+  try { localStorage.setItem(EXP_MIN_SAMPLES_KEY, String(n)); } catch (e) {}
+  return true;
+}
+
 const TARGET_SPEC = {
   pcv: {
     label: 'PowerCommander V (.pvm)',
@@ -2208,7 +2243,6 @@ const TARGET_SPEC = {
       pctU:    1.0,   // % fuel per RB unit (calibration — bike-specific)
       dead:    2,     // tolerance band ±% around target λ
       maxS:    3,     // max ± units per pass (safety cap)
-      minN:    20,    // min samples per cell before it earns a correction
       cMin:    1700,  // RPM below which correction is skipped (idle regulation)
       rnd:     'trunc', // 'trunc' (= Excel ROUNDDOWN) or 'round' (kaufmännisch)
       lock0:   true,  // 0 % TPS column stays untouched (overrun)
@@ -2545,6 +2579,7 @@ function buildPvmBinary(map) {
       if (!cell || cell.pct == null) continue; // empty cells preserve the original
       const delta = Math.round(cell.pct);
       if (!Number.isFinite(delta)) throw new Error('PVM: invalid correction');
+      if (delta === 0) continue; // preserve even unusual original byte values exactly
       const o = layout.primaryOffset + r*layout.tpsCount + c;
       // Encoded trim: 100=0%, e.g. 110=+10%. ±99% is the representable UI range.
       out[o] = Math.max(1, Math.min(199, out[o]+delta));
@@ -2821,7 +2856,7 @@ function buildIawBinary() {
     }
   }
 
-  // Monotony: per column, from the smallest-angle row (bottom of table)
+  // Monotony: per column, from the smallest-Grad row (bottom of table)
   // upward until monotonyUntilDeg: no row may be smaller than the row below it.
   for (let col = 0; col < nCols; col++) {
     // degAxis is descending (80..2.0), so the "row below" (smaller Grad) has HIGHER index
@@ -3066,10 +3101,11 @@ function buildRbMap() {
   const newBytes = oldBytes.map(r => r.slice());
   const changes = [];
   const warnings = [];
+  let insufficient = 0;
   const pctU = parseFloat(params.pctU) || 1;
   const dead = parseFloat(params.dead) || 0;
   const maxS = parseFloat(params.maxS);
-  const minN = parseFloat(params.minN) || 0;
+  const minN = loadExportMinSamples();
   const cMin = parseFloat(params.cMin) || 0;
   const lock0 = params.lock0 !== false;
   const roundFn = params.rnd === 'round' ? Math.round : Math.trunc;
@@ -3080,6 +3116,7 @@ function buildRbMap() {
     for (let j = 0; j < nCols; j++) {
       if (lock0 && j === 0) continue;
       const sample = sampleRbCell(i, j);
+      if (sample.n > 0 && sample.n < minN) insufficient++;
       if (sample.lam == null || sample.n < minN) continue;
       const target = targetLambdaAt(spec.tpsAxis[j]);
       const dev = (sample.lam / target - 1) * 100;
@@ -3097,7 +3134,7 @@ function buildRbMap() {
       });
     }
   }
-  return { oldBytes, newBytes, changes, warnings, mppData };
+  return { oldBytes, newBytes, changes, warnings, mppData, insufficient, minSamples: minN };
 }
 
 async function handleRbMppUpload(file) {
@@ -3156,7 +3193,6 @@ function renderRbParams() {
   $('#expRbPctU').value = p.pctU;
   $('#expRbDead').value = p.dead;
   $('#expRbMaxS').value = p.maxS;
-  $('#expRbMinN').value = p.minN;
   $('#expRbCMin').value = p.cMin;
   if ($('#expRbRnd'))   $('#expRbRnd').value   = p.rnd;
   if ($('#expRbLock0')) $('#expRbLock0').checked = !!p.lock0;
@@ -3170,7 +3206,6 @@ function readRbParamsFromUi() {
   p.pctU = num('expRbPctU', p.pctU);
   p.dead = num('expRbDead', p.dead);
   p.maxS = num('expRbMaxS', p.maxS);
-  p.minN = num('expRbMinN', p.minN);
   p.cMin = num('expRbCMin', p.cMin);
   if ($('#expRbRnd'))   p.rnd   = $('#expRbRnd').value;
   if ($('#expRbLock0')) p.lock0 = $('#expRbLock0').checked;
@@ -3277,8 +3312,42 @@ function coveredRpmSpanAt(tps, tpsAxis, idx) {
   return found ? { rMin, rMax } : null;
 }
 
-// Build the full map: 2D array of {pct, src} where
-// src ∈ {'measured','nearest','filled','empty'}
+// Allocate each raw log point to exactly one destination cell using midpoints
+// between adjacent axis values (instead of reusing a possibly interpolated 3D
+// display cell). Points outside half a cell at either end are not extrapolated.
+// Each destination cell must satisfy the GLOBAL minimum count. In particular,
+// the selectable gap-fill strategies may NOT circumvent this threshold.
+function exportAxisBucket(axis, value) {
+  if (!Number.isFinite(value) || !axis.length) return -1;
+  if (axis.length === 1) return Math.abs(value - axis[0]) < 1e-8 ? 0 : -1;
+  const start = axis[0] - (axis[1] - axis[0]) / 2;
+  const end = axis[axis.length - 1] + (axis[axis.length - 1] - axis[axis.length - 2]) / 2;
+  if (value < start || value > end) return -1;
+  let lo = 0, hi = axis.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (value >= (axis[mid] + axis[mid + 1]) / 2) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+function exportRawBuckets(rpmAxis, tpsAxis) {
+  const buckets = tpsAxis.map(() => rpmAxis.map(() => ({ sum: 0, n: 0 })));
+  const raw = STATE.rawData;
+  if (!raw || !raw.rpm || !raw.throttle || !raw.lambda) return buckets;
+  for (let i = 0; i < raw.rpm.length; i++) {
+    const r = Number(raw.rpm[i]), t = Number(raw.throttle[i]), lam = Number(raw.lambda[i]);
+    if (!Number.isFinite(r) || !Number.isFinite(t) || !Number.isFinite(lam) ||
+        t < 0 || t > 100 || lam < 0.5 || lam > 2.5) continue;
+    const ri = exportAxisBucket(rpmAxis, r);
+    const ti = exportAxisBucket(tpsAxis, t);
+    if (ri < 0 || ti < 0) continue;
+    const b = buckets[ti][ri];
+    b.sum += lam; b.n++;
+  }
+  return buckets;
+}
+
 function buildExportMap(opts) {
   const rpmAxis = opts.rpmAxis ? opts.rpmAxis.slice() : [];
   if (!opts.rpmAxis) {
@@ -3286,44 +3355,26 @@ function buildExportMap(opts) {
   }
   const tpsAxis = opts.tpsAxis ? opts.tpsAxis.slice() :
     (TPS_SETS[opts.tpsSet] || TPS_SETS['pciii']);
-
-  const rows = tpsAxis.map((tps, ti) => {
-    const span = (opts.fill === 'smart') ? coveredRpmSpanAt(tps, tpsAxis, ti) : null;
-    return rpmAxis.map(rpm => {
-      let lam = sampleMeasuredLambda(rpm, tps);
-      let src = 'measured';
-      if (lam == null) {
-        if (opts.fill === 'nearest') {
-          lam = nearestCellLambda(rpm, tps);
-          src = (lam == null) ? 'empty' : 'nearest';
-        } else if (opts.fill === 'smart') {
-          // Only close gaps that sit inside the measured RPM span of this row
-          if (span && rpm >= span.rMin && rpm <= span.rMax) {
-            lam = nearestCellLambda(rpm, tps);
-            src = (lam == null) ? 'filled' : 'nearest';
-          } else {
-            src = 'filled';   // outside the logged range → leave untouched
-          }
-        } else if (opts.fill === 'empty') {
-          src = 'empty';
-        } else {
-          src = 'filled';     // → 0 %
-        }
-      }
-      let pct = null;
-      let clamped = false;
-      if (lam != null) {
-        const tgt = targetLambdaAt(tps);
-        pct = (lam / tgt - 1) * 100;
-        if (pct > opts.clamp) { pct = opts.clamp; clamped = true; }
-        if (pct < -opts.clamp){ pct = -opts.clamp; clamped = true; }
-      } else if (src === 'filled') {
-        pct = 0;
-      }
-      return { pct, src, clamped };
-    });
-  });
-  return { rpmAxis, tpsAxis, rows };
+  const minSamples = loadExportMinSamples();
+  const buckets = exportRawBuckets(rpmAxis, tpsAxis);
+  const rows = tpsAxis.map((tps, ti) => rpmAxis.map((rpm, ri) => {
+    const b = buckets[ti][ri];
+    // No qualifying measurement: PVM/MPP must retain its original value;
+    // a zero percent adjustment is the neutral value for trim maps and CSV.
+    if (b.n < minSamples) {
+      const insufficient = b.n > 0;
+      return {pct: (!insufficient && opts.fill === 'empty') ? null : 0,
+        src: insufficient ? 'insufficient' : (opts.fill === 'empty' ? 'empty' : 'filled'),
+        n: b.n, clamped: false};
+    }
+    const lam = b.sum / b.n;
+    const target = targetLambdaAt(tps);
+    let pct = (lam / target - 1) * 100;
+    const clamped = Math.abs(pct) > opts.clamp;
+    pct = Math.max(-opts.clamp, Math.min(opts.clamp, pct));
+    return {pct, src: 'measured', n: b.n, clamped};
+  }));
+  return {rpmAxis, tpsAxis, rows, minSamples};
 }
 
 function readExportOpts() {
@@ -3407,7 +3458,7 @@ function applyTargetSpec() {
             : null;
   $('#expDownload').textContent = target === 'pciii'
     ? 'DJM export disabled'
-    : (ext ? `↓ ${ext} herunterladen` : '↓ CSV herunterladen');
+    : (ext ? `↓ Download ${ext}` : '↓ Download CSV');
 
   // Variant-specific sections: show the one that belongs to the active target.
   // "trim" here = PowerCommander V/III: template upload + generic RPM/TPS grid.
@@ -3741,8 +3792,10 @@ function renderExportPreview() {
       const v = Math.round(cell.pct);
       const cls = v === 0 ? 'exp-zero' : (v > 0 ? 'exp-pos' : 'exp-neg');
       const clamp = cell.clamped ? ' exp-clamp' : '';
+      const lowN = cell.src === 'insufficient' ? ' exp-insufficient' : '';
+      const reason = cell.src === 'insufficient' ? ` title="Messpunkte / samples: ${cell.n}; Mindestanzahl / minimum: ${loadExportMinSamples()} — unverändert / unchanged"` : ''; 
       const sign = v > 0 ? '+' : '';
-      return `<td class="exp-cell ${cls}${clamp}">${sign}${v}</td>`;
+      return `<td class="exp-cell ${cls}${clamp}${lowN}"${reason}>${sign}${v}</td>`;
     }).join('');
     return `<tr><th>${tps}%</th>${cells}</tr>`;
   }).join('');
@@ -3760,7 +3813,7 @@ function renderExportPreview() {
       logName: STATE.fileName || null,
       note: target === 'pcv'
         ? 'PVM: the preview shows <em>additional correction values</em>. On export, these are added to the percentages already stored in the template. Only the shared primary fuel map is changed; other maps and comments are preserved. Check the file in PowerCommander software.'
-        : 'Trim-Map wird <em>on top</em> auf die aktuell gefahrene ECU-Map addiert — das Lambda-Log sollte mit genau jener Map gefahren worden sein, die derzeit im Steuergerät (bzw. PowerCommander) aktiv ist.',
+        : 'The trim map is added <em>on top</em> of the currently active ECU map — the lambda log should have been recorded using that same map, currently in the ECU (or PowerCommander).',
     });
   }
 
@@ -3774,9 +3827,10 @@ function renderExportPreview() {
     </div>
   `;
   // Summary line
-  let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0;
+  let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0, countInsufficient = 0;
   rows.forEach(row => row.forEach(c => {
-    if (c.src === 'measured') countMeasured++;
+    if (c.src === 'insufficient') countInsufficient++;
+    else if (c.src === 'measured') countMeasured++;
     else if (c.src === 'nearest') countNearest++;
     else if (c.src === 'filled')  countFilled++;
     else countEmpty++;
@@ -3785,6 +3839,7 @@ function renderExportPreview() {
   const total = rows.length * (rows[0] ? rows[0].length : 0);
   $('#expSummary').innerHTML = `
     <span><strong>${countMeasured}</strong>/${total} from measurement</span>
+    ${countInsufficient ? `<span class="exp-badge-warn"><strong>${countInsufficient}</strong> cells below ${loadExportMinSamples()} samples (unchanged)</span>` : ''}
     ${countNearest ? `<span><strong>${countNearest}</strong> interpolated</span>` : ''}
     ${countFilled ? `<span><strong>${countFilled}</strong> set to 0 % (no data)</span>` : ''}
     ${countEmpty ? `<span><strong>${countEmpty}</strong> empty</span>` : ''}
@@ -3805,6 +3860,7 @@ function calculateIawFuelPreview(layout, params, log) {
       maxDeg <= minDeg || minDeg < 0 || maxDeg > 120 || capPct < 1 || capPct > 30 ||
       monotonyUntilDeg < 0 || monotonyUntilDeg > 80)
     return {error:'Invalid IAW parameters: check angles, MAX_CHANGE and monotonicity.'};
+  const minSamples = loadExportMinSamples();
   const rpmAxis = layout.rpmAxis;
   const degAxis = layout.tpsDegAxis;
   const buckets = Array.from({length:16},()=>Array.from({length:16},()=>({sum:0,n:0})));
@@ -3839,13 +3895,14 @@ function calculateIawFuelPreview(layout, params, log) {
   }
   const result = Array.from({length:16},()=>Array(16));
   const cap=capPct/100;
-  let covered=0, altered=0, capped=0, monotonyAdjusted=0, monotonyLimited=0;
+  let covered=0, altered=0, capped=0, insufficient=0, monotonyAdjusted=0, monotonyLimited=0;
   for (let col=0;col<16;col++) for (let row=0;row<16;row++) {
     const oldByte=layout.cells[col][row], oldMs=oldByte/layout.msScale;
     const bucket=buckets[col][row];
     const lam=bucket.n ? bucket.sum/bucket.n : null;
     const target=targetLambdaForDeg(degAxis[row],params);
-    const valid=lam!=null && oldByte>0 && Number.isFinite(target) && target>0;
+    const valid=bucket.n >= minSamples && oldByte>0 && Number.isFinite(target) && target>0;
+    if (bucket.n > 0 && bucket.n < minSamples) insufficient++;
     const rawFactor=valid ? lam/target : 1;
     const factor=valid ? Math.max(1-cap,Math.min(1+cap,rawFactor)) : 1;
     // Quantisation must not itself break the safety cap (e.g. 8 -> 9 bytes
@@ -3881,7 +3938,7 @@ function calculateIawFuelPreview(layout, params, log) {
     if (cell.newByte!==cell.oldByte) { altered++; changes.push(cell); }
   }
   return { cells:result,changes,hasLog,accepted,outside,invalid,covered,altered,capped,
-    monotonyAdjusted,monotonyLimited,capPct };
+    monotonyAdjusted,monotonyLimited,capPct,insufficient,minSamples };
 }
 
 // Base Fuel: original or simulated correction; Delta Fuel: read-only.
@@ -3921,8 +3978,8 @@ function renderIawPreview() {
       const extra=cell.limited?' exp-clamp':'';
       const details=cell.measured
         ? `Original ${cell.oldMs.toFixed(2)} ms | Proposed ${cell.newMs.toFixed(2)} ms | λ ${cell.lamMeas.toFixed(3)} / Target ${cell.lamTarget.toFixed(3)} | Δ ${cell.deltaPct.toFixed(1)} % | ${cell.n} samples${cell.limited?' | MAX capped':''}${cell.monotony?' | Monotonicity adjusted':''}`
-        : `No samples: unchanged ${cell.oldMs.toFixed(2)} ms`;
-      const lowN=cell.measured && cell.n<5?' iaw-low-n':'';
+        : cell.n > 0 ? `${cell.n} samples; minimum ${sim.minSamples}: unchanged ${cell.oldMs.toFixed(2)} ms` : `No samples: unchanged ${cell.oldMs.toFixed(2)} ms`;
+      const lowN=cell.n>0 && cell.n<sim.minSamples?' iaw-low-n':'';
       return `<td class="exp-cell ${cls}${extra}${lowN}" title="${esc(details)}">${cell.newMs.toFixed(2)}</td>`;
     }).join('');
     return `<tr><th>${label} (0x${sensor.toString(16).toUpperCase().padStart(2,'0')})</th>${vals}</tr>`;
@@ -3969,7 +4026,7 @@ function renderIawPreview() {
   $('#expSummary').innerHTML=isDelta
     ? `<span><strong>${layout.deltaNeutralCount}</strong> neutral Delta cells</span><span class="exp-badge-warn">⚠ Delta ms scale tentative</span><span class="exp-badge-warn">🔒 No BIN export</span>`
     : isCorrected && !sim.error
-      ? `<span><strong>${sim.covered}/256</strong> cells with lambda samples</span><span><strong>${sim.altered}</strong> changed proposed values</span><span><strong>${sim.capped}</strong> capped at MAX</span>${sim.monotonyAdjusted ? `<span><strong>${sim.monotonyAdjusted}</strong> monotonicity adjustments</span>`:''}${sim.monotonyLimited ? `<span class="exp-badge-warn">${sim.monotonyLimited} monotonicity conflicts (MAX takes priority)</span>`:''}<span class="exp-badge-warn">🔒 No BIN export</span>`
+      ? `<span><strong>${sim.covered}/256</strong> cells with enough samples (≥${sim.minSamples})</span>${sim.insufficient ? `<span class="exp-badge-warn"><strong>${sim.insufficient}</strong> below minimum, unchanged</span>` : ''}<span><strong>${sim.altered}</strong> changed proposed values</span><span><strong>${sim.capped}</strong> capped at MAX</span>${sim.monotonyAdjusted ? `<span><strong>${sim.monotonyAdjusted}</strong> monotonicity adjustments</span>`:''}${sim.monotonyLimited ? `<span class="exp-badge-warn">${sim.monotonyLimited} monotonicity conflicts (MAX takes priority)</span>`:''}<span class="exp-badge-warn">🔒 No BIN export</span>`
       : `<span><strong>256</strong> original injection values</span><span><strong>0</strong> BIN bytes changed</span><span class="exp-badge-warn">🔒 No BIN export</span>`;
   $('#expIawAdopt').disabled=true;
   $('#expIawAdopt').style.opacity='0.55';
@@ -3986,7 +4043,7 @@ function renderIawChangeList(changes) {
   const more=changes.length>show.length?`<div class="modal-sub" style="margin-top:6px;text-align:right">… ${changes.length-show.length} more changes</div>`:'';
   return `<div class="exp-section-title" style="margin:16px 0 8px">Largest calculated changes (${show.length} of ${changes.length}) · preview only</div>
     <div class="exp-scroll-map"><table class="exp-preview iaw-change-list"><thead><tr><th>Grad</th><th>RPM</th><th>Old ms</th><th>New ms</th><th>Δ%</th><th>λ meas.</th><th>λ target</th><th>n</th></tr></thead><tbody>${rows}</tbody></table></div>
-    ${more}<div class="modal-sub" style="margin-top:8px">⚠ Cells with fewer than five samples have low statistical confidence (marked ⚠ in the table). The preview uses only actual assigned samples; it does not interpolate into unmeasured cells.</div>`;
+    ${more}<div class="modal-sub" style="margin-top:8px">Only cells with at least ${loadExportMinSamples()} directly assigned log samples are eligible for correction. All other cells remain unchanged.</div>`;
 }
 
 // Rapid Bike EVO preview: 40×8 grid of integer RB units with alt/neu per changed
@@ -4068,7 +4125,8 @@ function renderRbPreview() {
     ${posN ? `<span style="color:var(--rich)"><strong>${posN}</strong> fetter</span>` : ''}
     ${negN ? `<span style="color:var(--lean)"><strong>${negN}</strong> magerer</span>` : ''}
     <span><strong>${unchanged}</strong> unchanged</span>
-    ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} Warnung(en)</span>` : ''}
+    ${result.insufficient ? `<span class="exp-badge-warn"><strong>${result.insufficient}</strong> below ${result.minSamples} samples; unchanged</span>` : ''}
+    ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} warning(s)</span>` : ''}
   `;
 
   const adoptBtn = $('#expRbAdopt');
@@ -4119,6 +4177,7 @@ function buildExportCsv(opts, map) {
     `# TPS grid: ${tpsAxis.join(', ')} %`,
     `# RPM grid: ${opts.rpmMin}–${opts.rpmMax} in steps of ${opts.rpmStep}`,
     `# Clamping: ±${opts.clamp}%`,
+    `# Minimum samples per cell: ${loadExportMinSamples()}`,
     `# Values: fuel change in % (positive = more fuel, negative = less)`,
     ``,
     ``,
@@ -4228,6 +4287,19 @@ function closeExportModal() {
   $('#expModal').classList.remove('open');
   $('#expBackdrop').classList.remove('open');
 }
+
+// Shared minimum-sample input. One setting controls every export target.
+$('#expMinSamples').value = loadExportMinSamples();
+$('#expMinSamples').addEventListener('change', () => {
+  const input = $('#expMinSamples');
+  if (!storeExportMinSamples(input.value)) {
+    input.value = loadExportMinSamples();
+    toast('Enter a whole number from 1 to 5000', 3000);
+    return;
+  }
+  input.value = loadExportMinSamples();
+  renderExportPreview();
+});
 
 // Wire controls → re-render preview
 ['expRpmMin','expRpmMax','expRpmStep','expTpsSet','expClamp','expFill'].forEach(id => {
@@ -4397,7 +4469,7 @@ $('#expRbAdopt').addEventListener('click', () => {
   toast(`„${newName}" is now the source MPP`, 3500);
 });
 // Persist RB parameter edits on blur/change AND refresh the preview live
-['expRbPctU','expRbDead','expRbMaxS','expRbMinN','expRbCMin']
+['expRbPctU','expRbDead','expRbMaxS','expRbCMin']
   .forEach(id => {
     $('#' + id).addEventListener('change', () => {
       readRbParamsFromUi();

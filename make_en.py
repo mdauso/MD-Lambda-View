@@ -90,6 +90,23 @@ def process_blocks(html, rep, fn):
     return html
 
 
+def process_dynamic_templates(html, rep, fn):
+    """Translate exact template-literal fragments containing ${...}.
+
+    The ordinary quoted-string matcher cannot recognize interpolations whose
+    expressions contain quoted strings (e.g. `${x ? 'a' : 'b'}`). Process known,
+    fully specified fragments first. Longest-first prevents nested fragments
+    from shadowing each other. No generic word replacement is performed.
+    """
+    entries = sorted(((de, en) for de, en in TR.items() if '${' in de),
+                     key=lambda pair: len(pair[0]), reverse=True)
+    for de, en in entries:
+        if de in html:
+            html = html.replace(de, en)
+            rep.hit(de)
+    return html
+
+
 def process_markup(html, rep, fn):
     """Translate text nodes + attributes, leaving <script>/<style> alone."""
     # Protect script and style blocks
@@ -189,6 +206,7 @@ def main():
             continue
         html = src.read_text(encoding='utf-8')
         html = process_blocks(html, rep, de_name)
+        html = process_dynamic_templates(html, rep, de_name)
         html = process_markup(html, rep, de_name)
         html = process_scripts(html, rep, de_name)
         html = post_fixes(html, de_name)
