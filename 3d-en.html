@@ -1645,11 +1645,6 @@ body.pseudo-full .plot-area {
       <div class="modal-sub" style="margin-bottom:10px">
         Choose an original <strong>.bin</strong> (64 KiB) or a ZIP containing one BIN. For compatible IAW16M dumps, map position, RPM axis, TPS raw values and Delta Fuel are checked. With a lambda log loaded, the <strong>calculated Base Fuel correction</strong> is displayed. Download generates a new <strong>.bin</strong> and verifies all 65,536 bytes: only Base Fuel may change.
       </div>
-      <div class="exp-info-box">
-        <strong>Dynamic structure detection:</strong><br>
-        16 × 16 map cells; actual RPM breakpoints and raw TPS axis from the selected BIN.<br>
-        The angle axis and injection-time scale <code>byte / 15.5</code> are confirmed using the MD-040KI BIN and ECUedit screenshot. Other software versions have not been cross-checked. ECUedit did not change any other bytes when saving a single map cell. ECU acceptance of other software versions has not been independently confirmed.
-      </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expIawFile">
           <span id="expIawBtnLabel">📂 Choose source BIN (.bin/.zip)</span>
