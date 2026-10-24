@@ -1,7 +1,7 @@
 <!DOCTYPE html>
+<!-- ENGLISH LOCALIZATION OF VERSION 63; EDIT SOURCE 3d.html FOR FUTURE RELEASES -->
 <html lang="en">
 <head>
-<!-- GENERATED FILE — do not edit. Built from 3d.html by i18n/make_en.py -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#f5e6a3">
@@ -741,7 +741,7 @@ input[type="file"] { display: none; }
   align-items: center;
 }
 /* Narrow phones (portrait): tighten body padding and stack footer buttons so
-   long labels like "↻ Berechnete BIN als neue Ausgangs-BIN" don't clip. */
+   long labels like "↻ Adopt calculated BIN as new source" don't clip. */
 @media (max-width: 480px) {
   .modal-body { padding: 14px 14px 18px; }
   .modal-footer {
@@ -1059,7 +1059,7 @@ input[type="file"] { display: none; }
    a fixed-width column on the right. The grid itself drops to one column so
    each row gets the full width of its section.
    Covers the λ-target / TPS-bound panels AND every exp-grid in the IAW16M
-   section (TPS → Grad conversion, Korrekturparameter) so no label ever wraps.
+   section (TPS → angle conversion, correction parameters) so no label ever wraps.
    The reset button inside `.span-full` keeps its full-row behaviour below. */
 #expTargetsGrid,
 #expBoundsGrid,
@@ -1188,7 +1188,7 @@ input[type="file"] { display: none; }
   max-width: calc(100% + 32px);
 }
 /* The horizontal scrollbar for the wide map table sits HERE, right under the
-   map and right above the "Größte Änderungen"-list — orange thumb, cream track,
+   map and right above the "Largest changes" list — orange thumb, cream track,
    always visible on every platform (no iOS auto-hide). */
 .exp-scroll-map {
   overflow-x: auto;
@@ -1294,6 +1294,14 @@ input[type="file"] { display: none; }
   font-weight: 600;
   margin-left: 4px;
 }
+
+
+/* IAW16M comparison modes: tabs fit even on a narrow phone. */
+.iaw-map-switch { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0; }
+.iaw-map-switch .modal-btn { flex:1 1 90px; padding:9px 7px; font-size:12px; white-space:normal; }
+.iaw-preview-warning { margin-top:8px; color:#a84a1a; font-weight:600; }
+.iaw-preview td.iaw-low-n { text-decoration:underline dotted; text-underline-offset:3px; }
+.iaw-change-list td, .iaw-change-list th { padding:6px 7px; }
 
 /* Reusable: subtle info panel inside a section (grid hints, format notes). */
 .exp-info-box {
@@ -1408,7 +1416,7 @@ body.pseudo-full .plot-area {
       <div class="status-pill" id="status">Ready</div>
       <button class="icon-btn" id="btnCam" title="Reset view" disabled style="opacity:.4">↺</button>
       <button class="icon-btn" id="btnFull" title="Fullscreen">⛶</button>
-      <button class="icon-btn" id="btnExport" title="Map export" disabled style="opacity:.4">↓</button>
+      <button class="icon-btn" id="btnExport" title="Map export / IAW16M BIN preview">↓</button>
       <button class="icon-btn primary" id="btnSheet" title="Settings">☰</button>
     </div>
   </header>
@@ -1613,7 +1621,7 @@ body.pseudo-full .plot-area {
       </span>
       <span class="exp-warn-badge">⚠ Caution, experimental!</span>
     </div>
-    <div class="modal-sub">Builds a trim map, an ECU BIN or a universal CSV file from the loaded lambda data — depending on the selected target system.</div>
+    <div class="modal-sub">Generate trim maps or CSV from lambda data. For IAW16M, only a simulated fuel-map correction is available; ECU BIN export remains disabled.</div>
   </div>
   <div class="modal-body">
 
@@ -1625,18 +1633,18 @@ body.pseudo-full .plot-area {
     <div class="exp-section" id="expIawSection" hidden>
       <div class="exp-section-title">IAW16M · Source BIN</div>
       <div class="modal-sub" style="margin-bottom:10px">
-        Upload the BIN currently flashed to the ECU as a <strong>ZIP file</strong> (65,536 bytes). This file is read, the map at <code>0xF161</code> is recomputed, the rest stays untouched. Return again as ZIP.
+        Select an original <strong>.bin</strong> (64 KiB) or a ZIP containing one BIN. Compatible IAW16M dumps are checked automatically for the map location, RPM axis and 16 raw TPS values. When a lambda log is loaded, a <strong>calculated Base Fuel correction</strong> is also shown. <strong>Preview only</strong> – no flashable BIN is generated yet.
       </div>
       <div class="exp-info-box">
-        <strong>Fixed grid from the fuel map:</strong><br>
-        16 RPM columns: <code>1000 · 1200 · 1350 · 1500 · 1800 · 2100 · 2400 · 2700 · 3000 · 3500 · 4200 · 5100 · 6100 · 7500 · 8400 · 9000</code> rpm<br>
-        16 degree rows: <code>2.0 · 2.4 · 2.9 · 3.5 · 4.2 · 5.1 · 7.5 · 9.7 · 13 · 17 · 21 · 28 · 37 · 48 · 60 · 80</code>°
+        <strong>Dynamic structure detection:</strong><br>
+        16 × 16 map cells; actual RPM breakpoints and raw TPS axis from the selected BIN.<br>
+        The throttle-angle axis and injection-time scale <code>byte / 15.5</code> were checked against the MD-040KI BIN and an ECUedit screenshot. Other firmware revisions have not yet been independently verified. The checksum is not verified.
       </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expIawFile">
-          <span id="expIawBtnLabel">📂 Choose source BIN (ZIP)</span>
+          <span id="expIawBtnLabel">📂 Choose source BIN (.bin/.zip)</span>
         </label>
-        <input type="file" id="expIawFile" accept=".zip" class="visually-hidden">
+        <input type="file" id="expIawFile" accept=".bin,.zip" class="visually-hidden">
         <span id="expIawStatus" class="modal-sub exp-tpl-status exp-tpl-missing">No BIN loaded yet.</span>
         <button class="modal-btn" id="expIawClear" type="button" hidden>Remove</button>
       </div>
@@ -1654,7 +1662,7 @@ body.pseudo-full .plot-area {
         <div class="exp-field"><label>MONOTONY up to (degrees)</label><input type="number" id="expIawMono" step="0.1" min="0" max="80" inputmode="decimal"></div>
         <div class="exp-field span-full"><button class="modal-btn" id="expIawReset" type="button">↺ Default</button></div>
       </div>
-      <div class="modal-sub">Smoothing and outlier rejection already happen at CSV import via the stability filter — only the safety cap (MAX) and the physical monotony enforcement stay here. The target λ values come from the 2D app preset (see above: “Target λ per TPS zone”).</div>
+      <div class="modal-sub">Smoothing and outlier filtering are applied on CSV import if needed. The preview caps corrections at MAX_CHANGE. Monotonicity is applied only to measured cells and within that limit. Target λ comes from the four export zones above. No BIN bytes are changed.</div>
 
     </div>
 
@@ -1668,8 +1676,8 @@ body.pseudo-full .plot-area {
       </div>
       <div class="exp-info-box">
         <strong>Fixed grid of the RB format (Ténéré 700):</strong><br>
-        40 RPM-Zeilen: <code>1400 – 11200</code> rpm (irregular)<br>
-        8 TPS-Spalten: <code>0 · 5 · 10 · 20 · 40 · 60 · 80 · 95</code> %
+        40 RPM rows: <code>1400 – 11200</code> rpm (irregular)<br>
+        8 TPS columns: <code>0 · 5 · 10 · 20 · 40 · 60 · 80 · 95</code> %
       </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expRbFile">
@@ -1698,7 +1706,7 @@ body.pseudo-full .plot-area {
     <div class="exp-section" id="expCustomTplSection">
       <div class="exp-section-title">Custom template</div>
       <div class="modal-sub">
-        Upload an empty <span id="expTplExt">.pvm</span> file that you saved in the PowerCommander software for your vehicle. The export uses the model signature and dongle ID from that file. No export is possible without a custom template. The file stays in the browser until you remove it.
+        Load a <span id="expTplExt">.pvm</span> file from your PowerCommander software. For PVM, axes and the fuel map are detected dynamically. Export adds the calculated percentage correction to the existing primary fuel map, preserving the remaining data. If multiple separate primary maps are present, export remains disabled. For DJM, the vehicle identifier, axes and block layout are read for preview only; binary DJM export remains disabled for safety. The file stays in browser storage until you remove it.
       </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expTplFile">
@@ -1746,6 +1754,7 @@ body.pseudo-full .plot-area {
         <div class="exp-field">
           <label>TPS grid</label>
           <select id="expTpsSet">
+            <option value="from-file">Axes from uploaded file</option>
             <option value="pcv" selected>0 · 2 · 5 · 10 · 15 · 20 · 40 · 60 · 80 · 100 (PCV)</option>
             <option value="pciii">0 · 2 · 5 · 10 · 20 · 40 · 60 · 80 · 100 (PCIII)</option>
             <option value="pc-fine">0 · 2 · 5 · 10 · 15 · 20 · 30 · 40 · 50 · 60 · 70 · 80 · 90 · 100</option>
@@ -2171,14 +2180,14 @@ const TARGET_SPEC = {
     kind: 'trim', status: 'ready',
     tpsSet: 'pcv',
     rpmMin: 500, rpmMax: 7500, rpmStep: 250,
-    hint: 'PCV / PCFC / PCVI: 29 RPM steps (500–7500 /250), 10 TPS columns. The fields are fixed by the file format.'
+    hint: 'PCV / PCFC / PCVI: Axes, map dimensions and data blocks are read from the PVM file. Corrections are added to the existing primary fuel map. Separate primary cylinder maps remain read-only for safety.'
   },
   pciii: {
     label: 'PowerCommander III USB (.djm)',
     kind: 'trim', status: 'ready',
     tpsSet: 'pciii',
     rpmMin: 500, rpmMax: 12000, rpmStep: 250,
-    hint: 'PCIII USB: 47 RPM steps (500–12000 /250), 9 TPS columns (no 15 %). The fields are fixed by the file format.'
+    hint: 'PCIII USB: RPM and TPS breakpoints are read from your DJM file. Structure analysis and preview are supported; binary export remains disabled until fuel-cell locations are verified.'
   },
   rbe: {
     label: 'Rapid Bike EVO (.mpp)',
@@ -2213,8 +2222,8 @@ const TARGET_SPEC = {
     // from 1000 to 9000 U/min; the IAW builder itself uses the fixed
     // 16-entry rpmAxis below regardless of these numbers.
     tpsSet: null, rpmMin: 1000, rpmMax: 9000, rpmStep: 250,
-    hint: 'IAW16M: Direct ECU reflash. Loads the currently flashed BIN as a ZIP, computes new map values and returns the new BIN again as a ZIP. Always back up the original BIN before flashing and spot-check a few values in an editor.',
-    // IAW16M MD-039 BIN layout and axes (fixed by the ECU firmware):
+    hint: 'IAW16M: Base Fuel and Delta Fuel on the original axes, plus a calculated lambda correction for Base Fuel (preview only). Delta Fuel is not changed. BIN export is disabled.',
+    // Legacy MD-039 assumptions (NOT used for new IAW16M read-only layouts):
     binSize:    65536,
     mapAddress: 0xF161,
     mapCols:    16,  // RPM columns
@@ -2321,14 +2330,160 @@ function cellPct(map, rpmIdx, tpsIdx) {
 
 const CUSTOM_TPL_KEYS      = { pcv: 'mdlv_tpl_pcv',      pciii: 'mdlv_tpl_pciii' };
 const CUSTOM_TPL_META_KEYS = { pcv: 'mdlv_tpl_pcv_meta', pciii: 'mdlv_tpl_pciii_meta' };
-const EXPECTED_TPL_SIZE    = { pcv: 1010, pciii: 5328 };
+const EXPECTED_TPL_SIZE    = { pcv: 1010 };
+
+/* MD-Lambda-View: dynamic PVM pointer-table parser.
+   Validated against 10 independently supplied PowerCommander PVM files.
+   The bytes at offsets 0x38.. encode descriptors (name, TPS ptr, RPM ptr,
+   fuel-map ptr). Bit 31 is an address flag, not part of the file offset.
+   Only the *primary* fuel map is eligible for rewriting and only when all
+   primary fuel channels alias the very same map byte range. */
+function inspectPvmLayout(input) {
+  const b = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (b.byteLength < 320 || b.byteLength > 10_000_000)
+    throw new Error('PVM: invalid file size');
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const u16 = o => v.getUint16(o, true);
+  const u32 = o => v.getUint32(o, true);
+  const ptr = o => u32(o) & 0x7fffffff; // pointer tag: high bit not an address bit
+  if (u32(0) !== 2 || u32(8) !== 48 || u32(12) !== 256 || u32(16) !== b.length-256)
+    throw new Error('PVM: header/trailer not recognized');
+  const modelId = u32(4);
+  const descriptorCount = u32(48);
+  const tableOffset = ptr(52);
+  const dataEnd = b.length - 256;
+  if (descriptorCount < 1 || descriptorCount > 32 || tableOffset < 56 ||
+      tableOffset + descriptorCount*16 > dataEnd)
+    throw new Error('PVM: invalid map table');
+  const descriptors = [];
+  let rpmAxis = null, tpsAxis = null, rpmCount = 0, tpsCount = 0;
+  const uniqueAxes = new Map();
+  for (let i = 0; i < descriptorCount; i++) {
+    const d = tableOffset + i*16;
+    if (b[d] !== 0xc1 || b[d+2] !== 0x3f)
+      throw new Error(`PVM: unknown map identifier ${i+1}`);
+    const id = Array.from(b.subarray(d,d+4)).map(x => x.toString(16).padStart(2,'0')).join('');
+    const tp = ptr(d+4), rp = ptr(d+8), mp = ptr(d+12);
+    if (tp < tableOffset + descriptorCount*16 || tp + 8 > dataEnd ||
+        rp < tp + 4 || rp + 8 > dataEnd || mp > dataEnd)
+      throw new Error(`PVM: invalid pointer in map ${i+1}`);
+    // The two-byte axis tags encode count in the low byte and a fixed type
+    // in the high byte: TPS = 0xC5, RPM = 0x1C. Values follow a 4-byte tag.
+    const tc = b[tp], rc = b[rp];
+    if (b[tp+1] !== 0xc5 || b[rp+1] !== 0x1c ||
+        u16(tp+2) !== 0 || u16(rp+2) !== 0 ||
+        tc < 2 || tc > 32 || rc < 2 || rc > 200 ||
+        tp + 4 + tc*2 > dataEnd || rp + 4 + rc*2 > dataEnd ||
+        mp < rp + 4 + rc*2 || mp + tc*rc > dataEnd)
+      throw new Error(`PVM: invalid axes/matrix in map ${i+1}`);
+    const ta = Array.from({length:tc}, (_,k) => u16(tp+4+2*k)/10);
+    const ra = Array.from({length:rc}, (_,k) => u16(rp+4+2*k));
+    if (ta.some((x,k) => x < 0 || x > 100 || (k && x <= ta[k-1])) ||
+        ra.some((x,k) => x < 0 || x > 25000 || (k && x <= ra[k-1])))
+      throw new Error(`PVM: implausible axes in map ${i+1}`);
+    if (rpmAxis && (ra.length !== rpmAxis.length || ra.some((x,k) => x !== rpmAxis[k]) ||
+                    ta.length !== tpsAxis.length || ta.some((x,k) => x !== tpsAxis[k])))
+      throw new Error('PVM: inconsistent axes within one file');
+    rpmAxis = ra; tpsAxis = ta; rpmCount = rc; tpsCount = tc;
+    uniqueAxes.set(`${tp}/${rp}`, true);
+    descriptors.push({index:i, id, tpsOffset:tp, rpmOffset:rp,
+      mapOffset:mp, mapLength:rc*tc, isPrimary: /^c1403fd[0-3]$/.test(id)});
+  }
+  const primary = descriptors.filter(d => d.isPrimary);
+  if (!primary.length || primary[0].id !== 'c1403fd0')
+    throw new Error('PVM: primary fuel map not found');
+  const uniqueMapOffsets = [...new Set(descriptors.map(d=>d.mapOffset))].sort((a,b)=>a-b);
+  const mapLength = rpmCount*tpsCount;
+  // All seen PVMs store non-overlapping map blocks, without padding, up to
+  // the 256-byte model/comment footer. Do not write unknown arrangements.
+  if (uniqueMapOffsets[0] < tableOffset + descriptorCount*16 ||
+      uniqueMapOffsets.some((o,i) => (i && o !== uniqueMapOffsets[i-1]+mapLength)) ||
+      uniqueMapOffsets[uniqueMapOffsets.length-1] + mapLength !== dataEnd)
+    throw new Error('PVM: data blocks are not contiguous or overlap');
+  const primaryOffsets = [...new Set(primary.map(d => d.mapOffset))];
+  // A file with different primary (e.g. cylinder/bank) tables can be read,
+  // but needs a deliberate per-channel UI before we can write it safely.
+  const sharedPrimary = primaryOffsets.length === 1;
+  const primaryOffset = primary[0].mapOffset;
+  const values = b.subarray(primaryOffset, primaryOffset+mapLength);
+  const valuesPlausible = values.every(x => x >= 1 && x <= 199);
+  const writable = sharedPrimary && valuesPlausible;
+  return { fileSize:b.length, modelId, descriptorCount, dataEnd,
+    rpmCount, tpsCount, rpmAxis, tpsAxis, descriptors, uniqueMapOffsets,
+    distinctMaps:uniqueMapOffsets.length, primaryCount:primary.length,
+    primaryOffset, mapLength, sharedPrimary, writable, recognized:true,
+    reason: !sharedPrimary ? 'Multiple separate primary fuel maps – export disabled'
+          : !valuesPlausible ? 'Unknown value encoding in primary map – export disabled'
+          : 'PVM structure recognized; primary fuel map is writable'};
+}
+
+/* MD-Lambda-View: read-only DJM structural parser (validated on 11 samples).
+   The fuel-cell offset/encoding has NOT been verified; DJM writes are forbidden. */
+function inspectDjmLayout(input) {
+  const b = input instanceof Uint8Array ? input : new Uint8Array(input);
+  if (b.length < 100) throw new Error('DJM: file too short');
+  const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const u16 = o => v.getUint16(o, true);
+  const u32 = o => v.getUint32(o, true);
+  if (u32(0) !== 202 || u16(10) !== 9) throw new Error('DJM: unknown header');
+  const blockCount = u16(8);
+  const descriptionLength = u16(12);
+  const axisOffset = 0x54 + descriptionLength;
+  if (axisOffset > b.length - 20) throw new Error('DJM: invalid description length');
+  const rpmCount = u16(axisOffset - 18);
+  const tpsCount = u16(10);
+  if (!blockCount || blockCount > 16 || rpmCount < 2 || rpmCount > 200)
+    throw new Error('DJM: implausible block/RPM count');
+  const blockStride = rpmCount * 40 + 20;
+  const predictedSize = axisOffset + blockCount * blockStride - 20;
+  if (predictedSize !== b.length)
+    throw new Error(`DJM: size/layout mismatch (${b.length} instead of ${predictedSize} bytes)`);
+  const rpmAxis = Array.from({length:rpmCount}, (_,i) => u32(axisOffset + 4*i));
+  if (rpmAxis.some((x,i) => x < 100 || x > 25000 || (i && x <= rpmAxis[i-1])))
+    throw new Error('DJM: implausible RPM axis');
+  // Nine TPS points: 0% is implicit, the other eight precede the RPM data.
+  const tpsAxis = [0, ...Array.from({length:8}, (_,i) => u32(axisOffset - 0x34 + 4*i))];
+  if (tpsAxis.some((x,i) => x > 100 || (i && x <= tpsAxis[i-1])))
+    throw new Error('DJM: implausible TPS axis');
+  const blocks = Array.from({length:blockCount},(_,i) => {
+    const start = axisOffset + i * blockStride;
+    const axis = Array.from({length:rpmCount},(_,r) => u32(start+4*r));
+    if (axis.some((x,r) => x !== rpmAxis[r]))
+      throw new Error(`DJM: RPM axis differs in block ${i+1}`);
+    return {index:i, rpmAxisOffset:start, blockStart:start,
+      blockEnd:Math.min(start+blockStride,b.length)};
+  });
+  return {fileSize:b.length, modelId:u32(4), blockCount,
+    descriptionLength, tpsCount, tpsAxis, rpmCount, rpmAxis, blockStride,
+    blocks, predictedSize, writeSupported:false};
+}
+
+// The UI accepts recognized DJM templates for inspection and preview ONLY.
+// No existing DJM writer is safe for these variable-length structures.
+function inspectPowerCommanderTemplate(target, u8) {
+  if (target === 'pcv') {
+    try { return inspectPvmLayout(u8); }
+    catch (e) { return {recognized:false, writable:false, reason:e.message || String(e)}; }
+  }
+  if (target === 'pciii') {
+    try {
+      const layout = inspectDjmLayout(u8);
+      return { ...layout, recognized: true, writable: false,
+        reason: 'DJM structure recognized; fuel-cell positions not yet verified' };
+    } catch (e) {
+      return { recognized: false, writable: false, reason: e.message || String(e) };
+    }
+  }
+  return { recognized: false, writable: false, reason: 'Unknown file format' };
+}
+
 
 function loadCustomTemplate(target) {
   try {
     const b64 = localStorage.getItem(CUSTOM_TPL_KEYS[target]);
     if (!b64) return null;
     const u8 = b64ToU8(b64);
-    return u8.length === EXPECTED_TPL_SIZE[target] ? u8 : null;
+    return inspectPowerCommanderTemplate(target, u8).recognized ? u8 : null;
   } catch (e) { return null; }
 }
 
@@ -2370,63 +2525,134 @@ function requireCustomTemplate(target) {
   return custom ? new Uint8Array(custom) : null;
 }
 
-// Build a .pvm file (PowerCommander V/FC/VI). Base is the user's own empty
-// .pvm — the HID-GUID, model-ID and all other header fields come straight
-// from that file; we only overwrite RPM axis + fuel matrix + comment.
-// Returns null if the user has not uploaded a template yet.
+// PVM output: preserve the header, original axes, auxiliary maps and 256-byte
+// notes/footer verbatim. The preview contains DELTA corrections; apply those
+// on top of the currently stored correction values (byte 100 = 0%).
+// Write ONLY the shared primary fuel map. Separate multi-bank maps are gated.
 function buildPvmBinary(map) {
-  const out = requireCustomTemplate('pcv');       // 1010 bytes or null
+  const out = requireCustomTemplate('pcv');
   if (!out) return null;
-  // Overwrite the template's "2008 Yamaha XT660R Tenere ..." note at 0x2F2
-  // with our own branding. 76-byte NUL-padded region.
-  writeComment(out, 0x2F2, 76);
-  // RPM axis at 0x110: 29 × int16 LE
-  for (let i = 0; i < 29; i++) {
-    writeI16LE(out, 0x110 + i * 2, map.rpmAxis[i] | 0);
-  }
-  // Matrix at 0x1D0: 29 RPM rows × 10 TPS cols × int8, baseline 100 (= 0 %)
-  for (let r = 0; r < 29; r++) {
-    for (let c = 0; c < 10; c++) {
-      // int8 range would be ±127, but PCV UI tops out at ±99 so stay safe.
-      const pct = Math.max(-99, Math.min(99, cellPct(map, r, c)));
-      out[0x1D0 + r * 10 + c] = (100 + pct) & 0xff;
+  const layout = inspectPvmLayout(out);
+  if (!layout.writable) throw new Error(layout.reason);
+  if (map.rpmAxis.length !== layout.rpmCount ||
+      map.tpsAxis.length !== layout.tpsCount ||
+      map.rpmAxis.some((x,i) => x !== layout.rpmAxis[i]) ||
+      map.tpsAxis.some((x,i) => x !== layout.tpsAxis[i]))
+    throw new Error('PVM: calculated map does not match the original axes');
+  for (let r = 0; r < layout.rpmCount; r++) {
+    for (let c = 0; c < layout.tpsCount; c++) {
+      const cell = map.rows[c] && map.rows[c][r];
+      if (!cell || cell.pct == null) continue; // empty cells preserve the original
+      const delta = Math.round(cell.pct);
+      if (!Number.isFinite(delta)) throw new Error('PVM: invalid correction');
+      const o = layout.primaryOffset + r*layout.tpsCount + c;
+      // Encoded trim: 100=0%, e.g. 110=+10%. ±99% is the representable UI range.
+      out[o] = Math.max(1, Math.min(199, out[o]+delta));
     }
   }
   return out;
 }
 
-// Build a .djm file (PowerCommander III USB). Base is also a real XT660R
-// export; everything after matrix 1 (metadata, repeated RPM axis, cylinder-2
-// matrix = all zeros, trailing padding) is kept verbatim.
+// DJM is presently READ-ONLY. Do not restore the old fixed-offset writer:
+// on varying RPM rows, description lengths and block counts it can overwrite
+// unrelated portions of the file. A cell-by-cell reference is required first.
 function buildDjmBinary(map) {
-  const out = requireCustomTemplate('pciii');     // 5328 bytes or null
-  if (!out) return null;
-  // Overwrite the template's "2005 Yamaha XT660R ..." note at 0x01C with our
-  // own branding. 144-byte NUL-padded region (PCIII shows this as "Notiz").
-  writeComment(out, 0x01C, 144);
-  // TPS axis at 0x0AC: 9 × int32 LE
-  for (let i = 0; i < 9; i++) {
-    writeI32LE(out, 0x0AC + i * 4, map.tpsAxis[i] | 0);
-  }
-  // RPM axis at 0x0E4: 47 × int32 LE
-  for (let i = 0; i < 47; i++) {
-    writeI32LE(out, 0x0E4 + i * 4, map.rpmAxis[i] | 0);
-  }
-  // Matrix at 0x1A0: COLUMN-MAJOR — 9 TPS columns × 47 RPM rows × int32 LE.
-  // Each TPS column is a contiguous block of 47 values; the offset for cell
-  // (RPM r, TPS c) is 0x1A0 + (c*47 + r)*4. Values are direct percent.
-  for (let c = 0; c < 9; c++) {
-    for (let r = 0; r < 47; r++) {
-      writeI32LE(out, 0x1A0 + (c * 47 + r) * 4, cellPct(map, r, c));
+  return null;
+}
+
+// ============ IAW16M / 64-KiB BIN STRUCTURE INSPECTOR ============
+// READ ONLY. MD-040KI.BIN + original ECUedit Base Fuel screenshot confirm:
+// 16x16 bytes from the 53 A8 marker +2, column-major (RPM x TPS),
+// base injection time = rawByte / 15.5 ms, TPS angles as per screenshot.
+// The 3 BE-uint16 /4 RPM axes preceding the table belong to different
+// calibration blocks and CAN differ (MD-040: first=9000, other two=8800).
+// Always use the FIRST RPM axis for the displayed base fuel table.
+// 748/916 layout structure is validated; their ms scale is a hypothesis
+// consistent with MD-040, NOT independently checked against ECUedit.
+// No firmware writer is enabled: checksum & other maps are unverified.
+// ECUedit screenshot of MD-040: full-precision TPS angles rather than rounded labels.
+// These display angles are an MD-040 reference, not a universal TPS calibration.
+const IAW_TPS_DEG_REFERENCE = [80.3,60.3,47.7,36.6,27.9,21.4,16.8,12.6,9.7,7.5,5.1,4.2,3.5,2.9,2.4,2.0];
+// ECUedit Delta Fuel is a separate 16x16 map immediately following Base Fuel
+// and a one-byte separator (0x20 for MD-040/748; 0x10 for 916).
+// Across these three reference BINs a neutral delta cell is encoded as 0x80.
+// The *exact Delta ms scale* has not yet been independently verified.
+const IAW_DELTA_ZERO_BYTE = 0x80;
+const IAW_DELTA_MS_SCALE_CANDIDATE = 15.5;
+let IAW_PREVIEW_MAP = 'base'; // 'base', 'corrected' (simulation), 'delta'
+const IAW_TPS_RAW_REFERENCE = [13,17,23,32,44,61,83,111,143,175,203,225,239,247,252,254];
+const IAW_BASE_MS_SCALE = 15.5;
+function inspectIaw16mBin(bin) {
+  const bad = reason => ({ recognized:false, writable:false, reason });
+  if (!(bin instanceof Uint8Array) || bin.length !== 65536)
+    return bad(`IAW16M structure check expects 65,536 bytes; received ${bin ? bin.length : 0}. Different ECU family/file layout.`);
+  const candidates = [];
+  for (let marker = 0xE000; marker < 0xFA00; marker++) {
+    if (bin[marker] !== 0x53 || bin[marker+1] !== 0xA8) continue;
+    const mapOffset = marker + 2;
+    const rpmOffset = mapOffset - 192;
+    const tpsOffset = mapOffset - 96;
+    if (rpmOffset < 0 || mapOffset + 256 > bin.length) continue;
+    const rpmAxes = Array.from({length:3}, (_, k) =>
+      Array.from({length:16}, (_, i) =>
+        ((bin[rpmOffset + 32*k + 2*i] << 8) |
+          bin[rpmOffset + 32*k + 2*i+1]) / 4));
+    // All three axes must be plausible; do NOT require byte-for-byte identity.
+    const validAxis = axis => axis[0] >= 6000 && axis[0] <= 16000 &&
+      axis[15] >= 500 && axis[15] <= 2000 &&
+      axis.every((v,i) => i === 0 || axis[i-1] > v);
+    if (!rpmAxes.every(validAxis)) continue;
+    const variationIndices = [];
+    for (let i=0; i<16; i++) {
+      if (rpmAxes[0][i] !== rpmAxes[1][i] || rpmAxes[0][i] !== rpmAxes[2][i])
+        variationIndices.push(i);
     }
+    // Controlled exception for differing calibration RPM axis (e.g. 9000 vs 8800).
+    // Protect against nearby accidental 53 A8 signatures and incompatible layouts.
+    if (variationIndices.length > 2 ||
+        variationIndices.some(i => Math.max(...rpmAxes.map(a=>a[i])) -
+                                   Math.min(...rpmAxes.map(a=>a[i])) > 500)) continue;
+    const tpsRawAxis = Array.from(bin.slice(tpsOffset, tpsOffset+16));
+    if (!tpsRawAxis.every((v,i) => i === 0 || tpsRawAxis[i-1] < v)) continue;
+    const cells = Array.from({length:16}, (_,col) =>
+      Array.from(bin.slice(mapOffset+col*16,mapOffset+(col+1)*16)));
+    let descending = 0;
+    for (const col of cells) for (let i=0;i<15;i++) {
+      if (col[i] >= col[i+1]) descending++;
+    }
+    if (descending < 200) continue;
+    const angleMappingKnown = tpsRawAxis.every((v,i)=>v===IAW_TPS_RAW_REFERENCE[i]);
+    // Base Fuel occupies 256 bytes, followed by a separator then 256 Delta
+    // Fuel values in the same column-major RPM x TPS order. Do not infer a
+    // valid Delta map merely from 256 bytes of 0x80: require the base-map
+    // anchor, known separator and plausible bounded signed correction bytes.
+    const deltaSeparatorOffset = mapOffset + 256;
+    const deltaOffset = mapOffset + 257;
+    const deltaSeparator = bin[deltaSeparatorOffset];
+    const deltaBytes = bin.slice(deltaOffset, deltaOffset + 256);
+    const neutralCount = deltaBytes.filter(v => v === IAW_DELTA_ZERO_BYTE).length;
+    const deltaRecognized = [0x10, 0x20].includes(deltaSeparator) &&
+      deltaBytes.length === 256 && neutralCount >= 64 &&
+      deltaBytes.every(v => v >= 0x60 && v <= 0xA0);
+    const deltaCells = deltaRecognized
+      ? Array.from({length:16}, (_,col) =>
+          Array.from(deltaBytes.slice(col*16,(col+1)*16))) : null;
+    candidates.push({recognized:true, writable:false, mapOffset,
+      rpmOffset, tpsOffset, rpmAxis:rpmAxes[0], rpmAxes,
+      rpmVariationIndices:variationIndices, tpsRawAxis,
+      tpsDegAxis:angleMappingKnown ? IAW_TPS_DEG_REFERENCE.slice() : null,
+      cells, msScale:IAW_BASE_MS_SCALE,
+      deltaRecognized, deltaSeparatorOffset, deltaSeparator,
+      deltaOffset:deltaRecognized ? deltaOffset : null,
+      deltaCells, deltaNeutralCount:deltaRecognized ? neutralCount : null,
+      deltaNonNeutralCount:deltaRecognized ? 256-neutralCount : null,
+      deltaZeroByte:IAW_DELTA_ZERO_BYTE,
+      deltaScaleVerified:false,
+      reason:'Base Fuel and (where available) Delta Fuel maps read. Firmware export remains disabled.'});
   }
-  // Repeat the RPM axis at 0x0850 — this is NOT a second cylinder matrix as
-  // first assumed, but a mirror of the primary RPM axis used elsewhere by
-  // the PC3 software. Kept aligned with our main RPM axis.
-  for (let i = 0; i < 47; i++) {
-    writeI32LE(out, 0x0850 + i * 4, map.rpmAxis[i] | 0);
-  }
-  return out;
+  if (candidates.length !== 1) return bad(
+    `Ambiguous IAW16M layout (${candidates.length} matching 16×16 structures). No binary export.`);
+  return candidates[0];
 }
 
 // ============ IAW16M (MAGNETI MARELLI) ECU-REFLASH ============
@@ -2542,6 +2768,11 @@ function targetLambdaForDeg(deg, params) {
 
 // Core builder: returns {binOut, changes, warnings} or null if no BIN loaded.
 function buildIawBinary() {
+  // Strict read-only policy until all ECU layouts are independently validated.
+  // Previously this writer assumed mapAddress=0xF161 for every 64-KiB BIN,
+  // which would corrupt the 916 example's map starting at 0xF15E.
+  return null;
+  /* Previous fixed-address writer retained below for reference, but disabled.
   const bin = loadIawBin();
   if (!bin) return null;
   const spec   = TARGET_SPEC.iaw16m;
@@ -2590,7 +2821,7 @@ function buildIawBinary() {
     }
   }
 
-  // Monotony: per column, from the smallest-Grad row (bottom of table)
+  // Monotony: per column, from the smallest-angle row (bottom of table)
   // upward until monotonyUntilDeg: no row may be smaller than the row below it.
   for (let col = 0; col < nCols; col++) {
     // degAxis is descending (80..2.0), so the "row below" (smaller Grad) has HIGHER index
@@ -2615,12 +2846,13 @@ function buildIawBinary() {
   for (let i = 0; i < bin.length; i++) {
     if (bin[i] !== out[i]) {
       if (i < addr || i >= addr + nCols * nRows) {
-        warnings.push(`Byte 0x${i.toString(16)} wurde außerhalb des Kennfelds geändert!`);
+        warnings.push(`Byte 0x${i.toString(16)} was changed outside the map!`);
       }
     }
   }
 
   return { binOut: out, changes, warnings, oldBytes, newBytes };
+  */
 }
 
 // Pack a .bin into a .zip and return a Blob. Uses JSZip (lazy-loaded).
@@ -2633,20 +2865,26 @@ async function iawBinToZip(binU8, binName) {
   return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }
 
-// Read a .zip file, extract the first .bin inside it, validate the size.
+// Read a raw .bin or a .zip with exactly one .bin and inspect it.
 async function iawZipToBin(file, expectedSize) {
-  if (typeof JSZip === 'undefined') {
-    throw new Error('JSZip is not loaded — check your internet connection or reload the page.');
-  }
-  const buf = await file.arrayBuffer();
-  const zip = await JSZip.loadAsync(buf);
-  const binEntry = Object.values(zip.files).find(f => !f.dir && /\.bin$/i.test(f.name));
-  if (!binEntry) throw new Error('No .bin file found in the ZIP.');
-  const u8 = new Uint8Array(await binEntry.async('arraybuffer'));
-  if (u8.length !== expectedSize) {
-    throw new Error(`BIN hat ${u8.length} Bytes, erwartet ${expectedSize}.`);
-  }
-  return { bin: u8, name: binEntry.name };
+  let u8, name;
+  if (/\.bin$/i.test(file.name)) {
+    u8 = new Uint8Array(await file.arrayBuffer());
+    name = file.name;
+  } else if (/\.zip$/i.test(file.name)) {
+    if (typeof JSZip === 'undefined')
+      throw new Error('Reading ZIP files requires JSZip – check your connection, or load the .bin directly.');
+    const zip = await JSZip.loadAsync(await file.arrayBuffer());
+    const entries = Object.values(zip.files).filter(f => !f.dir && /\.bin$/i.test(f.name));
+    if (entries.length !== 1) throw new Error(`ZIP must contain exactly one BIN (${entries.length} found).`);
+    u8 = new Uint8Array(await entries[0].async('arraybuffer'));
+    name = entries[0].name.split('/').pop();
+  } else throw new Error('Please select a .bin or .zip file.');
+  if (u8.length !== expectedSize)
+    throw new Error(`This file has ${u8.length.toLocaleString('en-US')} bytes. The IAW16M reader currently supports only 65,536-byte files (MD-040, 748, 916); other ECU formats will not be modified.`);
+  const layout = inspectIaw16mBin(u8);
+  if (!layout.recognized) throw new Error(layout.reason);
+  return { bin: u8, name };
 }
 
 // ============ RAPID BIKE EVO (.mpp) ============
@@ -2871,7 +3109,7 @@ async function handleRbMppUpload(file) {
     // Sanity-check by actually parsing — bad files should fail here, not later
     const mpp = parseRbMpp(text);
     if (!storeRbMpp(text, file.name, mpp.nMaps)) {
-      throw new Error('Speicherung im Browser fehlgeschlagen (Speicher voll?).');
+      throw new Error('Could not save to browser storage (storage full?).');
     }
     toast(`MPP „${file.name}" loaded (${mpp.nMaps} map${mpp.nMaps === 2 ? 's' : ''})`, 2500);
     refreshRbStatus();
@@ -2896,7 +3134,6 @@ function refreshRbStatus() {
     if (meta && meta.name) parts.push(`„${meta.name}"`);
     if (meta && meta.nMaps) parts.push(`${meta.nMaps} Map${meta.nMaps === 2 ? 's' : ''}`);
     if (meta && meta.uploadedAt) parts.push(`uploaded ${formatBinUploadTime(meta.uploadedAt)}`);
-    statusEl.textContent = parts.join(' · ');
     statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Other MPP...';
@@ -3043,9 +3280,12 @@ function coveredRpmSpanAt(tps, tpsAxis, idx) {
 // Build the full map: 2D array of {pct, src} where
 // src ∈ {'measured','nearest','filled','empty'}
 function buildExportMap(opts) {
-  const rpmAxis = [];
-  for (let r = opts.rpmMin; r <= opts.rpmMax; r += opts.rpmStep) rpmAxis.push(r);
-  const tpsAxis = TPS_SETS[opts.tpsSet] || TPS_SETS['pc-standard'];
+  const rpmAxis = opts.rpmAxis ? opts.rpmAxis.slice() : [];
+  if (!opts.rpmAxis) {
+    for (let r = opts.rpmMin; r <= opts.rpmMax; r += opts.rpmStep) rpmAxis.push(r);
+  }
+  const tpsAxis = opts.tpsAxis ? opts.tpsAxis.slice() :
+    (TPS_SETS[opts.tpsSet] || TPS_SETS['pciii']);
 
   const rows = tpsAxis.map((tps, ti) => {
     const span = (opts.fill === 'smart') ? coveredRpmSpanAt(tps, tpsAxis, ti) : null;
@@ -3087,7 +3327,17 @@ function buildExportMap(opts) {
 }
 
 function readExportOpts() {
+  const target = $('#expTarget').value;
+  let templateLayout = null;
+  if (target === 'pcv' || target === 'pciii') {
+    const template = loadCustomTemplate(target);
+    if (template) {
+      const inspect = inspectPowerCommanderTemplate(target, template);
+      if (inspect.recognized) templateLayout = inspect;
+    }
+  }
   return {
+    ...(templateLayout ? { rpmAxis: templateLayout.rpmAxis, tpsAxis: templateLayout.tpsAxis } : {}),
     target:  $('#expTarget').value,
     rpmMin:  parseInt($('#expRpmMin').value, 10) || 500,
     rpmMax:  parseInt($('#expRpmMax').value, 10) || 13000,
@@ -3110,7 +3360,19 @@ function applyTargetSpec() {
 
   // The variant picker IS the title's <select>; it already reflects the active
   // target, nothing extra to sync.
-  $('#expTargetHint').textContent = spec.hint;
+  // Match the grid to the file, not to a hard-coded motorcycle model.
+  let templateLayout = null;
+  if (target === 'pcv' || target === 'pciii') {
+    const template = loadCustomTemplate(target);
+    if (template) {
+      const inspect = inspectPowerCommanderTemplate(target, template);
+      if (inspect.recognized) templateLayout = inspect;
+    }
+  }
+  const blockCount = templateLayout && (templateLayout.blockCount ?? templateLayout.distinctMaps);
+  $('#expTargetHint').textContent = spec.hint + (templateLayout
+    ? ` Detected: ${templateLayout.rpmCount} RPM breakpoints (${templateLayout.rpmAxis[0]}–${templateLayout.rpmAxis[templateLayout.rpmCount - 1]}), ${templateLayout.tpsCount} TPS breakpoints, ${blockCount} data blocks. ${target === 'pcv' ? templateLayout.reason : ''}`
+    : '');
   $('#expGridTitle').textContent = kind === 'readable'
     ? 'Grid (freely chosen)'
     : `Grid (${spec.label})`;
@@ -3124,6 +3386,13 @@ function applyTargetSpec() {
     $('#expRpmMax').value  = spec.rpmMax;
     $('#expRpmStep').value = String(spec.rpmStep);
     if (spec.tpsSet) $('#expTpsSet').value = spec.tpsSet;
+    if (templateLayout) {
+      $('#expTpsSet').value = 'from-file';
+      $('#expRpmMin').value = templateLayout.rpmAxis[0];
+      $('#expRpmMax').value = templateLayout.rpmAxis[templateLayout.rpmCount - 1];
+      const step = templateLayout.rpmAxis[1] - templateLayout.rpmAxis[0];
+      if ([250, 500, 1000].includes(step)) $('#expRpmStep').value = String(step);
+    }
   }
   ['expRpmMin','expRpmMax','expRpmStep','expTpsSet'].forEach(id => {
     $('#' + id).disabled = lock || !ready;
@@ -3136,9 +3405,9 @@ function applyTargetSpec() {
             : target === 'rbe' ? '.mpp'
             : target === 'iaw16m' ? '.bin'
             : null;
-  $('#expDownload').textContent = ext
-    ? `↓ ${ext} herunterladen`
-    : '↓ Download CSV';
+  $('#expDownload').textContent = target === 'pciii'
+    ? 'DJM export disabled'
+    : (ext ? `↓ ${ext} herunterladen` : '↓ CSV herunterladen');
 
   // Variant-specific sections: show the one that belongs to the active target.
   // "trim" here = PowerCommander V/III: template upload + generic RPM/TPS grid.
@@ -3202,38 +3471,44 @@ function refreshIawStatus() {
   const clearBtn = $('#expIawClear');
   const btnLabel = $('#expIawBtnLabel');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
+  dlBtn.disabled = true;                // NEVER write unverified ECU firmware
+  adoptBtn.disabled = true;
+  adoptBtn.style.opacity = '0.55';
   if (bin) {
+    const layout = inspectIaw16mBin(bin);
     const parts = [`${bin.length.toLocaleString('en-US')} bytes`];
     if (meta && meta.name) parts.push(`„${meta.name}"`);
-    if (meta && meta.uploadedAt) parts.push(`uploaded ${formatBinUploadTime(meta.uploadedAt)}`);
+    if (layout.recognized) {
+      parts.push(`16×16 at 0x${layout.mapOffset.toString(16).toUpperCase()}`);
+      parts.push(`${layout.rpmAxis[15]}–${layout.rpmAxis[0]} RPM`);
+      parts.push(`Base: ms (÷15.5); Delta: ${layout.deltaRecognized ? 'detected, '+layout.deltaNonNeutralCount+' non-neutral raw values' : 'not reliably identified'}; preview only`);
+      if (layout.rpmVariationIndices.length) parts.push('RPM axes differ');
+      statusEl.classList.add('exp-tpl-custom');
+    } else {
+      parts.push(layout.reason);
+      statusEl.classList.add('exp-tpl-error');
+    }
     statusEl.textContent = parts.join(' · ');
-    statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Other BIN...';
-    dlBtn.disabled = false;
-    adoptBtn.disabled = false;
-    adoptBtn.style.opacity = '1';
   } else {
     statusEl.textContent = 'No BIN loaded yet.';
     statusEl.classList.add('exp-tpl-missing');
     clearBtn.hidden = true;
-    btnLabel.textContent = '📂 Choose source BIN (ZIP)';
-    dlBtn.disabled = true;
-    adoptBtn.disabled = true;
-    adoptBtn.style.opacity = '0.55';
+    btnLabel.textContent = '📂 Choose source BIN (.bin/.zip)';
   }
 }
 
 async function handleIawBinUpload(file) {
   const statusEl = $('#expIawStatus');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-missing');
-  statusEl.textContent = 'Lese ZIP…';
+  statusEl.textContent = 'Reading and validating BIN structure…';
   try {
     const { bin, name } = await iawZipToBin(file, TARGET_SPEC.iaw16m.binSize);
     if (!storeIawBin(bin, name)) {
-      throw new Error('Speicherung im Browser fehlgeschlagen (Speicher voll?).');
+      throw new Error('Could not save to browser storage (storage full?).');
     }
-    toast(`BIN „${name}" geladen`, 2500);
+    toast(`BIN „${name}" loaded`, 2500);
     refreshIawStatus();
     renderExportPreview();
   } catch (e) {
@@ -3264,6 +3539,12 @@ function refreshCustomTplStatus() {
     return;
   }
 
+  // ECU BIN diagnostic mode: no writer until a verified calibration definition exists.
+  if (target === 'iaw16m') {
+    dlBtn.disabled = true;
+    return;
+  }
+
   // Trim targets: template-upload status drives both labels and button state
   const custom   = loadCustomTemplate(target);
   const meta     = loadCustomTemplateMeta(target);
@@ -3279,7 +3560,17 @@ function refreshCustomTplStatus() {
     statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Other template...';
-    dlBtn.disabled = false;
+    let canWrite = true;
+    if (target === 'pciii' || target === 'pcv') {
+      const layout = inspectPowerCommanderTemplate(target, custom);
+      const blocks = layout.blockCount ?? layout.distinctMaps;
+      parts.push(`${layout.rpmCount} RPM · ${layout.tpsCount} TPS · ${blocks} blocks`);
+      if (!layout.writable) parts.push(layout.reason || 'Preview only');
+      if (target === 'pcv' && layout.writable) parts.push('Additive: existing PVM values + calculated correction');
+      canWrite = !!layout.writable;
+    }
+    statusEl.textContent = parts.join(' · ');
+    dlBtn.disabled = !canWrite;
   } else {
     statusEl.textContent = 'No template loaded yet.';
     statusEl.classList.add('exp-tpl-missing');
@@ -3294,12 +3585,11 @@ function handleCustomTplFile(file) {
   const target = $('#expTarget').value;
   if (target === 'csv') return;
   const statusEl = $('#expTplStatus');
-  const expected = EXPECTED_TPL_SIZE[target];
   const extOk = target === 'pcv'
     ? /\.pvm$/i.test(file.name)
     : /\.djm$/i.test(file.name);
   if (!extOk) {
-    statusEl.textContent = `Falsche Dateiendung — erwartet ${target === 'pcv' ? '.pvm' : '.djm'}.`;
+    statusEl.textContent = `Wrong file extension – expected ${target === 'pcv' ? '.pvm' : '.djm'}.`;
     statusEl.classList.remove('exp-tpl-custom');
     statusEl.classList.add('exp-tpl-error');
     return;
@@ -3307,8 +3597,9 @@ function handleCustomTplFile(file) {
   const reader = new FileReader();
   reader.onload = e => {
     const u8 = new Uint8Array(e.target.result);
-    if (u8.length !== expected) {
-      statusEl.textContent = `Datei hat ${u8.length} Bytes, erwartet ${expected}.`;
+    const inspection = inspectPowerCommanderTemplate(target, u8);
+    if (!inspection.recognized) {
+      statusEl.textContent = `Unsupported file: ${inspection.reason}.`;
       statusEl.classList.remove('exp-tpl-custom');
       statusEl.classList.add('exp-tpl-error');
       return;
@@ -3319,9 +3610,11 @@ function handleCustomTplFile(file) {
       statusEl.classList.add('exp-tpl-error');
       return;
     }
-    refreshCustomTplStatus();
+    applyTargetSpec();
     renderExportPreview();
-    toast('Custom template saved', 2000);
+    toast(target === 'pciii'
+      ? `DJM detected: ${inspection.rpmCount} RPM · ${inspection.blockCount} blocks (preview only)`
+      : `PVM detected: ${inspection.rpmCount} RPM · ${inspection.tpsCount} TPS · ${inspection.distinctMaps} blocks${inspection.writable ? '' : ' (preview only)'}`, 3500);
   };
   reader.onerror = () => {
     statusEl.textContent = 'File could not be read.';
@@ -3419,14 +3712,14 @@ function buildExportSourceBanner(opts) {
 }
 
 function renderExportPreview() {
+  // A firmware preview reads the uploaded BIN and requires NO lambda CSV log.
+  if ($('#expTarget').value === 'iaw16m') {
+    renderIawPreview();
+    return;
+  }
   if (!STATE.hasData) {
     $('#expPreviewWrap').innerHTML = `<div class="modal-sub exp-preview-empty">No data loaded.</div>`;
     $('#expSummary').innerHTML = '';
-    return;
-  }
-  // IAW16M has its own layout (16×16 Grad × RPM, ms values, alt→neu per cell)
-  if ($('#expTarget').value === 'iaw16m') {
-    renderIawPreview();
     return;
   }
   // Rapid Bike EVO has its own layout too (40 RPM × 8 TPS, additive units)
@@ -3465,7 +3758,9 @@ function renderExportPreview() {
       sourceName: tplMeta && tplMeta.name,
       sourceTime: tplMeta && tplMeta.uploadedAt ? formatBinUploadTime(tplMeta.uploadedAt) : null,
       logName: STATE.fileName || null,
-      note: 'The trim map is added <em>on top</em> of the ECU map currently in use — the lambda log should have been recorded with exactly the map that is active in the ECU (or PowerCommander) right now.',
+      note: target === 'pcv'
+        ? 'PVM: the preview shows <em>additional correction values</em>. On export, these are added to the percentages already stored in the template. Only the shared primary fuel map is changed; other maps and comments are preserved. Check the file in PowerCommander software.'
+        : 'Trim-Map wird <em>on top</em> auf die aktuell gefahrene ECU-Map addiert — das Lambda-Log sollte mit genau jener Map gefahren worden sein, die derzeit im Steuergerät (bzw. PowerCommander) aktiv ist.',
     });
   }
 
@@ -3497,122 +3792,201 @@ function renderExportPreview() {
   `;
 }
 
-// IAW16M preview: 16×16 grid of ms values (Grad rows × RPM cols), with
-// alt→neu per cell. Unchanged cells show just the current value in muted
-// grey; changed cells show "alt / neu" with red (richer) / blue (leaner).
-function renderIawPreview() {
-  // Make sure parameter edits in the UI are picked up before computing
-  readIawParamsFromUi();
-  const result = buildIawBinary();
-  if (!result) {
-    $('#expPreviewWrap').innerHTML = `
-      <div class="modal-sub exp-preview-empty">
-        Noch keine Ausgangs-BIN hochgeladen. Lade erst eine ZIP mit der aktuell gefahrenen MD-039/MD-040-BIN hoch, dann erscheint hier die Vorschau mit allen Änderungen.
-      </div>`;
-    $('#expSummary').innerHTML = '';
-    return;
+// IAW16M base fuel correction is a pure PREVIEW: no BIN bytes are ever written.
+// Calibration: MD-040 ECUedit comparison confirms base milliseconds = byte / 15.5.
+// Do not generalise its TPS-degree calibration to different raw TPS axes.
+// Each CSV sample belongs to at most ONE ECU grid cell (midpoint binning).
+function calculateIawFuelPreview(layout, params, log) {
+  if (!layout || !layout.recognized) return {error:'No valid IAW16M BIN'};
+  if (!layout.tpsDegAxis) return {error:'TPS angle scaling for this BIN is unknown: correction preview is unavailable.'};
+  const minDeg = Number(params.minDeg), maxDeg = Number(params.maxDeg);
+  const capPct = Number(params.maxChange), monotonyUntilDeg = Number(params.monotonyUntilDeg);
+  if (![minDeg,maxDeg,capPct,monotonyUntilDeg].every(Number.isFinite) ||
+      maxDeg <= minDeg || minDeg < 0 || maxDeg > 120 || capPct < 1 || capPct > 30 ||
+      monotonyUntilDeg < 0 || monotonyUntilDeg > 80)
+    return {error:'Invalid IAW parameters: check angles, MAX_CHANGE and monotonicity.'};
+  const rpmAxis = layout.rpmAxis;
+  const degAxis = layout.tpsDegAxis;
+  const buckets = Array.from({length:16},()=>Array.from({length:16},()=>({sum:0,n:0})));
+  const hasLog = !!(log && log.rpm && log.throttle && log.lambda && log.rpm.length &&
+                    log.rpm.length === log.throttle.length && log.rpm.length === log.lambda.length);
+  let accepted = 0, outside = 0, invalid = 0;
+  // Do not extrapolate far beyond the first/last RPM nodes. The endpoints
+  // extend only half the adjacent spacing, rather than 0..20,000 RPM.
+  function nearestGridIndex(descendingAxis, v, minPhysical=null, maxPhysical=null) {
+    const last = descendingAxis.length-1;
+    const upper0 = descendingAxis[0]+(descendingAxis[0]-descendingAxis[1])/2;
+    const lower0 = descendingAxis[last]-(descendingAxis[last-1]-descendingAxis[last])/2;
+    const upper = maxPhysical == null ? upper0 : Math.max(upper0,maxPhysical);
+    const lower = minPhysical == null ? lower0 : Math.min(lower0,minPhysical);
+    if (v > upper || v < lower) return -1;
+    for (let i=0; i<last; i++) {
+      if (v >= (descendingAxis[i]+descendingAxis[i+1])/2) return i;
+    }
+    return last;
   }
-  const spec = TARGET_SPEC.iaw16m;
-  const scale = spec.byteScale;
-  const { oldBytes, newBytes, changes, warnings } = result;
-
-  // Build HTML table: header = RPM (ascending left → right for easier reading),
-  // rows = Grad (80° at top, 2.0° at bottom). The underlying BIN layout stays
-  // untouched; only the display column order is reversed.
-  const colOrder = spec.rpmAxis.map((_, i) => i).reverse();  // 15, 14, ..., 0
-  const headerCells = colOrder.map(col => `<th>${spec.rpmAxis[col]}</th>`).join('');
-  const bodyRows = spec.degAxis.map((deg, row) => {
-    const cells = colOrder.map(col => {
-      const rpm = spec.rpmAxis[col];
-      const o = oldBytes[col][row];
-      const n = newBytes[col][row];
-      const oldMs = o / scale;
-      if (n === o) {
-        return `<td class="exp-cell exp-zero" title="${deg}° @ ${rpm} U/min · unverändert">${oldMs.toFixed(2)}</td>`;
-      }
-      const newMs = n / scale;
-      const deltaPct = (n / o - 1) * 100;
-      const cls = n > o ? 'exp-pos' : 'exp-neg';
-      const title = `${deg}° @ ${rpm} U/min · ${o} → ${n} (${deltaPct > 0 ? '+' : ''}${deltaPct.toFixed(1)} %)`;
-      return `<td class="exp-cell ${cls}" title="${title}">
-        <span style="display:block;font-size:9px;opacity:.55;line-height:1;font-weight:400">${oldMs.toFixed(2)}</span>
-        <span style="display:block;font-weight:700;line-height:1.1">${newMs.toFixed(2)}</span>
-      </td>`;
-    }).join('');
-    return `<tr><th>${Number.isInteger(deg) ? deg : deg.toFixed(1)}°</th>${cells}</tr>`;
-  }).join('');
-
-  // Banner: which BIN is loaded, with the explicit reminder that the BIN
-  // must match the lambda log — otherwise the correction is wrong.
-  const meta = loadIawBinMeta();
-  const banner = buildExportSourceBanner({
-    headline: 'Check that the source BIN matches this log',
-    sourceLabel: 'Basis for calculation',
-    sourceName: meta && meta.name,
-    sourceTime: meta && meta.uploadedAt ? formatBinUploadTime(meta.uploadedAt) : null,
-    logName: STATE.fileName || null,
-    note: 'Every export recomputes the correction factor onto <em>this</em> uploaded BIN. After a flash, upload the newly driven BIN again before computing the next lambda map — or use the „↻ Adopt computed BIN as new source" button right away.',
-  });
-
-  $('#expPreviewWrap').innerHTML = `
-    ${banner}
-    <div class="exp-scroll-map">
-      <table class="exp-preview iaw-preview">
-        <thead><tr><th>Grad \\ RPM</th>${headerCells}</tr></thead>
-        <tbody>${bodyRows}</tbody>
-      </table>
-    </div>
-    ${renderIawChangeList(changes)}
-  `;
-
-  // Summary line + optional warning banner
-  let posN = 0, negN = 0;
-  changes.forEach(c => { if (c.newByte > c.oldByte) posN++; else negN++; });
-  const total = 16 * 16;
-  const unchanged = total - changes.length;
-  $('#expSummary').innerHTML = `
-    <span><strong>${changes.length}</strong>/${total} Zellen geändert</span>
-    ${posN ? `<span style="color:var(--rich)"><strong>${posN}</strong> fetter</span>` : ''}
-    ${negN ? `<span style="color:var(--lean)"><strong>${negN}</strong> magerer</span>` : ''}
-    <span><strong>${unchanged}</strong> unverändert</span>
-    ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} Warnung(en)</span>` : ''}
-  `;
-
-  // "Apply"-Button: only useful when at least one cell actually changed
-  const adoptBtn = $('#expIawAdopt');
-  adoptBtn.disabled = (changes.length === 0);
-  adoptBtn.style.opacity = (changes.length === 0) ? '0.55' : '1';
+  if (hasLog) for (let i=0;i<log.rpm.length;i++) {
+    const rpm=Number(log.rpm[i]), tps=Number(log.throttle[i]), lambda=Number(log.lambda[i]);
+    if (!Number.isFinite(rpm) || !Number.isFinite(tps) || !Number.isFinite(lambda) ||
+        tps < 0 || tps > 100 || lambda < 0.5 || lambda > 2.5) { invalid++; continue; }
+    const col=nearestGridIndex(rpmAxis,rpm);
+    const deg=minDeg + (maxDeg-minDeg)*tps/100;
+    const row=nearestGridIndex(degAxis,deg,minDeg,maxDeg);
+    if (col < 0 || row < 0) { outside++; continue; }
+    const bucket=buckets[col][row];
+    bucket.sum+=lambda; bucket.n++;
+    accepted++;
+  }
+  const result = Array.from({length:16},()=>Array(16));
+  const cap=capPct/100;
+  let covered=0, altered=0, capped=0, monotonyAdjusted=0, monotonyLimited=0;
+  for (let col=0;col<16;col++) for (let row=0;row<16;row++) {
+    const oldByte=layout.cells[col][row], oldMs=oldByte/layout.msScale;
+    const bucket=buckets[col][row];
+    const lam=bucket.n ? bucket.sum/bucket.n : null;
+    const target=targetLambdaForDeg(degAxis[row],params);
+    const valid=lam!=null && oldByte>0 && Number.isFinite(target) && target>0;
+    const rawFactor=valid ? lam/target : 1;
+    const factor=valid ? Math.max(1-cap,Math.min(1+cap,rawFactor)) : 1;
+    // Quantisation must not itself break the safety cap (e.g. 8 -> 9 bytes
+    // is +12.5 %, even if the floating-point factor was capped to +6 %).
+    const minByte=Math.max(0,Math.ceil(oldByte*(1-cap)-1e-9));
+    const maxByte=Math.min(255,Math.floor(oldByte*(1+cap)+1e-9));
+    const newByte=valid ? Math.max(minByte,Math.min(maxByte,Math.round(oldByte*factor))) : oldByte;
+    const cell={col,row,rpm:rpmAxis[col],deg:degAxis[row],oldByte,oldMs,
+      newByte,newMs:newByte/layout.msScale,n:bucket.n,lamMeas:lam,lamTarget:target,
+      factor,rawFactor,limited:valid && Math.abs(rawFactor-factor)>1e-10,
+      monotony:false,monoLimited:false,measured:valid,deltaPct:oldByte ? (newByte/oldByte-1)*100 : 0};
+    result[col][row]=cell;
+    if (valid) { covered++; if (cell.limited) capped++; }
+  }
+  // Optional low-angle monotony protection. It only adjusts measured cells;
+  // never "fix" unseen/untested ECU cells based on assumptions. Respect the
+  // same per-pass ±maxChange limit after quantisation.
+  for (let col=0; col<16; col++) for (let row=14; row>=0; row--) {
+    const cell=result[col][row], below=result[col][row+1];
+    if (!cell.measured || cell.deg>monotonyUntilDeg || cell.newByte>=below.newByte) continue;
+    const maxAllowed=Math.min(255,Math.floor(cell.oldByte*(1+cap)+1e-9));
+    const raised=Math.min(below.newByte,maxAllowed);
+    if (raised>cell.newByte) {
+      cell.newByte=raised; cell.newMs=raised/layout.msScale;
+      cell.monotony=true;
+      monotonyAdjusted++;
+    }
+    if (cell.newByte<below.newByte) {cell.monoLimited=true;monotonyLimited++;}
+  }
+  const changes=[];
+  for (const col of result) for (const cell of col) {
+    cell.deltaPct=cell.oldByte ? (cell.newByte/cell.oldByte-1)*100 : 0;
+    if (cell.newByte!==cell.oldByte) { altered++; changes.push(cell); }
+  }
+  return { cells:result,changes,hasLog,accepted,outside,invalid,covered,altered,capped,
+    monotonyAdjusted,monotonyLimited,capPct };
 }
 
-// Compact table of the biggest changes, below the main grid
-function renderIawChangeList(changes) {
-  if (!changes.length) {
-    return `<div class="modal-sub" style="margin-top:12px">No cells changed — lambda data are within the target or do not cover the map yet.</div>`;
+// Base Fuel: original or simulated correction; Delta Fuel: read-only.
+// Source BIN and all other binary ranges stay byte-exact in localStorage.
+function renderIawPreview() {
+  const params=readIawParamsFromUi();
+  const uploaded=loadIawBin();
+  const layout=uploaded && inspectIaw16mBin(uploaded);
+  if (!layout || !layout.recognized) {
+    const message=layout ? layout.reason :
+      'No BIN loaded. Select an original 64-KiB IAW16M BIN (.bin or .zip).';
+    $('#expPreviewWrap').innerHTML=`<div class="modal-sub exp-preview-empty">${message}</div>`;
+    $('#expSummary').innerHTML='';
+    return;
   }
-  const sorted = changes.slice().sort((a, b) => Math.abs(b.deltaPct) - Math.abs(a.deltaPct));
-  const show = sorted.slice(0, 20);
-  const rows = show.map(c => {
-    const sign = c.deltaPct > 0 ? '+' : '';
-    const cls = c.newByte > c.oldByte ? 'exp-pos' : 'exp-neg';
-    return `<tr>
-      <td>${Number.isInteger(c.deg) ? c.deg : c.deg.toFixed(1)}°</td>
-      <td>${c.rpm}</td>
-      <td>${c.oldByte}</td>
-      <td class="${cls}" style="font-weight:700">${c.newByte}</td>
-      <td class="${cls}">${sign}${c.deltaPct.toFixed(1)} %</td>
-      <td>${c.lamMeas.toFixed(3)}</td>
-      <td>${c.n}</td>
-    </tr>`;
+  const sim=calculateIawFuelPreview(layout,params,STATE.hasData ? STATE.rawData : null);
+  const isDelta=IAW_PREVIEW_MAP==='delta' && layout.deltaRecognized;
+  const isCorrected=IAW_PREVIEW_MAP==='corrected' && !isDelta;
+  const reversedRpmCols=Array.from({length:16},(_,i)=>15-i);
+  const headers=reversedRpmCols.map(col=>`<th>${layout.rpmAxis[col]}</th>`).join('');
+  const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtHex=v=>`0x${v.toString(16).toUpperCase()}`;
+  const rows=layout.tpsRawAxis.map((sensor,row)=>{
+    const label=layout.tpsDegAxis ? `${layout.tpsDegAxis[row].toFixed(1)}°` : `Index ${row+1}`;
+    const vals=reversedRpmCols.map(col=>{
+      if (isDelta) {
+        const raw=layout.deltaCells[col][row];
+        const rawDelta=raw-IAW_DELTA_ZERO_BYTE;
+        const msCandidate=rawDelta/IAW_DELTA_MS_SCALE_CANDIDATE;
+        const cls=rawDelta>0?'exp-pos':(rawDelta<0?'exp-neg':'exp-zero');
+        return `<td class="exp-cell ${cls}" title="Delta raw value 0x${raw.toString(16).toUpperCase().padStart(2,'0')} (${rawDelta>0?'+':''}${rawDelta}); ms scaling tentative">${msCandidate.toFixed(2)}</td>`;
+      }
+      const old=layout.cells[col][row];
+      const cell=!sim.error ? sim.cells[col][row] : null;
+      if (!isCorrected || !cell) return `<td class="exp-cell exp-zero" title="Base raw value ${old}">${(old/layout.msScale).toFixed(2)}</td>`;
+      const cls=cell.newByte>cell.oldByte?'exp-pos':(cell.newByte<cell.oldByte?'exp-neg':'exp-zero');
+      const extra=cell.limited?' exp-clamp':'';
+      const details=cell.measured
+        ? `Original ${cell.oldMs.toFixed(2)} ms | Proposed ${cell.newMs.toFixed(2)} ms | λ ${cell.lamMeas.toFixed(3)} / Target ${cell.lamTarget.toFixed(3)} | Δ ${cell.deltaPct.toFixed(1)} % | ${cell.n} samples${cell.limited?' | MAX capped':''}${cell.monotony?' | Monotonicity adjusted':''}`
+        : `No samples: unchanged ${cell.oldMs.toFixed(2)} ms`;
+      const lowN=cell.measured && cell.n<5?' iaw-low-n':'';
+      return `<td class="exp-cell ${cls}${extra}${lowN}" title="${esc(details)}">${cell.newMs.toFixed(2)}</td>`;
+    }).join('');
+    return `<tr><th>${label} (0x${sensor.toString(16).toUpperCase().padStart(2,'0')})</th>${vals}</tr>`;
   }).join('');
-  const more = changes.length > show.length ? `<div class="modal-sub" style="margin-top:6px;text-align:right">… ${changes.length - show.length} weitere Änderungen</div>` : '';
-  return `
-    <div class="exp-section-title" style="margin:16px 0 8px">Größte Änderungen (${show.length} von ${changes.length})</div>
-    <table class="exp-preview">
-      <thead><tr><th>Grad</th><th>RPM</th><th>alt</th><th>neu</th><th>Δ%</th><th>λ gem.</th><th>n</th></tr></thead>
+  const meta=loadIawBinMeta();
+  const safeName=meta && meta.name ? esc(meta.name) : 'BIN';
+  const safeLog=STATE.hasData && STATE.fileName ? esc(STATE.fileName) : null;
+  const axisNote=layout.rpmVariationIndices.length
+    ? `Differing RPM axes at index ${layout.rpmVariationIndices.map(i=>i+1).join(', ')}:
+       ${layout.rpmAxes.map(a=>a[0]).join(' / ')} rpm. The first RPM axis is used.`
+    : 'All three RPM axes match.';
+  const deltaNote=layout.deltaRecognized
+    ? `Delta Fuel: <code>${fmtHex(layout.deltaOffset)}</code>; ${layout.deltaNeutralCount}/256 cells neutral (0x80), ${layout.deltaNonNeutralCount} non-neutral.`
+    : 'Delta Fuel could not be reliably located; only Base Fuel is shown.';
+  const scaleInfo=isDelta
+    ? '<strong>Delta Fuel:</strong> (byte − 128) ÷ 15.5 ms is an unverified approximation; original raw values are shown in cell tooltips.'
+    : '<strong>Base Fuel:</strong> ms = BIN byte ÷ 15.5 (MD-040KI cross-checked with ECUedit).';
+  let simulationNote='';
+  if (sim.error) simulationNote=`<div class="modal-sub iaw-preview-warning">⚠ ${esc(sim.error)}</div>`;
+  else if (!sim.hasLog) simulationNote='<div class="modal-sub iaw-preview-warning">No lambda log loaded. The “Calculated” view therefore shows only original values. Load a CSV to calculate corrections.</div>';
+  else simulationNote=`<div class="modal-sub" style="margin-top:6px">Lambda-Log: <strong>${safeLog||'CSV'}</strong> · ${sim.accepted} samples assigned to map cells; ${sim.outside} outside the map grid · Formula: <strong>t new = t original × (λ measured / λ target)</strong>, capped at ±${sim.capPct} % and rounded to whole BIN raw units. Cells without samples remain unchanged.</div>`;
+  const selected=isDelta?'Delta Fuel':isCorrected?'Calculated Base Fuel':'Original Base Fuel';
+  $('#expPreviewWrap').innerHTML=`
+    <div class="iaw-source-banner">
+      <div style="font-weight:700;margin-bottom:6px">🔒 IAW16M · ${selected} (preview only)</div>
+      <div class="modal-sub">BIN: <strong>${safeName}</strong></div>
+      <div class="iaw-map-switch" role="group" aria-label="IAW16M map view">
+        <button class="modal-btn ${IAW_PREVIEW_MAP==='base'?'primary':''}" data-iaw-map="base" type="button" aria-pressed="${IAW_PREVIEW_MAP==='base'}">Original</button>
+        <button class="modal-btn ${isCorrected?'primary':''}" data-iaw-map="corrected" type="button" aria-pressed="${isCorrected}">Calculated</button>
+        <button class="modal-btn ${isDelta?'primary':''}" data-iaw-map="delta" type="button" aria-pressed="${isDelta}" ${layout.deltaRecognized?'':'disabled'}>Delta Fuel</button>
+      </div>
+      <div class="modal-sub">Base: <code>${fmtHex(layout.mapOffset)}</code> · RPM: <code>${fmtHex(layout.rpmOffset)}</code> · TPS: <code>${fmtHex(layout.tpsOffset)}</code></div>
+      <div class="modal-sub" style="margin-top:6px">${deltaNote}</div>
+      <div class="modal-sub" style="margin-top:6px">${scaleInfo}</div>
+      <div class="modal-sub" style="margin-top:6px">${axisNote}</div>
+      ${simulationNote}
+      <div class="modal-sub" style="margin-top:6px"><strong>No BIN modification / no BIN export.</strong> Delta Fuel remains unchanged. Check the checksum and firmware revision before enabling flash export.</div>
+    </div>
+    <div class="exp-scroll-map"><table class="exp-preview iaw-preview">
+      <thead><tr><th>Gas / RPM</th>${headers}</tr></thead>
       <tbody>${rows}</tbody>
-    </table>
-    ${more}
-  `;
+    </table></div>
+    ${isCorrected && !sim.error && sim.hasLog ? renderIawChangeList(sim.changes) : ''}`;
+  $('#expSummary').innerHTML=isDelta
+    ? `<span><strong>${layout.deltaNeutralCount}</strong> neutral Delta cells</span><span class="exp-badge-warn">⚠ Delta ms scale tentative</span><span class="exp-badge-warn">🔒 No BIN export</span>`
+    : isCorrected && !sim.error
+      ? `<span><strong>${sim.covered}/256</strong> cells with lambda samples</span><span><strong>${sim.altered}</strong> changed proposed values</span><span><strong>${sim.capped}</strong> capped at MAX</span>${sim.monotonyAdjusted ? `<span><strong>${sim.monotonyAdjusted}</strong> monotonicity adjustments</span>`:''}${sim.monotonyLimited ? `<span class="exp-badge-warn">${sim.monotonyLimited} monotonicity conflicts (MAX takes priority)</span>`:''}<span class="exp-badge-warn">🔒 No BIN export</span>`
+      : `<span><strong>256</strong> original injection values</span><span><strong>0</strong> BIN bytes changed</span><span class="exp-badge-warn">🔒 No BIN export</span>`;
+  $('#expIawAdopt').disabled=true;
+  $('#expIawAdopt').style.opacity='0.55';
+}
+
+function renderIawChangeList(changes) {
+  if (!changes.length) return '<div class="modal-sub" style="margin-top:12px">No changes: target λ reached, insufficient deviation for one raw-byte step, or no samples in the map.</div>';
+  const sorted=changes.slice().sort((a,b)=>Math.abs(b.deltaPct)-Math.abs(a.deltaPct));
+  const show=sorted.slice(0,20);
+  const rows=show.map(c=>{
+    const cls=c.newByte>c.oldByte?'exp-pos':'exp-neg';
+    return `<tr><td>${c.deg.toFixed(1)}°</td><td>${c.rpm}</td><td>${c.oldMs.toFixed(2)}</td><td class="${cls}" style="font-weight:700">${c.newMs.toFixed(2)}</td><td class="${cls}">${c.deltaPct>0?'+':''}${c.deltaPct.toFixed(1)}%</td><td>${c.lamMeas.toFixed(3)}</td><td>${c.lamTarget.toFixed(3)}</td><td>${c.n}${c.n<5?' ⚠':''}</td></tr>`;
+  }).join('');
+  const more=changes.length>show.length?`<div class="modal-sub" style="margin-top:6px;text-align:right">… ${changes.length-show.length} more changes</div>`:'';
+  return `<div class="exp-section-title" style="margin:16px 0 8px">Largest calculated changes (${show.length} of ${changes.length}) · preview only</div>
+    <div class="exp-scroll-map"><table class="exp-preview iaw-change-list"><thead><tr><th>Grad</th><th>RPM</th><th>Old ms</th><th>New ms</th><th>Δ%</th><th>λ meas.</th><th>λ target</th><th>n</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${more}<div class="modal-sub" style="margin-top:8px">⚠ Cells with fewer than five samples have low statistical confidence (marked ⚠ in the table). The preview uses only actual assigned samples; it does not interpolate into unmeasured cells.</div>`;
 }
 
 // Rapid Bike EVO preview: 40×8 grid of integer RB units with alt/neu per changed
@@ -3632,7 +4006,7 @@ function renderRbPreview() {
   if (!result.oldBytes) {
     $('#expPreviewWrap').innerHTML = `
       <div class="modal-sub exp-preview-empty">
-        MPP konnte nicht gelesen werden: ${result.warnings[0] || 'unbekannter Fehler'}
+        MPP could not be read: ${result.warnings[0] || 'unknown error'}
       </div>`;
     $('#expSummary').innerHTML = '';
     return;
@@ -3660,7 +4034,7 @@ function renderRbPreview() {
       const o = oldBytes[i][j];
       const n = newBytes[i][j];
       if (n === o) {
-        return `<td class="exp-cell exp-zero" title="${rpm} U/min · ${tps} % · unverändert">${o}</td>`;
+        return `<td class="exp-cell exp-zero" title="${rpm} U/min · ${tps} % · unchanged">${o}</td>`;
       }
       const delta = n - o;
       const cls = delta > 0 ? 'exp-pos' : 'exp-neg';
@@ -3690,10 +4064,10 @@ function renderRbPreview() {
   const total = spec.rpmAxis.length * spec.tpsAxis.length;
   const unchanged = total - changes.length;
   $('#expSummary').innerHTML = `
-    <span><strong>${changes.length}</strong>/${total} Zellen geändert</span>
+    <span><strong>${changes.length}</strong>/${total} cells changed</span>
     ${posN ? `<span style="color:var(--rich)"><strong>${posN}</strong> fetter</span>` : ''}
     ${negN ? `<span style="color:var(--lean)"><strong>${negN}</strong> magerer</span>` : ''}
-    <span><strong>${unchanged}</strong> unverändert</span>
+    <span><strong>${unchanged}</strong> unchanged</span>
     ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} Warnung(en)</span>` : ''}
   `;
 
@@ -3721,9 +4095,9 @@ function renderRbChangeList(changes) {
       <td>${c.n}</td>
     </tr>`;
   }).join('');
-  const more = changes.length > show.length ? `<div class="modal-sub" style="margin-top:6px;text-align:right">… ${changes.length - show.length} weitere Änderungen</div>` : '';
+  const more = changes.length > show.length ? `<div class="modal-sub" style="margin-top:6px;text-align:right">… ${changes.length - show.length} more changes</div>` : '';
   return `
-    <div class="exp-section-title" style="margin:16px 0 8px">Größte Änderungen (${show.length} von ${changes.length})</div>
+    <div class="exp-section-title" style="margin:16px 0 8px">Largest changes (${show.length} of ${changes.length})</div>
     <table class="exp-preview">
       <thead><tr><th>U/min</th><th>TPS</th><th>alt</th><th>neu</th><th>Δ Einh.</th><th>λ gem.</th><th>n</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -3783,18 +4157,21 @@ function downloadExport() {
   const base = (STATE.fileName || 'md-lambda-view').replace(/\.[^.]+$/, '');
 
   if (opts.target === 'pcv') {
-    const bin = buildPvmBinary(map);
-    if (!bin) { toast('Upload your own .pvm template first', 3000); return; }
-    triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
-                    `${base}_MD-Lambda-View.pvm`);
-    toast('.pvm downloaded', 2000);
+    try {
+      const bin = buildPvmBinary(map);
+      if (!bin) { toast('Upload your own .pvm template first', 3000); return; }
+      triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
+                      `${base}_MD-Lambda-View.pvm`);
+      toast('PVM: primary map updated; other data preserved', 3000);
+    } catch (e) {
+      toast('PVM export disabled: ' + (e.message || String(e)), 4500);
+    }
   } else if (opts.target === 'pciii') {
-    const bin = buildDjmBinary(map);
-    if (!bin) { toast('Upload your own .djm template first', 3000); return; }
-    triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
-                    `${base}_MD-Lambda-View.djm`);
-    toast('.djm downloaded', 2000);
+    toast('DJM export disabled: cell offsets and encoding not yet verified', 4500);
+    return;
   } else if (opts.target === 'iaw16m') {
+    toast('IAW16M: flash BIN export disabled (map scaling/checksum not fully verified)', 5000);
+    return;
     // Flush any pending edits in the IAW parameter fields into storage first
     readIawParamsFromUi();
     const result = buildIawBinary();
@@ -3808,7 +4185,7 @@ function downloadExport() {
         const outName = `${base}_MD-Lambda-View.bin`;
         const blob = await iawBinToZip(result.binOut, outName);
         triggerDownload(blob, `${base}_MD-Lambda-View.zip`);
-        toast(`BIN exportiert (${result.changes.length} Zellen geändert)`, 3500);
+        toast(`BIN exported (${result.changes.length} cells changed)`, 3500);
       } catch (e) {
         toast('Error: ' + (e.message || e), 4000);
       }
@@ -3838,7 +4215,9 @@ function downloadExport() {
 }
 
 function openExportModal() {
-  if (!STATE.hasData) { toast('Load a CSV first', 2500); return; }
+  // Permit IAW16M BIN inspection without a separate lambda CSV.
+  // For other export targets the usual CSV-data requirement remains.
+  if (!STATE.hasData) $('#expTarget').value = 'iaw16m';
   renderTargetsForExport();
   applyTargetSpec();
   renderExportPreview();
@@ -3878,9 +4257,18 @@ $('#expTplClear').addEventListener('click', () => {
   const target = $('#expTarget').value;
   if (target === 'csv') return;
   clearCustomTemplate(target);
-  refreshCustomTplStatus();
+  applyTargetSpec();
   renderExportPreview();
   toast('Custom template removed', 1800);
+});
+
+// Toggle the original Base Fuel / Delta Fuel preview without changing the BIN.
+$('#expPreviewWrap').addEventListener('click', event => {
+  const btn = event.target.closest('[data-iaw-map]');
+  if (!btn || btn.disabled || $('#expTarget').value !== 'iaw16m') return;
+  const mode=btn.getAttribute('data-iaw-map');
+  IAW_PREVIEW_MAP = ['base','corrected','delta'].includes(mode) ? mode : 'base';
+  renderIawPreview();
 });
 
 // --- IAW16M controls -----------------------------------------------------
@@ -3913,6 +4301,8 @@ $('#expZonesReset').addEventListener('click', () => {
 // iterative tuning (flash → fahren → neue Lambda-Karte → Export).
 // The old source BIN is overwritten in localStorage.
 $('#expIawAdopt').addEventListener('click', () => {
+  toast('IAW16M writing is not verified – adopting as source is disabled', 3500);
+  return;
   readIawParamsFromUi();
   const result = buildIawBinary();
   if (!result) {
@@ -3932,7 +4322,7 @@ $('#expIawAdopt').addEventListener('click', () => {
   const ext = (m && m[3]) || '.bin';
   const newName = `${stem}_rev${nextRev}${ext}`;
   const ok = confirm(
-    `Berechnete BIN („${newName}") als neue Ausgangs-BIN übernehmen?\n\n` +
+    `Adopt calculated BIN („${newName}") as the new source BIN?\n\n` +
     `Die bisher gespeicherte BIN („${oldName}") wird dadurch im Browser überschrieben.\n` +
     `Tip: download the new file once via „↓ .bin download" first, so you have a backup.`
   );
@@ -3992,7 +4382,7 @@ $('#expRbAdopt').addEventListener('click', () => {
   const ext = (m && m[3]) || '.mpp';
   const newName = `${stem}_rev${nextRev}${ext}`;
   const ok = confirm(
-    `Berechnete MPP („${newName}") als neue Ausgangs-MPP übernehmen?\n\n` +
+    `Adopt calculated MPP („${newName}") as the new source MPP?\n\n` +
     `Die bisher gespeicherte MPP („${oldName}") wird dadurch im Browser überschrieben.\n` +
     `Tip: download the new file once via „↓ .mpp download" first, so you have a backup.`
   );
