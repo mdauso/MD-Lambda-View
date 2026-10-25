@@ -1676,7 +1676,7 @@ body.pseudo-full .plot-area {
     <div class="exp-section" id="expRbSection" hidden>
       <div class="exp-section-title">Rapid Bike EVO · Aktuelle Map</div>
       <div class="modal-sub">
-        Lade die aktuell im Rapid Bike aktive <strong>.mpp</strong>-Datei hoch. Bei einer eindeutig erkannten Injection-Map werden die Lambda-Korrekturen additiv auf die vorhandenen RB-Einheiten angewendet. Alle anderen Dateiinhalte bleiben bytegenau erhalten. Bei mehreren Injection-Maps ist vorerst nur eine Vorschau möglich.
+        Lade die aktuell im Rapid Bike aktive <strong>.mpp</strong>-Datei hoch. Bei einer eindeutig erkannten Injection-Map werden die Lambda-Korrekturen additiv auf die vorhandenen RB-Einheiten angewendet. Alle anderen Dateiinhalte bleiben bytegenau erhalten. Für MPP-Dateien mit zwei Einspritzkennfeldern kannst Du auswählen, ob Zylinder 1, Zylinder 2 oder beide korrigiert werden. Die bestehende Kraftstoffkorrektur jedes Zylinders bleibt die Basis. Nicht ausgewählte Tabellen und alle sonstigen Dateiinhalte bleiben unverändert.
       </div>
       <div class="exp-info-box" id="expRbGridInfo">
         <strong>RPM- und TPS-Raster:</strong> Wird aus der hochgeladenen MPP-Datei gelesen.
@@ -1690,6 +1690,17 @@ body.pseudo-full .plot-area {
         <button class="modal-btn" id="expRbClear" type="button" hidden>Entfernen</button>
       </div>
 
+      <div class="exp-section" id="expRbCylinderSection" hidden style="margin:12px 0">
+        <div class="exp-field"><label for="expRbCylinder">Zu korrigierendes Einspritzkennfeld</label>
+          <select id="expRbCylinder" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--paper)">
+            <option value="">Bitte Kennfeld auswählen …</option>
+            <option value="cil1">Nur Zylinder 1 (CIL 1 Injection)</option>
+            <option value="cil2">Nur Zylinder 2 (CIL 2 Injection)</option>
+            <option value="both">Beide Zylinder (CIL 1 + CIL 2)</option>
+          </select>
+        </div>
+        <div class="modal-sub" style="margin-top:8px">Bei „Beide“ wird dieselbe aus dem Lambda-Log berechnete Korrektur auf beide Zylindertabellen angewendet – jeweils zusätzlich zu deren eigenem Ausgangswert. Das Log muss für die ausgewählten Zylinder repräsentativ sein.</div>
+      </div>
       <div class="exp-section-title sub">Korrekturparameter</div>
       <div class="exp-grid-4">
         <div class="exp-field"><label>% Kraftstoff je RB-Einheit</label><input type="number" id="expRbPctU" step="0.1" min="0.1" max="10" inputmode="decimal"></div>
@@ -2222,7 +2233,7 @@ const TARGET_SPEC = {
     // tpsSet null; real MPP axes are obtained from the uploaded file. RPM range
     // here is only a fallback until an MPP is uploaded.
     tpsSet: null, rpmMin: 1400, rpmMax: 11200, rpmStep: 250,
-    hint: 'Rapid Bike EVO: RPM-/TPS-Achsen werden aus der hochgeladenen MPP-Datei ausgelesen. Neue Korrekturen werden additiv auf die bestehende Injection-Map angewendet. Bei mehreren getrennten Injection-Maps ist der Export bis zur Zuordnung gesperrt.',
+    hint: 'Rapid Bike EVO: RPM-/TPS-Achsen werden aus der hochgeladenen MPP-Datei ausgelesen. Neue Korrekturen werden additiv auf die bestehende Injection-Map angewendet. Bei zwei Injection-Maps wählst Du Zylinder 1, Zylinder 2 oder beide.',
     defaults: {
       // Correction parameters mirror the reference RB-Lambda-Tuner project
       // (Mario's existing workflow), with smoothing/filling/history removed —
@@ -3017,9 +3028,8 @@ function parseRbMpp(text) {
   const maps = [], mapValueLines = [], mapLabels = [];
   for (let m = 0; m < nMaps; m++) {
     const label = (lines[q] || '').trim();
-    // Rapid Bike uses "Injection" for a common map, or "CIL 1 Injection"
-    // / "CIL 2 Injection" for separate cylinder maps. Read both variants,
-    // but keep separate maps read-only until an explicit cylinder choice exists.
+    // Rapid Bike: "Injection" or two distinct "CIL N Injection" maps.
+    // Multi-map writes require explicit cylinder selection in the UI.
     const expected = nMaps === 1 ? 'Injection' : `CIL ${m + 1} Injection`;
     if (label !== expected)
       throw new Error(`MPP-Kennfeldblock ${m + 1} ist nicht eindeutig (${label || 'fehlt'}).`);
@@ -3041,40 +3051,66 @@ function parseRbMpp(text) {
   return { rows, cols, nMaps, rpm, tps, maps, mapLabels, mapValueLines,
            lines, separators, originalText: text,
            // More than one injection map requires explicit per-map semantics.
-           writeAllowed: nMaps === 1 && !undeclaredInjection };
+           writeAllowed: (nMaps === 1 || nMaps === 2) && !undeclaredInjection };
 }
 
-// Rebuild only the numeric lines of the first Injection map. Every other
-// character of the MPP remains identical, even with unusual line endings.
-function serializeRbMpp(mppData, newGrid) {
+// Multi-map support: selected cylinders only. Every unrelated character
+// stays identical, including metadata and original line endings.
+function selectedRbMapIndices(mppData) {
+  if (!mppData || !mppData.writeAllowed) return [];
+  if (mppData.nMaps === 1) return [0];
+  const select = document.getElementById('expRbCylinder');
+  const choice = select ? select.value : '';
+  return choice === 'cil1' ? [0] : choice === 'cil2' ? [1]
+    : choice === 'both' ? [0, 1] : [];
+}
+
+// Only selected Injection value lines may be changed. No text/metadata, axes,
+// other cylinders, or line endings are rewritten. Read back and audit all maps.
+function serializeRbMpp(mppData, newMaps, selectedIndices) {
   if (!mppData || !mppData.writeAllowed)
-    throw new Error('Mehrere Injection-Maps: Export bis zur eindeutigen Zuordnung gesperrt.');
-  if (!Array.isArray(newGrid) || newGrid.length !== mppData.rows ||
-      newGrid.some(r => !Array.isArray(r) || r.length !== mppData.cols))
-    throw new Error('Berechnetes MPP-Raster stimmt nicht mit der Quelldatei überein.');
+    throw new Error('Kennfeldstruktur nicht eindeutig schreibbar.');
+  const selected = selectedIndices || [];
+  if (!selected.length || selected.some(m => !Number.isInteger(m) || m < 0 || m >= mppData.nMaps) ||
+      new Set(selected).size !== selected.length)
+    throw new Error('Bitte zuerst Zylinder 1, Zylinder 2 oder beide auswählen.');
+  if (!Array.isArray(newMaps) || newMaps.length !== mppData.nMaps ||
+      newMaps.some(grid => !Array.isArray(grid) || grid.length !== mppData.rows ||
+        grid.some(row => !Array.isArray(row) || row.length !== mppData.cols)))
+    throw new Error('Berechnete MPP-Tabellen stimmen nicht mit der Quelldatei überein.');
+  const selectedSet = new Set(selected);
   const out = mppData.lines.slice();
-  for (let i = 0; i < mppData.rows; i++) for (let j = 0; j < mppData.cols; j++) {
-    const value = newGrid[i][j];
-    if (!Number.isSafeInteger(value) || Math.abs(value) > 32767)
-      throw new Error(`MPP-Wert außerhalb des zulässigen Prüffelds (${i}, ${j}): ${value}.`);
-    const old = mppData.maps[0][i][j];
-    if (old !== value) out[mppData.mapValueLines[0][i][j]] = String(value);
+  const allowed = new Set(selected.flatMap(m => mppData.mapValueLines[m].flat()));
+  for (let m = 0; m < mppData.nMaps; m++) {
+    for (let i = 0; i < mppData.rows; i++) for (let j = 0; j < mppData.cols; j++) {
+      const value = newMaps[m][i][j];
+      if (!Number.isSafeInteger(value) || Math.abs(value) > 32767)
+        throw new Error(`MPP-Wert außerhalb des zulässigen Prüffelds (${m}, ${i}, ${j}): ${value}.`);
+      const old = mppData.maps[m][i][j];
+      if (!selectedSet.has(m) && value !== old)
+        throw new Error('Nicht ausgewählte Injection-Map darf nicht verändert werden.');
+      if (old !== value) out[mppData.mapValueLines[m][i][j]] = String(value);
+    }
+  }
+  for (let l = 0; l < out.length; l++) {
+    if (out[l] !== mppData.lines[l] && !allowed.has(l))
+      throw new Error(`Exportprüfung fehlgeschlagen: Unerlaubte Änderung in Zeile ${l + 1}.`);
   }
   let text = '';
   for (let i = 0; i < out.length; i++)
     text += out[i] + (mppData.separators[i] || '');
   const verify = parseRbMpp(text);
-  if (verify.rows !== mppData.rows || verify.cols !== mppData.cols || verify.nMaps !== 1)
+  if (verify.rows !== mppData.rows || verify.cols !== mppData.cols ||
+      verify.nMaps !== mppData.nMaps ||
+      verify.rpm.some((v, i) => v !== mppData.rpm[i]) ||
+      verify.tps.some((v, i) => v !== mppData.tps[i]) ||
+      verify.mapLabels.some((v, i) => v !== mppData.mapLabels[i]))
     throw new Error('Exportprüfung fehlgeschlagen: MPP-Struktur verändert.');
-  // Audit every *physical line*. No header, axis, metadata or map-2 line may change.
-  const allowed = new Set(mppData.mapValueLines[0].flat());
-  for (let l = 0; l < out.length; l++) {
-    if (out[l] !== mppData.lines[l] && !allowed.has(l))
-      throw new Error(`Exportprüfung fehlgeschlagen: Unerlaubte Änderung in Zeile ${l + 1}.`);
+  for (let m = 0; m < mppData.nMaps; m++) {
+    for (let i = 0; i < mppData.rows; i++) for (let j = 0; j < mppData.cols; j++)
+      if (verify.maps[m][i][j] !== newMaps[m][i][j])
+        throw new Error(`MPP-Export-Roundtrip fehlgeschlagen: CIL ${m + 1}, RPM ${i}, TPS ${j}.`);
   }
-  for (let i = 0; i < mppData.rows; i++) for (let j = 0; j < mppData.cols; j++)
-    if (verify.maps[0][i][j] !== newGrid[i][j])
-      throw new Error(`MPP-Export-Roundtrip fehlgeschlagen: RPM ${i}, TPS ${j}.`);
   return text;
 }
 
@@ -3107,14 +3143,14 @@ function buildRbMap() {
   let mppData;
   try { mppData = parseRbMpp(text); }
   catch (e) { return { oldBytes: null, newBytes: null, changes: [], warnings: [e.message] }; }
-  const spec = TARGET_SPEC.rbe;
   const params = loadRbParams();
   const nRows = mppData.rows, nCols = mppData.cols;
-  const oldBytes = mppData.maps[0].map(r => r.slice());
-  const newBytes = oldBytes.map(r => r.slice());
-  const changes = [];
-  const warnings = [];
-  if (!mppData.writeAllowed) warnings.push('Mehrere unabhängige Injection-Maps: nur Vorschau. Der Export ist bis zur Klärung der Zylinderzuordnung gesperrt.');
+  const selectedIndices = selectedRbMapIndices(mppData);
+  const oldMaps = mppData.maps.map(map => map.map(row => row.slice()));
+  const newMaps = oldMaps.map(map => map.map(row => row.slice()));
+  const changes = [], warnings = [];
+  if (!mppData.writeAllowed) warnings.push('MPP mit nicht eindeutig zugeordneten Injection-Maps: Export gesperrt.');
+  else if (!selectedIndices.length) warnings.push('Bitte zuerst Zylinder 1, Zylinder 2 oder beide auswählen.');
   let insufficient = 0;
   const pctU = parseFloat(params.pctU) || 1;
   const dead = parseFloat(params.dead) || 0;
@@ -3124,6 +3160,8 @@ function buildRbMap() {
   const lock0 = params.lock0 !== false;
   const roundFn = params.rnd === 'round' ? Math.round : Math.trunc;
 
+  // Calculate the log-derived correction once per RPM/TPS cell. Apply it to
+  // each EXPLICITLY selected cylinder's own base value (never to another).
   for (let i = 0; i < nRows; i++) {
     const rpm = mppData.rpm[i];
     if (rpm < cMin) continue;
@@ -3135,20 +3173,29 @@ function buildRbMap() {
       const target = targetLambdaAt(mppData.tps[j]);
       const dev = (sample.lam / target - 1) * 100;
       if (Math.abs(dev) <= dead) continue;
-      let s = dev / pctU;      // RB units of correction
-      s = roundFn(s);
-      if (Number.isFinite(maxS)) s = Math.max(-maxS, Math.min(maxS, s));
-      if (s === 0) continue;
-      const newByte = oldBytes[i][j] + s;
-      newBytes[i][j] = newByte;
-      changes.push({
-        rpm, tps: mppData.tps[j],
-        oldByte: oldBytes[i][j], newByte, deltaUnits: s,
-        lamMeas: sample.lam, lamTarget: target, n: sample.n,
-      });
+      let units = roundFn(dev / pctU);
+      if (Number.isFinite(maxS)) units = Math.max(-maxS, Math.min(maxS, units));
+      if (!Number.isSafeInteger(units) || units === 0) continue;
+      for (const m of selectedIndices) {
+        const oldByte = oldMaps[m][i][j];
+        const newByte = oldByte + units;
+        // The writer verifies the same range again before creating an output.
+        if (!Number.isSafeInteger(newByte) || Math.abs(newByte) > 32767)
+          throw new Error(`MPP map ${m+1}: Wert außerhalb des unterstützten Bereichs (${rpm} U/min, ${mppData.tps[j]}% TPS).`);
+        newMaps[m][i][j] = newByte;
+        changes.push({
+          mapIndex: m, mapLabel: mppData.mapLabels[m],
+          rpm, tps: mppData.tps[j], oldByte, newByte, deltaUnits: units,
+          lamMeas: sample.lam, lamTarget: target, n: sample.n,
+        });
+      }
     }
   }
-  return { oldBytes, newBytes, changes, warnings, mppData, insufficient, minSamples: minN, writeAllowed: mppData.writeAllowed };
+  const writeAllowed = mppData.writeAllowed && selectedIndices.length > 0;
+  const mainIndex = selectedIndices.length ? selectedIndices[0] : 0;
+  return { oldBytes: oldMaps[mainIndex], newBytes: newMaps[mainIndex],
+           oldMaps, newMaps, selectedIndices, changes, warnings, mppData,
+           insufficient, minSamples: minN, writeAllowed };
 }
 
 async function handleRbMppUpload(file) {
@@ -3162,6 +3209,8 @@ async function handleRbMppUpload(file) {
     if (!storeRbMpp(text, file.name, mpp.nMaps)) {
       throw new Error('Speicherung im Browser fehlgeschlagen (Speicher voll?).');
     }
+    // A new file requires an explicit choice; never reuse one from another bike.
+    $('#expRbCylinder').value = '';
     toast(`MPP „${file.name}" geladen (${mpp.nMaps} Map${mpp.nMaps === 2 ? 's' : ''})`, 2500);
     refreshRbStatus();
     renderExportPreview();
@@ -3174,19 +3223,25 @@ async function handleRbMppUpload(file) {
 function refreshRbStatus() {
   const text = loadRbMppRaw();
   const meta = loadRbMppMeta();
-  const dlBtn    = $('#expDownload');
+  const dlBtn = $('#expDownload');
   const adoptBtn = $('#expRbAdopt');
   const statusEl = $('#expRbStatus');
   const clearBtn = $('#expRbClear');
   const btnLabel = $('#expRbBtnLabel');
+  const cylinderSection = $('#expRbCylinderSection');
   statusEl.classList.remove('exp-tpl-custom', 'exp-tpl-error', 'exp-tpl-missing');
+  let layout = null;
+  try { if (text) layout = parseRbMpp(text); } catch (e) { }
+  const needsCylinder = !!(layout && layout.nMaps === 2);
+  cylinderSection.hidden = !needsCylinder;
+  const selected = layout ? selectedRbMapIndices(layout) : [];
+  const writable = !!(layout && layout.writeAllowed && selected.length);
   if (text) {
     const parts = [];
-    let layout = null;
-    try { layout = parseRbMpp(text); } catch (e) {}
     if (layout) {
       parts.push(`${layout.rows} RPM × ${layout.cols} TPS`);
-      if (!layout.writeAllowed) parts.push('Mehrere Maps: nur Vorschau');
+      if (needsCylinder && !selected.length) parts.push('Zylinderauswahl erforderlich');
+      if (!layout.writeAllowed) parts.push('MPP mit nicht eindeutig zugeordneten Injection-Maps: Export gesperrt.');
     }
     if (meta && meta.name) parts.push(`„${meta.name}"`);
     if (meta && meta.nMaps) parts.push(`${meta.nMaps} Map${meta.nMaps === 2 ? 's' : ''}`);
@@ -3195,26 +3250,20 @@ function refreshRbStatus() {
     statusEl.classList.add('exp-tpl-custom');
     clearBtn.hidden = false;
     btnLabel.textContent = '📂 Andere MPP...';
-    dlBtn.disabled = !layout || !layout.writeAllowed;
-    adoptBtn.disabled = !layout || !layout.writeAllowed;
-    adoptBtn.style.opacity = '1';
   } else {
     statusEl.textContent = 'Noch keine MPP geladen.';
     statusEl.classList.add('exp-tpl-missing');
     clearBtn.hidden = true;
     btnLabel.textContent = '📂 Aktuelle Map (.mpp) wählen';
-    dlBtn.disabled = true;
-    adoptBtn.disabled = true;
-    adoptBtn.style.opacity = '0.55';
   }
+  dlBtn.disabled = !writable;
+  adoptBtn.disabled = !writable;
+  adoptBtn.style.opacity = writable ? '1' : '0.55';
   const info = $('#expRbGridInfo');
   if (info) {
-    try {
-      const mpp = text ? parseRbMpp(text) : null;
-      info.textContent = mpp
-        ? `${mpp.rows} RPM-Stützstellen (${mpp.rpm[0]}–${mpp.rpm[mpp.rows-1]} U/min), ${mpp.cols} TPS-Stützstellen (${mpp.tps.join(' · ')} %), ${mpp.nMaps} Injection-Map(s).`
-        : 'RPM-/TPS-Raster wird aus der geladenen MPP gelesen.';
-    } catch (e) { info.textContent = 'MPP-Struktur nicht lesbar: ' + e.message; }
+    info.textContent = layout
+      ? `${layout.rows} RPM (${layout.rpm[0]}–${layout.rpm[layout.rows-1]}), ${layout.cols} TPS (${layout.tps.join(' · ')} %), ${layout.nMaps} Injection-Map(s).`
+      : 'RPM-/TPS-Raster wird aus der geladenen MPP gelesen.';
   }
 }
 
@@ -3627,6 +3676,16 @@ function refreshCustomTplStatus() {
     const bin = loadIawBin();
     const layout = bin && inspectIaw16mBin(bin);
     dlBtn.disabled = !(layout && layout.writable && STATE.hasData);
+    return;
+  }
+
+  // Rapid Bike is NOT a PowerCommander template: its uploaded MPP and the
+  // explicit cylinder choice determine download eligibility.
+  if (target === 'rbe') {
+    const raw = loadRbMppRaw();
+    let layout = null;
+    try { if (raw) layout = parseRbMpp(raw); } catch (e) {}
+    dlBtn.disabled = !(layout && layout.writeAllowed && selectedRbMapIndices(layout).length);
     return;
   }
 
@@ -4091,96 +4150,76 @@ function renderRbPreview() {
   readRbParamsFromUi();
   const result = buildRbMap();
   if (!result) {
-    $('#expPreviewWrap').innerHTML = `
-      <div class="modal-sub exp-preview-empty">
-        Noch keine Rapid-Bike-MPP hochgeladen. Lade erst die aktuell im Rapid-Bike aktive <code>.mpp</code>-Datei hoch, dann erscheint hier die Vorschau mit allen Änderungen.
-      </div>`;
+    $('#expPreviewWrap').innerHTML = `<div class="modal-sub exp-preview-empty">Noch keine Rapid-Bike-MPP hochgeladen.</div>`;
     $('#expSummary').innerHTML = '';
     return;
   }
   if (!result.oldBytes) {
-    $('#expPreviewWrap').innerHTML = `
-      <div class="modal-sub exp-preview-empty">
-        MPP konnte nicht gelesen werden: ${result.warnings[0] || 'unbekannter Fehler'}
-      </div>`;
+    $('#expPreviewWrap').innerHTML = `<div class="modal-sub exp-preview-empty">${result.warnings[0] || 'MPP-Fehler'}</div>`;
     $('#expSummary').innerHTML = '';
     return;
   }
-  const { oldBytes, newBytes, changes, warnings, mppData } = result;
-
+  const { changes, warnings, mppData, oldMaps, newMaps, selectedIndices } = result;
   const meta = loadRbMppMeta();
   const banner = buildExportSourceBanner({
     headline: 'Prüfe, dass die MPP zu diesem Log passt',
-    sourceLabel: 'Rechen­grundlage',
+    sourceLabel: 'Rechengrundlage',
     sourceName: meta && meta.name,
     sourceTime: meta && meta.uploadedAt ? formatBinUploadTime(meta.uploadedAt) : null,
     logName: STATE.fileName || null,
-    note: 'Jeder Export rechnet den Korrekturfaktor erneut auf <em>diese</em> hochgeladene MPP. Nach dem Aufspielen die neue MPP wieder hochladen, bevor die nächste Lambda-Karte verrechnet wird — oder direkt den Button „↻ Berechnete MPP als neue Ausgangs-MPP" nutzen.',
+    note: 'Die Lambda-Korrektur wird zur Original-Map jedes ausgewählten Zylinders addiert. Nicht ausgewählte Kennfelder bleiben unverändert.',
   });
-
-  // Table: RPM descending top to bottom (highest RPM on top like the RB UI),
-  // TPS ascending left to right. Changed cells show "alt → neu", unchanged
-  // cells just the current value in muted grey.
   const headerCells = mppData.tps.map(t => `<th>${t}%</th>`).join('');
-  const bodyRows = mppData.rpm.slice().reverse().map((rpm, rowRev) => {
-    const i = mppData.rows - 1 - rowRev;
-    const cells = mppData.tps.map((tps, j) => {
-      const o = oldBytes[i][j];
-      const n = newBytes[i][j];
-      if (n === o) {
-        return `<td class="exp-cell exp-zero" title="${rpm} U/min · ${tps} % · unverändert">${o}</td>`;
-      }
-      const delta = n - o;
-      const cls = delta > 0 ? 'exp-pos' : 'exp-neg';
-      const sign = delta > 0 ? '+' : '';
-      const title = `${rpm} U/min · ${tps} % · ${o} → ${n} (${sign}${delta})`;
-      return `<td class="exp-cell ${cls}" title="${title}">
-        <span style="display:block;font-size:9px;opacity:.55;line-height:1;font-weight:400">${o}</span>
-        <span style="display:block;font-weight:700;line-height:1.1">${n}</span>
-      </td>`;
+  const mapsToShow = selectedIndices.length ? selectedIndices : [0];
+  const tables = mapsToShow.map(m => {
+    const bodyRows = mppData.rpm.slice().reverse().map((rpm, rowRev) => {
+      const i = mppData.rows - 1 - rowRev;
+      const cells = mppData.tps.map((tps, j) => {
+        const o = oldMaps[m][i][j], n = newMaps[m][i][j];
+        if (n === o) return `<td class="exp-cell exp-zero" title="${rpm} rpm · ${tps} %">${o}</td>`;
+        const delta = n - o;
+        const cls = delta > 0 ? 'exp-pos' : 'exp-neg';
+        const sign = delta > 0 ? '+' : '';
+        return `<td class="exp-cell ${cls}" title="${rpm} rpm · ${tps} % · ${o} → ${n} (${sign}${delta})">
+          <span style="display:block;font-size:9px;opacity:.55;line-height:1;font-weight:400">${o}</span>
+          <span style="display:block;font-weight:700;line-height:1.1">${n}</span></td>`;
+      }).join('');
+      return `<tr><th>${rpm}</th>${cells}</tr>`;
     }).join('');
-    return `<tr><th>${rpm}</th>${cells}</tr>`;
+    return `${mppData.nMaps === 2 ? `<div class="exp-section-title sub">${mppData.mapLabels[m]}</div>` : ''}
+      <div class="exp-scroll-map"><table class="exp-preview iaw-preview">
+      <thead><tr><th>U/min \\ TPS</th>${headerCells}</tr></thead>
+      <tbody>${bodyRows}</tbody></table></div>`;
   }).join('');
-
-  $('#expPreviewWrap').innerHTML = `
-    ${banner}
-    <div class="exp-scroll-map">
-      <table class="exp-preview iaw-preview">
-        <thead><tr><th>U/min \\ TPS</th>${headerCells}</tr></thead>
-        <tbody>${bodyRows}</tbody>
-      </table>
-    </div>
-    ${renderRbChangeList(changes)}
-  `;
-
+  $('#expPreviewWrap').innerHTML = `${banner}${!selectedIndices.length ? `<div class="exp-badge-warn" style="margin:10px 0">Bitte zuerst Zylinder 1, Zylinder 2 oder beide auswählen.</div>` : ''}${tables}${renderRbChangeList(changes)}`;
   let posN = 0, negN = 0;
   changes.forEach(c => { if (c.deltaUnits > 0) posN++; else negN++; });
-  const total = mppData.rows * mppData.cols;
+  const total = mppData.rows * mppData.cols * mapsToShow.length;
   const unchanged = total - changes.length;
   $('#expSummary').innerHTML = `
     <span><strong>${changes.length}</strong>/${total} Zellen geändert</span>
     ${posN ? `<span style="color:var(--rich)"><strong>${posN}</strong> fetter</span>` : ''}
     ${negN ? `<span style="color:var(--lean)"><strong>${negN}</strong> magerer</span>` : ''}
     <span><strong>${unchanged}</strong> unverändert</span>
-    ${result.insufficient ? `<span class="exp-badge-warn"><strong>${result.insufficient}</strong> unter ${result.minSamples} Messpunkten; unverändert</span>` : ''}
-    ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.length} Warnung(en)</span>` : ''}
-  `;
-
+    ${result.insufficient ? `<span class="exp-badge-warn"><strong>${result.insufficient}</strong> Zellen unter Mindestanzahl Messpunkten</span>` : ''}
+    ${warnings.length ? `<span class="exp-badge-warn">⚠ ${warnings.join(' ')}</span>` : ''}`;
   const adoptBtn = $('#expRbAdopt');
-  adoptBtn.disabled = (changes.length === 0 || !mppData.writeAllowed);
-  adoptBtn.style.opacity = (changes.length === 0 || !mppData.writeAllowed) ? '0.55' : '1';
+  adoptBtn.disabled = (changes.length === 0 || !result.writeAllowed);
+  adoptBtn.style.opacity = adoptBtn.disabled ? '0.55' : '1';
 }
 
 function renderRbChangeList(changes) {
   if (!changes.length) {
     return `<div class="modal-sub" style="margin-top:12px">Keine Zellen geändert — Lambda-Daten liegen im Zielbereich oder decken das Kennfeld noch nicht ab.</div>`;
   }
+  const showCylinder = changes.some(c => c.mapLabel && c.mapLabel !== 'Injection');
   const sorted = changes.slice().sort((a, b) => Math.abs(b.deltaUnits) - Math.abs(a.deltaUnits));
   const show = sorted.slice(0, 20);
   const rows = show.map(c => {
     const sign = c.deltaUnits > 0 ? '+' : '';
     const cls = c.deltaUnits > 0 ? 'exp-pos' : 'exp-neg';
     return `<tr>
+      ${showCylinder ? `<td>${c.mapLabel}</td>` : ''}
       <td>${c.rpm}</td>
       <td>${c.tps} %</td>
       <td>${c.oldByte}</td>
@@ -4194,7 +4233,7 @@ function renderRbChangeList(changes) {
   return `
     <div class="exp-section-title" style="margin:16px 0 8px">Größte Änderungen (${show.length} von ${changes.length})</div>
     <table class="exp-preview">
-      <thead><tr><th>U/min</th><th>TPS</th><th>alt</th><th>neu</th><th>Δ Einh.</th><th>λ gem.</th><th>n</th></tr></thead>
+      <thead><tr>${showCylinder ? '<th>Zylinder</th>' : ''}<th>U/min</th><th>TPS</th><th>alt</th><th>neu</th><th>Δ Einh.</th><th>λ gem.</th><th>n</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     ${more}
@@ -4296,11 +4335,11 @@ function downloadExport() {
       return;
     }
     if (!result.writeAllowed) {
-      toast('MPP-Export gesperrt: mehrere Injection-Maps noch nicht zugeordnet', 4500);
+      toast('MPP-Export gesperrt: erst Zylinder auswählen', 4500);
       return;
     }
     try {
-      const text = serializeRbMpp(result.mppData, result.newBytes);
+      const text = serializeRbMpp(result.mppData, result.newMaps, result.selectedIndices);
       triggerDownload(new Blob([rbMppTextToBytes(text)], { type: 'application/octet-stream' }),
                       `${base}_MD-Lambda-View.mpp`);
       toast(`MPP exportiert (${result.changes.length} Zellen geändert)`, 3500);
@@ -4466,9 +4505,14 @@ $('#expRbFile').addEventListener('change', e => {
 });
 $('#expRbClear').addEventListener('click', () => {
   clearRbMpp();
+  $('#expRbCylinder').value = '';
   refreshRbStatus();
   renderExportPreview();
   toast('MPP entfernt', 1800);
+});
+$('#expRbCylinder').addEventListener('change', () => {
+  refreshRbStatus();
+  renderExportPreview();
 });
 $('#expRbReset').addEventListener('click', () => {
   const d = TARGET_SPEC.rbe.defaults;
@@ -4501,7 +4545,7 @@ $('#expRbAdopt').addEventListener('click', () => {
     `Tipp: Lade die neue Datei vorher einmal mit „↓ .mpp herunterladen" herunter, damit Du eine Sicherungskopie hast.`
   );
   if (!ok) return;
-  const newText = serializeRbMpp(result.mppData, result.newBytes);
+  const newText = serializeRbMpp(result.mppData, result.newMaps, result.selectedIndices);
   if (!storeRbMpp(newText, newName, result.mppData.nMaps)) {
     toast('Übernahme fehlgeschlagen (Speicherung im Browser)', 3500);
     return;
