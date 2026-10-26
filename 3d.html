@@ -1044,7 +1044,8 @@ input[type="file"] { display: none; }
   color: #c9302c;
   font-weight: 600;
 }
-#expClampField[hidden] { display: none !important; }
+#expClampField[hidden],
+#expDjmCylinderRow[hidden] { display: none !important; }
 #expClampSection .exp-grid-2.exp-grid-one { grid-template-columns: 1fr; }
 .exp-grid-2,
 .exp-grid-4 {
@@ -1649,7 +1650,7 @@ body.pseudo-full .plot-area {
       <div class="exp-grid-2">
         <div class="exp-field"><label>Mindestanzahl Messpunkte pro Zelle</label><input type="number" id="expMinSamples" min="1" max="5000" step="1" inputmode="numeric" value="5"></div>
       </div>
-      <div class="modal-sub">Gilt für <strong>alle Formate</strong> (PVM, DJM-Vorschau, MPP, CSV und IAW16M-Vorschau). Es zählen nur Messpunkte, die der jeweiligen Zelle direkt zugeordnet wurden. Unterhalb der Grenze bleibt der Originalwert erhalten (bzw. 0 % Korrektur). Das Füllen von Lücken hebt diesen Schutz nicht auf.</div>
+      <div class="modal-sub">Gilt für <strong>alle Formate</strong> (PVM, DJM, MPP, CSV und IAW16M-Vorschau). Es zählen nur Messpunkte, die der jeweiligen Zelle direkt zugeordnet wurden. Unterhalb der Grenze bleibt der Originalwert erhalten (bzw. 0 % Korrektur).</div>
     </div>
 
     <!-- IAW16M: dedicated section with BIN upload (ZIP), editable targets,
@@ -1813,18 +1814,16 @@ body.pseudo-full .plot-area {
 
     <!-- Clamping + fill strategy (hidden for IAW16M) -->
     <div class="exp-section" id="expClampSection">
-      <div class="exp-section-title">Grenzen &amp; Lücken</div>
+      <div class="exp-section-title">Grenzen &amp; leere Zellen</div>
       <div class="exp-grid-2">
         <div class="exp-field" id="expClampField">
           <label>Max. Änderung ±%</label>
           <input type="number" id="expClamp" value="25" min="5" max="100" step="1">
         </div>
         <div class="exp-field">
-          <label>Lücken füllen</label>
+          <label>Zellen ohne Daten</label>
           <select id="expFill">
-            <option value="smart" selected>innen schließen, außen 0 %</option>
-            <option value="zero">überall 0 % (unverändert)</option>
-            <option value="nearest">überall nächster Nachbar</option>
+            <option value="zero" selected>0 % (unverändert)</option>
             <option value="empty">leer lassen</option>
           </select>
         </div>
@@ -3451,84 +3450,6 @@ function targetLambdaAt(tps) {
     }
   }
   return EXP_ZONES[EXP_ZONES.length - 1].target;
-}
-
-// Bilinearly sample the current 3D map (STATE.cells) at the given RPM/TPS point.
-// Returns null if no cell within reasonable distance is populated.
-function sampleMeasuredLambda(rpm, tps) {
-  if (!STATE.cells || STATE.cells.length === 0) return null;
-  // Build RPM/TPS unique sorted axes from the cells
-  const rpmSet = new Set(), tpsSet = new Set();
-  STATE.cells.forEach(c => { rpmSet.add(c.rpm); tpsSet.add(c.thr); });
-  const rpmAx = [...rpmSet].sort((a, b) => a - b);
-  const tpsAx = [...tpsSet].sort((a, b) => a - b);
-  const cellMap = new Map();
-  STATE.cells.forEach(c => cellMap.set(c.rpm + '|' + c.thr, c.lam));
-
-  // Find bracket indices
-  function bracket(ax, v) {
-    if (v <= ax[0])              return { lo: 0, hi: 0, t: 0 };
-    if (v >= ax[ax.length - 1])  return { lo: ax.length - 1, hi: ax.length - 1, t: 0 };
-    for (let i = 0; i < ax.length - 1; i++) {
-      if (v >= ax[i] && v <= ax[i + 1]) {
-        return { lo: i, hi: i + 1, t: (v - ax[i]) / (ax[i + 1] - ax[i]) };
-      }
-    }
-    return { lo: ax.length - 1, hi: ax.length - 1, t: 0 };
-  }
-  const r = bracket(rpmAx, rpm);
-  const t = bracket(tpsAx, tps);
-  const r0 = rpmAx[r.lo], r1 = rpmAx[r.hi];
-  const t0 = tpsAx[t.lo], t1 = tpsAx[t.hi];
-  const v00 = cellMap.get(r0 + '|' + t0);
-  const v10 = cellMap.get(r1 + '|' + t0);
-  const v01 = cellMap.get(r0 + '|' + t1);
-  const v11 = cellMap.get(r1 + '|' + t1);
-  // Weighted average over defined corners
-  let sum = 0, w = 0;
-  const w00 = (1 - r.t) * (1 - t.t);
-  const w10 = r.t * (1 - t.t);
-  const w01 = (1 - r.t) * t.t;
-  const w11 = r.t * t.t;
-  if (v00 != null) { sum += v00 * w00; w += w00; }
-  if (v10 != null) { sum += v10 * w10; w += w10; }
-  if (v01 != null) { sum += v01 * w01; w += w01; }
-  if (v11 != null) { sum += v11 * w11; w += w11; }
-  return w > 0 ? sum / w : null;
-}
-
-// For 'nearest neighbour' fill: find the closest populated cell
-function nearestCellLambda(rpm, tps) {
-  if (!STATE.cells || STATE.cells.length === 0) return null;
-  // Normalize distances across the two axes
-  let best = null, bestD = Infinity;
-  STATE.cells.forEach(c => {
-    const dr = (c.rpm - rpm) / 1000;
-    const dt = (c.thr - tps) / 10;
-    const d  = dr * dr + dt * dt;
-    if (d < bestD) { bestD = d; best = c.lam; }
-  });
-  return best;
-}
-
-// For the 'smart' fill: determine, per TPS row, the RPM span that is actually
-// covered by measurements. Cells inside that span get closed by interpolation,
-// cells outside stay at 0 % so the map does not invent data beyond the log.
-function coveredRpmSpanAt(tps, tpsAxis, idx) {
-  if (!STATE.cells || STATE.cells.length === 0) return null;
-  // Widen the TPS window to the neighbouring grid rows so a row that sits
-  // between two measured TPS bins still finds its span.
-  const lo = idx > 0 ? (tpsAxis[idx - 1] + tps) / 2 : -1;
-  const hi = idx < tpsAxis.length - 1 ? (tps + tpsAxis[idx + 1]) / 2 : 101;
-  let rMin = Infinity, rMax = -Infinity, found = false;
-  STATE.cells.forEach(c => {
-    if (c.thr >= lo && c.thr <= hi) {
-      if (c.rpm < rMin) rMin = c.rpm;
-      if (c.rpm > rMax) rMax = c.rpm;
-      found = true;
-    }
-  });
-  return found ? { rMin, rMax } : null;
 }
 
 // Allocate each raw log point to exactly one destination cell using midpoints
