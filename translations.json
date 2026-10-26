@@ -718,5 +718,6 @@
   "<option value=\"\">Bitte Kennfeld auswählen …</option>": "<option value=\"\">Please choose a map …</option>",
   "Unbekannte Wertcodierung im Kraftstoffkennfeld – Export gesperrt": "Unknown value encoding in fuel map – export disabled",
   "<option value=\"all\">Beide Zylinder</option>": "<option value=\"all\">Both cylinders</option>",
-  "DJM-Export gesperrt": "DJM export blocked"
+  "DJM-Export gesperrt": "DJM export blocked",
+  "Gesperrte Zellen (0 % Gas, Leerlauf unterhalb der Drehzahlgrenze) behalten ihren Originalwert. Bei den Mindest-Messpunkten gilt der strengere Wert aus diesem Abschnitt und den allgemeinen Einstellungen; die max. Änderung wird für PowerCommander nur hier festgelegt.": "Locked cells (0 % throttle, idle below the rpm limit) keep their original value. For minimum samples, the stricter value of this section and the general settings applies; for PowerCommander, the maximum change is set only here."
 }

@@ -1044,6 +1044,8 @@ input[type="file"] { display: none; }
   color: #c9302c;
   font-weight: 600;
 }
+#expClampField[hidden] { display: none !important; }
+#expClampSection .exp-grid-2.exp-grid-one { grid-template-columns: 1fr; }
 .exp-grid-2,
 .exp-grid-4 {
   display: grid;
@@ -1760,7 +1762,7 @@ body.pseudo-full .plot-area {
         <div class="exp-field"><label>Max. Änderung je Durchgang ±%</label><input type="number" id="expPcMaxPct" step="1" min="1" max="100" inputmode="decimal"></div>
         <div class="exp-field span-full"><button class="modal-btn" id="expPcReset" type="button">↺ Standard</button></div>
       </div>
-      <div class="modal-sub">Gesperrte Zellen (0 % Gas, Leerlauf unterhalb der Drehzahlgrenze) behalten ihren Originalwert. Bei Mindest-Messpunkten und max. Änderung gilt jeweils der strengere Wert aus diesem Abschnitt und den allgemeinen Einstellungen.</div>
+      <div class="modal-sub">Gesperrte Zellen (0 % Gas, Leerlauf unterhalb der Drehzahlgrenze) behalten ihren Originalwert. Bei den Mindest-Messpunkten gilt der strengere Wert aus diesem Abschnitt und den allgemeinen Einstellungen; die max. Änderung wird für PowerCommander nur hier festgelegt.</div>
     </div>
 
     <!-- Target lambda per TPS zone — independent from the 2D app's tuning targets.
@@ -1813,7 +1815,7 @@ body.pseudo-full .plot-area {
     <div class="exp-section" id="expClampSection">
       <div class="exp-section-title">Grenzen &amp; Lücken</div>
       <div class="exp-grid-2">
-        <div class="exp-field">
+        <div class="exp-field" id="expClampField">
           <label>Max. Änderung ±%</label>
           <input type="number" id="expClamp" value="25" min="5" max="100" step="1">
         </div>
@@ -2220,9 +2222,9 @@ const TPS_SETS = {
 // `status: 'ready' | 'coming-soon'` gates the download button. Coming-soon
 // entries are listed so the roadmap is visible, but the UI blocks export.
 // PowerCommander-only correction limits (PVM + DJM preview). These can only
-// TIGHTEN the shared settings, never loosen them:
+// TIGHTEN the shared sample guard, never loosen it:
 //   effective min samples = max(global guard, pc.minN)
-//   effective clamp        = min(generic clamp field, pc.maxPct)
+//   effective clamp        = pc.maxPct (generic clamp field is hidden for PC)
 // Plus two protections borrowed from the Rapid Bike workflow: skip the 0 %
 // TPS column (idle / overrun) and skip everything below cMin (idle control).
 // CSV, IAW16M and Rapid Bike never read these values.
@@ -3623,10 +3625,11 @@ function readExportOpts() {
     clamp:   Math.max(1, Math.min(100, parseFloat($('#expClamp').value) || 25)),
     fill:    $('#expFill').value,
   };
-  // PowerCommander only: apply the stricter of the shared and the PC limits.
+  // PowerCommander only: the PC section owns the clamp (generic field hidden),
+  // the sample guard uses the stricter of the shared and the PC value.
   if (target === 'pcv' || target === 'pciii') {
     const pc = loadPcParams();
-    opts.clamp = Math.min(opts.clamp, pc.maxPct);
+    opts.clamp = pc.maxPct;
     opts.minSamples = Math.max(loadExportMinSamples(), pc.minN);
     opts.pcGuard = { lock0: pc.lock0, cMin: pc.cMin };
   }
@@ -3704,6 +3707,10 @@ function applyTargetSpec() {
   const isFlash = (kind === 'flash');
   $('#expGridSection').hidden   = isFlash;
   $('#expClampSection').hidden  = isFlash;
+  // PowerCommander: max change is set in the PC limits section only.
+  const isPcTarget = (target === 'pcv' || target === 'pciii');
+  $('#expClampField').hidden = isPcTarget;
+  $('#expClampSection .exp-grid-2').classList.toggle('exp-grid-one', isPcTarget);
   // Adopt buttons: each flash variant has its own, mutually exclusive.
   $('#expIawAdopt').hidden      = true; // source BIN is never overwritten by an export
   $('#expRbAdopt').hidden       = (target !== 'rbe');
