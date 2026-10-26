@@ -1115,6 +1115,19 @@ input[type="file"] { display: none; }
   display: block;
 }
 .exp-field.span-full > .modal-btn { width: 100%; }
+/* PowerCommander limits: same one-column "label left, field right" rows. */
+#expPcGuardSection .exp-grid-4 { grid-template-columns: 1fr; }
+#expPcGuardSection .exp-grid-4 .exp-field { flex-direction: row; align-items: center; gap: 12px; }
+#expPcGuardSection .exp-grid-4 .exp-field label { flex: 1; min-width: 0; min-height: 0; }
+#expPcGuardSection .exp-grid-4 .exp-field input[type="number"] { flex: 0 0 auto; width: 110px; }
+#expPcGuardSection .exp-grid-4 .exp-field input[type="checkbox"] {
+  flex: 0 0 auto; width: 22px; height: 22px; margin: 0 44px; accent-color: var(--accent-2);
+}
+#expPcGuardSection .exp-grid-4 .exp-field.span-full { display: block; }
+@media (pointer: coarse) {
+  #expPcGuardSection .exp-grid-4 .exp-field input[type="number"] { width: 120px; }
+  #expPcGuardSection .exp-grid-4 .exp-field input[type="checkbox"] { margin: 0 49px; }
+}
 .exp-field {
   display: flex;
   flex-direction: column;
@@ -1263,6 +1276,7 @@ input[type="file"] { display: none; }
 .exp-cell.exp-empty { color: var(--ink-3); font-style: italic; }
 .exp-cell.exp-clamp { outline: 1.5px solid #e2734a; outline-offset: -2px; }
 .exp-cell.exp-insufficient { text-decoration: underline dotted; text-underline-offset: 3px; opacity: .75; }
+.exp-cell.exp-locked { background: var(--paper-2); color: var(--ink-3); font-weight: 400; }
 
 .iaw-source-banner {
   background: rgba(226, 115, 74, .10);
@@ -1731,6 +1745,20 @@ body.pseudo-full .plot-area {
       </div>
     </div>
 
+    <!-- PowerCommander-only correction limits (PVM + DJM preview). Values can
+         only tighten the shared settings. localStorage: mdlv_pc_params_v1 -->
+    <div class="exp-section" id="expPcGuardSection" hidden>
+      <div class="exp-section-title">PowerCommander · correction limits</div>
+      <div class="exp-grid-4">
+        <div class="exp-field"><label for="expPcLock0">Lock 0 % column</label><input type="checkbox" id="expPcLock0"></div>
+        <div class="exp-field"><label>Correct only above rpm</label><input type="number" id="expPcCMin" step="50" min="0" max="20000" inputmode="decimal"></div>
+        <div class="exp-field"><label>Min. samples per cell</label><input type="number" id="expPcMinN" step="1" min="1" max="5000" inputmode="numeric"></div>
+        <div class="exp-field"><label>Max. change per pass ±%</label><input type="number" id="expPcMaxPct" step="1" min="1" max="100" inputmode="decimal"></div>
+        <div class="exp-field span-full"><button class="modal-btn" id="expPcReset" type="button">↺ Default</button></div>
+      </div>
+      <div class="modal-sub">Locked cells (0 % throttle, idle below the rpm limit) keep their original value. For minimum samples and maximum change, the stricter value of this section and the general settings applies.</div>
+    </div>
+
     <!-- Target lambda per TPS zone — independent from the 2D app's tuning targets.
          Edited and persisted here (localStorage: mdlv_exp_zones_v1). -->
     <div class="exp-section">
@@ -2187,6 +2215,32 @@ const TPS_SETS = {
 //   'readable' — human-readable table (CSV)
 // `status: 'ready' | 'coming-soon'` gates the download button. Coming-soon
 // entries are listed so the roadmap is visible, but the UI blocks export.
+// PowerCommander-only correction limits (PVM + DJM preview). These can only
+// TIGHTEN the shared settings, never loosen them:
+//   effective min samples = max(global guard, pc.minN)
+//   effective clamp        = min(generic clamp field, pc.maxPct)
+// Plus two protections borrowed from the Rapid Bike workflow: skip the 0 %
+// TPS column (idle / overrun) and skip everything below cMin (idle control).
+// CSV, IAW16M and Rapid Bike never read these values.
+const PC_PARAM_KEY = 'mdlv_pc_params_v1';
+const PC_PARAM_DEFAULTS = { lock0: true, cMin: 1700, minN: 20, maxPct: 10 };
+function loadPcParams() {
+  const p = { ...PC_PARAM_DEFAULTS };
+  try {
+    const raw = JSON.parse(localStorage.getItem(PC_PARAM_KEY) || 'null');
+    if (raw && typeof raw === 'object') {
+      if (typeof raw.lock0 === 'boolean') p.lock0 = raw.lock0;
+      const c = Number(raw.cMin);   if (Number.isFinite(c) && c >= 0 && c <= 20000) p.cMin = c;
+      const n = Number(raw.minN);   if (Number.isInteger(n) && n >= 1 && n <= 5000) p.minN = n;
+      const m = Number(raw.maxPct); if (Number.isFinite(m) && m >= 1 && m <= 100) p.maxPct = m;
+    }
+  } catch (e) {}
+  return p;
+}
+function storePcParams(p) {
+  try { localStorage.setItem(PC_PARAM_KEY, JSON.stringify(p)); } catch (e) {}
+}
+
 // One safety threshold for EVERY target: PowerCommander (PVM/DJM), RB EVO,
 // IAW16M and CSV. Stored independently of vehicle-specific parameters.
 const EXP_MIN_SAMPLES_KEY = 'mdlv_exp_min_samples_v1';
@@ -3435,10 +3489,19 @@ function buildExportMap(opts) {
   }
   const tpsAxis = opts.tpsAxis ? opts.tpsAxis.slice() :
     (TPS_SETS[opts.tpsSet] || TPS_SETS['pciii']);
-  const minSamples = loadExportMinSamples();
+  // opts.minSamples / opts.pcGuard are only set for PowerCommander targets
+  // (see readExportOpts); every other target keeps the global guard as before.
+  const minSamples = Number.isInteger(opts.minSamples) ? opts.minSamples : loadExportMinSamples();
+  const pcGuard = opts.pcGuard || null;
   const buckets = exportRawBuckets(rpmAxis, tpsAxis);
   const rows = tpsAxis.map((tps, ti) => rpmAxis.map((rpm, ri) => {
     const b = buckets[ti][ri];
+    // PowerCommander protection: 0 % TPS column and RPM below cMin are left
+    // untouched (0 % = PVM keeps its original byte).
+    if (pcGuard && ((pcGuard.lock0 && tps === 0) || rpm < pcGuard.cMin)) {
+      return {pct: 0, src: 'locked', n: b.n, clamped: false,
+        lockReason: (pcGuard.lock0 && tps === 0) ? 'Column 0 % locked' : `below ${pcGuard.cMin} rpm`};
+    }
     // No qualifying measurement: PVM/MPP must retain its original value;
     // a zero percent adjustment is the neutral value for trim maps and CSV.
     if (b.n < minSamples) {
@@ -3467,7 +3530,7 @@ function readExportOpts() {
       if (inspect.recognized) templateLayout = inspect;
     }
   }
-  return {
+  const opts = {
     ...(templateLayout ? { rpmAxis: templateLayout.rpmAxis, tpsAxis: templateLayout.tpsAxis } : {}),
     target:  $('#expTarget').value,
     rpmMin:  parseInt($('#expRpmMin').value, 10) || 500,
@@ -3477,6 +3540,14 @@ function readExportOpts() {
     clamp:   Math.max(1, Math.min(100, parseFloat($('#expClamp').value) || 25)),
     fill:    $('#expFill').value,
   };
+  // PowerCommander only: apply the stricter of the shared and the PC limits.
+  if (target === 'pcv' || target === 'pciii') {
+    const pc = loadPcParams();
+    opts.clamp = Math.min(opts.clamp, pc.maxPct);
+    opts.minSamples = Math.max(loadExportMinSamples(), pc.minN);
+    opts.pcGuard = { lock0: pc.lock0, cMin: pc.cMin };
+  }
+  return opts;
 }
 
 // Switch the grid controls between "format-locked" (binary targets) and
@@ -3559,6 +3630,9 @@ function applyTargetSpec() {
     $('#expTplExt').textContent = ext;
     $('#expTplFile').setAttribute('accept', ext);
   }
+  // PowerCommander correction limits: PVM and DJM only.
+  $('#expPcGuardSection').hidden = !(target === 'pcv' || target === 'pciii');
+  if (target === 'pcv' || target === 'pciii') renderPcParams();
   if (target === 'iaw16m') {
     renderIawParams();
     refreshIawStatus();
@@ -3569,6 +3643,26 @@ function applyTargetSpec() {
   }
 
   refreshCustomTplStatus();
+}
+
+// --- PowerCommander limits UI ---------------------------------------------
+function renderPcParams() {
+  const p = loadPcParams();
+  $('#expPcLock0').checked = !!p.lock0;
+  $('#expPcCMin').value    = p.cMin;
+  $('#expPcMinN').value    = p.minN;
+  $('#expPcMaxPct').value  = p.maxPct;
+}
+function readPcParamsFromUi() {
+  const p = loadPcParams();
+  const num = id => parseFloat(String($('#' + id).value).replace(',', '.'));
+  p.lock0 = $('#expPcLock0').checked;
+  const c = num('expPcCMin');   if (Number.isFinite(c) && c >= 0 && c <= 20000) p.cMin = c;
+  const n = num('expPcMinN');   if (Number.isInteger(n) && n >= 1 && n <= 5000) p.minN = n;
+  const m = num('expPcMaxPct'); if (Number.isFinite(m) && m >= 1 && m <= 100) p.maxPct = m;
+  storePcParams(p);
+  renderPcParams();   // show the value actually in use if an entry was rejected
+  return p;
 }
 
 // --- IAW16M UI wiring -----------------------------------------------------
@@ -3875,7 +3969,7 @@ function renderExportPreview() {
   }
   const target = $('#expTarget').value;
   const opts = readExportOpts();
-  const { rpmAxis, tpsAxis, rows } = buildExportMap(opts);
+  const { rpmAxis, tpsAxis, rows, minSamples } = buildExportMap(opts);
   // Build table — TPS as rows (high at top, like PC software), RPM as columns
   const headerCells = rpmAxis.map(r => `<th>${r}</th>`).join('');
   const bodyRows = tpsAxis.slice().reverse().map((tps, iiRev) => {
@@ -3887,8 +3981,10 @@ function renderExportPreview() {
       const v = Math.round(cell.pct);
       const cls = v === 0 ? 'exp-zero' : (v > 0 ? 'exp-pos' : 'exp-neg');
       const clamp = cell.clamped ? ' exp-clamp' : '';
-      const lowN = cell.src === 'insufficient' ? ' exp-insufficient' : '';
-      const reason = cell.src === 'insufficient' ? ` title="Messpunkte / samples: ${cell.n}; Mindestanzahl / minimum: ${loadExportMinSamples()} — unverändert / unchanged"` : ''; 
+      const lowN = cell.src === 'insufficient' ? ' exp-insufficient'
+                 : cell.src === 'locked' ? ' exp-locked' : '';
+      const reason = cell.src === 'insufficient' ? ` title="Messpunkte / samples: ${cell.n}; Mindestanzahl / minimum: ${minSamples} — unverändert / unchanged"`
+                   : cell.src === 'locked' ? ` title="${cell.lockReason} — unchanged"` : '';
       const sign = v > 0 ? '+' : '';
       return `<td class="exp-cell ${cls}${clamp}${lowN}"${reason}>${sign}${v}</td>`;
     }).join('');
@@ -3922,9 +4018,10 @@ function renderExportPreview() {
     </div>
   `;
   // Summary line
-  let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0, countInsufficient = 0;
+  let countMeasured = 0, countNearest = 0, countFilled = 0, countEmpty = 0, countClamp = 0, countInsufficient = 0, countLocked = 0;
   rows.forEach(row => row.forEach(c => {
     if (c.src === 'insufficient') countInsufficient++;
+    else if (c.src === 'locked') countLocked++;
     else if (c.src === 'measured') countMeasured++;
     else if (c.src === 'nearest') countNearest++;
     else if (c.src === 'filled')  countFilled++;
@@ -3934,7 +4031,8 @@ function renderExportPreview() {
   const total = rows.length * (rows[0] ? rows[0].length : 0);
   $('#expSummary').innerHTML = `
     <span><strong>${countMeasured}</strong>/${total} from measurement</span>
-    ${countInsufficient ? `<span class="exp-badge-warn"><strong>${countInsufficient}</strong> cells below ${loadExportMinSamples()} samples (unchanged)</span>` : ''}
+    ${countInsufficient ? `<span class="exp-badge-warn"><strong>${countInsufficient}</strong> Zellen unter ${minSamples} Messpunkten (unverändert)</span>` : ''}
+    ${countLocked ? `<span><strong>${countLocked}</strong> locked (idle/overrun, unchanged)</span>` : ''}
     ${countNearest ? `<span><strong>${countNearest}</strong> interpolated</span>` : ''}
     ${countFilled ? `<span><strong>${countFilled}</strong> set to 0 % (no data)</span>` : ''}
     ${countEmpty ? `<span><strong>${countEmpty}</strong> empty</span>` : ''}
@@ -4497,6 +4595,20 @@ $('#expIawAdopt').addEventListener('click', () => {
       renderExportPreview();
     });
   });
+
+// --- PowerCommander limits ----------------------------------------------
+['expPcLock0','expPcCMin','expPcMinN','expPcMaxPct'].forEach(id => {
+  $('#' + id).addEventListener('change', () => {
+    readPcParamsFromUi();
+    renderExportPreview();
+  });
+});
+$('#expPcReset').addEventListener('click', () => {
+  storePcParams({ ...PC_PARAM_DEFAULTS });
+  renderPcParams();
+  renderExportPreview();
+  toast('PowerCommander limits reset', 1800);
+});
 
 // --- Rapid Bike EVO controls --------------------------------------------
 $('#expRbFile').addEventListener('change', e => {

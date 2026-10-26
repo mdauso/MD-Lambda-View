@@ -678,5 +678,15 @@
   "Keine berechneten Änderungen mit ausreichenden Messpunkten.": "No calculated changes with enough samples.",
   "Kennfeld-Achsen oder Delta Fuel nicht verifiziert: nur Vorschau.": "Map axes or Delta Fuel not verified: preview only.",
   "Zuerst ein Lambda-Log laden.": "Load a lambda log first.",
-  "Zuerst eine IAW16M-Ausgangs-BIN laden.": "Load an IAW16M source BIN first."
+  "Zuerst eine IAW16M-Ausgangs-BIN laden.": "Load an IAW16M source BIN first.",
+  "PowerCommander · Korrekturgrenzen": "PowerCommander · correction limits",
+  "Spalte 0 % sperren": "Lock 0 % column",
+  "Min. Messpunkte pro Zelle": "Min. samples per cell",
+  "Max. Änderung je Durchgang ±%": "Max. change per pass ±%",
+  "Gesperrte Zellen (0 % Gas, Leerlauf unterhalb der Drehzahlgrenze) behalten ihren Originalwert. Bei Mindest-Messpunkten und max. Änderung gilt jeweils der strengere Wert aus diesem Abschnitt und den allgemeinen Einstellungen.": "Locked cells (0 % throttle, idle below the rpm limit) keep their original value. For minimum samples and maximum change, the stricter value of this section and the general settings applies.",
+  "PowerCommander-Grenzen zurückgesetzt": "PowerCommander limits reset",
+  "Spalte 0 % gesperrt": "Column 0 % locked",
+  "unter ${pcGuard.cMin} U/min": "below ${pcGuard.cMin} rpm",
+  " title=\"${cell.lockReason} — unverändert\"": " title=\"${cell.lockReason} — unchanged\"",
+  "<span><strong>${countLocked}</strong> gesperrt (Leerlauf/Schub, unverändert)</span>": "<span><strong>${countLocked}</strong> locked (idle/overrun, unchanged)</span>"
 }
