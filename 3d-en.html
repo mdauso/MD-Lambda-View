@@ -1733,7 +1733,7 @@ body.pseudo-full .plot-area {
     <div class="exp-section" id="expCustomTplSection">
       <div class="exp-section-title">Custom template</div>
       <div class="modal-sub">
-        Load a <span id="expTplExt">.pvm</span> file from your PowerCommander software. For PVM, axes and the fuel map are detected dynamically. Export adds the calculated percentage correction to the existing primary fuel map, preserving the remaining data. If multiple separate primary maps are present, export remains disabled. For DJM, the vehicle identifier, axes and block layout are read for preview only; binary DJM export remains disabled for safety. The file stays in browser storage until you remove it.
+        Load a <span id="expTplExt">.pvm</span> file from your PowerCommander software. For PVM, axes and the fuel map are detected dynamically. Export adds the calculated percentage correction to the existing primary fuel map, preserving the remaining data. If multiple separate primary maps are present, export remains disabled. For DJM, axes and block layout are read; export adds the correction to the existing fuel map (with two cylinder maps, according to your selection) and leaves all other data unchanged. DJM output is new – please check it in the PowerCommander III software before flashing. The file stays stored in your browser until you remove it.
       </div>
       <div class="exp-tpl-row">
         <label class="modal-btn" for="expTplFile">
@@ -1742,6 +1742,11 @@ body.pseudo-full .plot-area {
         <input type="file" id="expTplFile" accept=".pvm,.djm" class="visually-hidden">
         <span id="expTplStatus" class="modal-sub exp-tpl-status exp-tpl-missing">No template loaded yet.</span>
         <button class="modal-btn" id="expTplClear" type="button" hidden>Remove</button>
+      </div>
+      <!-- DJM with two cylinder fuel tables: explicit choice required. -->
+      <div class="exp-field" id="expDjmCylinderRow" hidden style="margin-top:12px">
+        <label for="expDjmCylinder">Fuel map to correct</label>
+        <select id="expDjmCylinder"><option value="">Please choose a map …</option></select>
       </div>
     </div>
 
@@ -2280,7 +2285,7 @@ const TARGET_SPEC = {
     kind: 'trim', status: 'ready',
     tpsSet: 'pciii',
     rpmMin: 500, rpmMax: 12000, rpmStep: 250,
-    hint: 'PCIII USB: RPM and TPS breakpoints are read from your DJM file. Structure analysis and preview are supported; binary export remains disabled until fuel-cell locations are verified.'
+    hint: 'PCIII USB: RPM and TPS breakpoints are read from your DJM file. Changes are added to the existing fuel map; with two cylinder maps you choose cylinder 1, cylinder 2 or both. New feature – check the export in the PowerCommander III software before flashing.'
   },
   rbe: {
     label: 'Rapid Bike EVO (.mpp)',
@@ -2504,49 +2509,79 @@ function inspectPvmLayout(input) {
           : 'PVM structure recognized; primary fuel map is writable'};
 }
 
-/* MD-Lambda-View: read-only DJM structural parser (validated on 11 samples).
-   The fuel-cell offset/encoding has NOT been verified; DJM writes are forbidden. */
+/* MD-Lambda-View: DJM (PowerCommander III USB) structural parser.
+   Verified on 10 real DJM files (Honda VFR800, Suzuki AN400, Ducati 1098,
+   Aprilia Tuono, Yamaha XT660R, zero maps). Layout:
+     header … description (descriptionLength) … 8 TPS points (0 % implicit)
+     then blockCount blocks, each = 20-byte block head + RPM axis + matrix:
+       head u16[0]  table id: low byte 1 = fuel, 2 = second table (empty in
+                    all samples); high byte = cylinder (0 = cyl 1, 1 = cyl 2)
+       head u16[1]  number of RPM rows of THIS block (may differ per block,
+                    e.g. XT660R: fuel 47 rows, second table 80 rows)
+       RPM axis     rows × u32
+       matrix       9 TPS columns × rows × int32 LE, column-major, direct %
+   Only fuel tables are ever written; everything else stays byte-identical. */
+const DJM_FUEL_MIN = -100, DJM_FUEL_MAX = 250;
 function inspectDjmLayout(input) {
   const b = input instanceof Uint8Array ? input : new Uint8Array(input);
   if (b.length < 100) throw new Error('DJM: file too short');
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
   const u16 = o => v.getUint16(o, true);
   const u32 = o => v.getUint32(o, true);
+  const i32 = o => v.getInt32(o, true);
   if (u32(0) !== 202 || u16(10) !== 9) throw new Error('DJM: unknown header');
   const blockCount = u16(8);
-  const descriptionLength = u16(12);
-  const axisOffset = 0x54 + descriptionLength;
-  if (axisOffset > b.length - 20) throw new Error('DJM: invalid description length');
-  const rpmCount = u16(axisOffset - 18);
   const tpsCount = u16(10);
-  if (!blockCount || blockCount > 16 || rpmCount < 2 || rpmCount > 200)
-    throw new Error('DJM: implausible block/RPM count');
-  const blockStride = rpmCount * 40 + 20;
-  const predictedSize = axisOffset + blockCount * blockStride - 20;
-  if (predictedSize !== b.length)
-    throw new Error(`DJM: size/layout mismatch (${b.length} instead of ${predictedSize} bytes)`);
-  const rpmAxis = Array.from({length:rpmCount}, (_,i) => u32(axisOffset + 4*i));
-  if (rpmAxis.some((x,i) => x < 100 || x > 25000 || (i && x <= rpmAxis[i-1])))
-    throw new Error('DJM: implausible RPM axis');
-  // Nine TPS points: 0% is implicit, the other eight precede the RPM data.
+  const descriptionLength = u16(12);
+  const axisOffset = 0x54 + descriptionLength;          // RPM axis of block 1
+  if (!blockCount || blockCount > 16 || axisOffset > b.length - 20)
+    throw new Error('DJM: implausible block count or description length');
+  // Nine TPS points: 0% is implicit, the other eight precede the first block.
   const tpsAxis = [0, ...Array.from({length:8}, (_,i) => u32(axisOffset - 0x34 + 4*i))];
   if (tpsAxis.some((x,i) => x > 100 || (i && x <= tpsAxis[i-1])))
     throw new Error('DJM: implausible TPS axis');
-  const blocks = Array.from({length:blockCount},(_,i) => {
-    const start = axisOffset + i * blockStride;
-    const axis = Array.from({length:rpmCount},(_,r) => u32(start+4*r));
-    if (axis.some((x,r) => x !== rpmAxis[r]))
-      throw new Error(`DJM: RPM axis differs in block ${i+1}`);
-    return {index:i, rpmAxisOffset:start, blockStart:start,
-      blockEnd:Math.min(start+blockStride,b.length)};
-  });
-  return {fileSize:b.length, modelId:u32(4), blockCount,
-    descriptionLength, tpsCount, tpsAxis, rpmCount, rpmAxis, blockStride,
-    blocks, predictedSize, writeSupported:false};
+  const blocks = [];
+  let head = axisOffset - 20;
+  for (let k = 0; k < blockCount; k++) {
+    if (head + 20 > b.length) throw new Error(`DJM: block header ${k+1} missing`);
+    const tableId = u16(head), rows = u16(head + 2);
+    if (rows < 2 || rows > 200) throw new Error(`DJM: block ${k+1} has ${rows} rows`);
+    const rpmAxisOffset = head + 20, matrixOffset = rpmAxisOffset + 4*rows;
+    const blockEnd = matrixOffset + 4*tpsCount*rows;
+    if (blockEnd > b.length) throw new Error(`DJM: block ${k+1} extends past end of file`);
+    const rpmAxis = Array.from({length:rows}, (_,i) => u32(rpmAxisOffset + 4*i));
+    if (rpmAxis.some((x,i) => x < 100 || x > 25000 || (i && x <= rpmAxis[i-1])))
+      throw new Error(`DJM: implausible RPM axis in block ${k+1}`);
+    const kind = (tableId & 0xff) === 1 ? 'fuel' : 'other';
+    const cylinder = (tableId >> 8) + 1;
+    const values = Array.from({length:tpsCount*rows}, (_,j) => i32(matrixOffset + 4*j));
+    blocks.push({index:k, tableId, kind, cylinder, rows, rpmAxis,
+      headOffset:head, rpmAxisOffset, matrixOffset, blockStart:rpmAxisOffset, blockEnd,
+      valuesPlausible: values.every(x => x >= DJM_FUEL_MIN && x <= DJM_FUEL_MAX)});
+    head = blockEnd;
+  }
+  // Everything after the last block must be zero padding (never seen otherwise).
+  for (let i = head; i < b.length; i++)
+    if (b[i] !== 0) throw new Error('DJM: unknown data after the last block');
+  const fuelBlocks = blocks.filter(x => x.kind === 'fuel');
+  if (!fuelBlocks.length) throw new Error('DJM: no fuel map found');
+  const f0 = fuelBlocks[0];
+  const sameAxes = fuelBlocks.every(x => x.rows === f0.rows && x.rpmAxis.every((r,i) => r === f0.rpmAxis[i]));
+  const plausible = fuelBlocks.every(x => x.valuesPlausible);
+  const cylinders = fuelBlocks.map(x => x.cylinder);
+  const writable = sameAxes && plausible && fuelBlocks.length <= 2 &&
+                   new Set(cylinders).size === cylinders.length;
+  return {fileSize:b.length, modelId:u32(4), blockCount, descriptionLength,
+    tpsCount, tpsAxis, rpmCount:f0.rows, rpmAxis:f0.rpmAxis, blocks, fuelBlocks,
+    dataEnd:head, writeSupported:writable, writable,
+    reason: !sameAxes ? 'Fuel maps with different axes – export disabled'
+          : !plausible ? 'Unknown value encoding in fuel map – export disabled'
+          : !writable ? 'More than two or duplicate cylinder fuel maps – export disabled'
+          : fuelBlocks.length === 2 ? 'DJM detected; two cylinder fuel maps – please choose cylinder'
+          : 'DJM detected; fuel map writable'};
 }
 
-// The UI accepts recognized DJM templates for inspection and preview ONLY.
-// No existing DJM writer is safe for these variable-length structures.
+// DJM export writes ONLY the fuel table(s); see inspectDjmLayout / buildDjmBinary.
 function inspectPowerCommanderTemplate(target, u8) {
   if (target === 'pcv') {
     try { return inspectPvmLayout(u8); }
@@ -2555,8 +2590,7 @@ function inspectPowerCommanderTemplate(target, u8) {
   if (target === 'pciii') {
     try {
       const layout = inspectDjmLayout(u8);
-      return { ...layout, recognized: true, writable: false,
-        reason: 'DJM structure recognized; fuel-cell positions not yet verified' };
+      return { ...layout, recognized: true };
     } catch (e) {
       return { recognized: false, writable: false, reason: e.message || String(e) };
     }
@@ -2641,11 +2675,61 @@ function buildPvmBinary(map) {
   return out;
 }
 
-// DJM is presently READ-ONLY. Do not restore the old fixed-offset writer:
-// on varying RPM rows, description lengths and block counts it can overwrite
-// unrelated portions of the file. A cell-by-cell reference is required first.
+// Which DJM fuel tables to write: one fuel table → that one; two cylinder
+// fuel tables → the explicit choice from the UI (none chosen → nothing).
+function selectedDjmFuelBlocks(layout) {
+  if (!layout || !layout.writable) return [];
+  if (layout.fuelBlocks.length === 1) return [layout.fuelBlocks[0]];
+  const sel = document.getElementById('expDjmCylinder');
+  const choice = sel ? sel.value : '';
+  if (choice === 'all') return layout.fuelBlocks.slice();
+  const cyl = Number(choice);
+  return layout.fuelBlocks.filter(x => x.cylinder === cyl);
+}
+
+// DJM output: copy of the user's own DJM. The preview contains DELTA
+// corrections; they are added to the existing fuel values (int32 percent) of
+// the selected fuel table(s). Header, description, axes, second tables and
+// padding stay byte-identical — verified after writing.
 function buildDjmBinary(map) {
-  return null;
+  const original = requireCustomTemplate('pciii');
+  if (!original) return null;
+  const layout = inspectDjmLayout(original);
+  if (!layout.writable) throw new Error(layout.reason);
+  const targets = selectedDjmFuelBlocks(layout);
+  if (!targets.length) throw new Error('First select cylinder 1, cylinder 2, or both.');
+  if (map.rpmAxis.length !== layout.rpmCount || map.tpsAxis.length !== layout.tpsCount ||
+      map.rpmAxis.some((x,i) => x !== layout.rpmAxis[i]) ||
+      map.tpsAxis.some((x,i) => x !== layout.tpsAxis[i]))
+    throw new Error('DJM: the calculated map does not match the original axes');
+  const out = new Uint8Array(original);
+  const v = new DataView(out.buffer, out.byteOffset, out.byteLength);
+  const allowed = [];
+  for (const blk of targets) {
+    allowed.push([blk.matrixOffset, blk.blockEnd]);
+    for (let c = 0; c < layout.tpsCount; c++) for (let r = 0; r < layout.rpmCount; r++) {
+      const cell = map.rows[c] && map.rows[c][r];
+      if (!cell || cell.pct == null) continue;          // empty → keep original
+      const delta = Math.round(cell.pct);
+      if (!Number.isFinite(delta)) throw new Error('DJM: invalid correction');
+      if (delta === 0) continue;                         // keep original exactly
+      const o = blk.matrixOffset + 4 * (c * layout.rpmCount + r);
+      const old = v.getInt32(o, true);
+      v.setInt32(o, Math.max(DJM_FUEL_MIN, Math.min(DJM_FUEL_MAX, old + delta)), true);
+    }
+  }
+  // Audit: only bytes inside the selected fuel matrices may differ, and the
+  // file must still parse to the identical structure.
+  for (let i = 0; i < out.length; i++) {
+    if (out[i] === original[i]) continue;
+    if (!allowed.some(([s, e]) => i >= s && i < e))
+      throw new Error(`DJM export check: unexpected change at byte 0x${i.toString(16)}`);
+  }
+  const check = inspectDjmLayout(out);
+  if (check.fileSize !== layout.fileSize || check.blockCount !== layout.blockCount ||
+      check.blocks.some((x,k) => x.tableId !== layout.blocks[k].tableId || x.rows !== layout.blocks[k].rows))
+    throw new Error('DJM export check: structure changed');
+  return out;
 }
 
 // ============ IAW16M / 64-KiB BIN STRUCTURE INSPECTOR ============
@@ -3607,9 +3691,7 @@ function applyTargetSpec() {
             : target === 'rbe' ? '.mpp'
             : target === 'iaw16m' ? '.bin'
             : null;
-  $('#expDownload').textContent = target === 'pciii'
-    ? 'DJM export disabled'
-    : target === 'iaw16m' ? '↓ Korrigierte .bin herunterladen'
+  $('#expDownload').textContent = target === 'iaw16m' ? '↓ Korrigierte .bin herunterladen'
     : (ext ? `↓ Download ${ext}` : '↓ Download CSV');
 
   // Variant-specific sections: show the one that belongs to the active target.
@@ -3808,7 +3890,13 @@ function refreshCustomTplStatus() {
       if (!layout.writable) parts.push(layout.reason || 'Preview only');
       if (target === 'pcv' && layout.writable) parts.push('Additive: existing PVM values + calculated correction');
       canWrite = !!layout.writable;
+      if (target === 'pciii' && layout.recognized) {
+        if (layout.writable) parts.push('Additive: existing DJM values + calculated correction');
+        refreshDjmCylinderChoice(layout);
+        canWrite = canWrite && selectedDjmFuelBlocks(layout).length > 0;
+      }
     }
+    if (target !== 'pciii') refreshDjmCylinderChoice(null);
     statusEl.textContent = parts.join(' · ');
     dlBtn.disabled = !canWrite;
   } else {
@@ -3817,7 +3905,29 @@ function refreshCustomTplStatus() {
     clearBtn.hidden = true;
     btnLabel.textContent = '📂 Choose template';
     dlBtn.disabled = true;
+    refreshDjmCylinderChoice(null);
   }
+}
+
+// Cylinder choice for DJM files with two fuel tables (e.g. Ducati 1098,
+// Aprilia Tuono). Hidden for single-fuel-table files and other targets.
+// The choice is kept while the same file stays loaded.
+function refreshDjmCylinderChoice(layout) {
+  const row = $('#expDjmCylinderRow'), sel = $('#expDjmCylinder');
+  if (!row || !sel) return;
+  if (!layout || !layout.writable || layout.fuelBlocks.length < 2) {
+    row.hidden = true; return;
+  }
+  const sig = layout.fuelBlocks.map(x => x.cylinder).join(',');
+  if (sel.dataset.sig !== sig) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Please choose a map …</option>' +
+      layout.fuelBlocks.map(x => `<option value="${x.cylinder}">Cylinder ${x.cylinder} only</option>`).join('') +
+      '<option value="all">Both cylinders</option>';
+    sel.dataset.sig = sig;
+    if ([...sel.options].some(o => o.value === prev)) sel.value = prev;
+  }
+  row.hidden = false;
 }
 
 // Handle the file input: read as ArrayBuffer, validate size, persist.
@@ -3853,7 +3963,7 @@ function handleCustomTplFile(file) {
     applyTargetSpec();
     renderExportPreview();
     toast(target === 'pciii'
-      ? `DJM detected: ${inspection.rpmCount} RPM · ${inspection.blockCount} blocks (preview only)`
+      ? `DJM detected: ${inspection.rpmCount} RPM · ${inspection.blockCount} blocks${inspection.writable ? '' : ' (preview only)'}`
       : `PVM detected: ${inspection.rpmCount} RPM · ${inspection.tpsCount} TPS · ${inspection.distinctMaps} blocks${inspection.writable ? '' : ' (preview only)'}`, 3500);
   };
   reader.onerror = () => {
@@ -4401,8 +4511,15 @@ function downloadExport() {
       toast('PVM export disabled: ' + (e.message || String(e)), 4500);
     }
   } else if (opts.target === 'pciii') {
-    toast('DJM export disabled: cell offsets and encoding not yet verified', 4500);
-    return;
+    try {
+      const bin = buildDjmBinary(map);
+      if (!bin) { toast('Upload your own .djm template first', 3000); return; }
+      triggerDownload(new Blob([bin], { type: 'application/octet-stream' }),
+                      `${base}_MD-Lambda-View.djm`);
+      toast('DJM: fuel map adjusted, other data preserved – please check in the PowerCommander III software', 4500);
+    } catch (e) {
+      toast('DJM export blocked' + ': ' + (e.message || String(e)), 4500);
+    }
   } else if (opts.target === 'iaw16m') {
     try {
       // Recalculate just before download: never reuse a stale preview or source.
@@ -4504,6 +4621,10 @@ $('#expTplFile').addEventListener('change', e => {
   const f = e.target.files && e.target.files[0];
   if (f) handleCustomTplFile(f);
   e.target.value = '';  // reset so the same file can be picked again
+});
+$('#expDjmCylinder').addEventListener('change', () => {
+  refreshCustomTplStatus();
+  renderExportPreview();
 });
 $('#expTplClear').addEventListener('click', () => {
   const target = $('#expTarget').value;
